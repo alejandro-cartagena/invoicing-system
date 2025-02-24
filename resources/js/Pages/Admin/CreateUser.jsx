@@ -1,4 +1,4 @@
-import { useForm } from '@inertiajs/react';
+import { useForm, router } from '@inertiajs/react';
 import AdminAuthenticatedLayout from '@/Layouts/AdminAuthenticatedLayout';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
@@ -20,12 +20,9 @@ export default function Create() {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        post(route('admin.store'), {
+        post(route('admin.users.store'), {
             onError: (errors) => {
                 console.log('Submission errors:', errors);
-            },
-            onSuccess: () => {
-                console.log('Success!');
             },
         });
     };

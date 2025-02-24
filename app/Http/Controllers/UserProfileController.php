@@ -35,7 +35,7 @@ class UserProfileController extends Controller
             'last_name' => $request->last_name,
         ]);
 
-        return redirect()->route('admin.dashboard')
+        return redirect()->route('admin.users.index')
             ->with('message', 'User created successfully');
     }
 
