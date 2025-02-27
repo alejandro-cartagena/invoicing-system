@@ -26,6 +26,11 @@ Route::get('dashboard', function () {
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 
+Route::get('/general-invoice', function () {
+    return Inertia::render('User/GeneralInvoice');
+})->middleware(['auth', 'verified'])->name('user.general-invoice');
+
+
 Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/profile', [ProfileController::class, 'edit'])->name('admin.profile.edit');
     Route::patch('/admin/profile', [ProfileController::class, 'update'])->name('admin.profile.update');

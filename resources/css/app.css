@@ -2,6 +2,44 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  .icon {
+    @apply inline-block relative w-4 h-4 border-0 rounded-full;
+  }
+
+  .icon-remove {
+    @apply relative;
+  }
+  
+  .icon-remove::before,
+  .icon-remove::after {
+    content: '';
+    @apply absolute w-[2px] h-[10px] left-[7px] top-[3px] bg-white;
+  }
+
+  .icon-remove::before {
+    @apply rotate-45;
+  }
+
+  .icon-remove::after {
+    @apply -rotate-45;
+  }
+
+  .icon-add {
+    @apply relative;
+  }
+  
+  .icon-add::before,
+  .icon-add::after {
+    content: '';
+    @apply absolute w-[2px] h-[10px] left-[7px] top-[3px] bg-white;
+  }
+
+  .icon-add::after {
+    @apply -rotate-90;
+  }
+}
+
 :root {
     /* Color Variables */
     --color-primary: #101010;
