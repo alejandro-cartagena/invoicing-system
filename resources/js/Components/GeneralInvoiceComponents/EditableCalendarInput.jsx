@@ -1,7 +1,7 @@
 import { Text } from '@react-pdf/renderer'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
-import compose from '../../styles/compose'
+import compose from '../../styles/compose.js'
 
 const EditableCalendarInput = ({ className, value, selected, onChange, pdfMode }) => {
   return (

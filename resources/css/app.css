@@ -3,14 +3,151 @@
 @tailwind utilities;
 
 @layer components {
+  .app {
+    @apply my-[30px] mx-auto w-[700px];
+  }
+
+  .input,
+  .span,
+  .select {
+    @apply inline-block w-[98%] py-1 pr-3 pl-0 mb-[1px] border border-dotted border-transparent transition-all duration-200;
+  }
+
+  .input:hover,
+  .input:focus,
+  .select:hover,
+  .select:focus {
+    @apply bg-[#fdf4db];
+    @apply text-[#555];
+  }
+
+  .input:focus,
+  .select:focus {
+    @apply border-[#66afe9];
+  }
+
+  .input.white:hover,
+  .input.white:focus,
+  .select.white:hover,
+  .select.white:focus {
+    @apply text-inherit;
+    
+  }
+
+  .invoice-wrapper {
+    @apply relative bg-white p-9 shadow-[0_0_17px_0_rgba(16,40,73,0.09)];
+  }
+
+  .download-pdf {
+    @apply fixed top-[200px] -ml-[140px] w-10 h-10 transition-opacity duration-200;
+  }
+
+  .download-pdf.loading {
+    @apply opacity-30;
+  }
+
+  .download-pdf button {
+    @apply border-none;
+  }
+
+  .download-pdf a,
+  .download-pdf label,
+  .download-pdf button {
+    @apply block bg-no-repeat top-0 left-0 w-full h-full;
+  }
+
+  .image {
+    @apply relative inline-block;
+  }
+
+  .image__file {
+    @apply absolute w-px h-px p-0 -m-px overflow-hidden border-0;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  .image__upload {
+    @apply cursor-pointer text-xs text-gray-400 bg-gray-100 border-2 border-dashed border-gray-300 block w-[100px] h-5 p-0 outline-none transition-all duration-200;
+  }
+
+  .image__upload:focus,
+  .image__upload:hover {
+    @apply h-[100px] text-sm;
+  }
+
+  .image__img {
+    @apply block;
+  }
+
+  .image__change {
+    @apply cursor-pointer text-sm text-gray-400 bg-gray-100 border-2 border-dashed border-gray-300 absolute top-0 left-0 w-full h-full opacity-0 transition-opacity duration-200;
+  }
+
+  .image__change:hover,
+  .image__change:focus {
+    @apply opacity-95;
+  }
+
+  .image__edit,
+  .image__remove {
+    @apply bg-[#999] bg-no-repeat bg-center bg-[length:10px_10px] border-0 rounded-full p-0 absolute w-5 h-5 -top-[10px] indent-[-9999em] opacity-0 transition-all duration-200;
+  }
+
+  .image__edit:hover,
+  .image__edit:focus,
+  .image__remove:hover,
+  .image__remove:focus {
+    @apply bg-[#666];
+  }
+
+  .image:hover .image__edit,
+  .image:hover .image__remove,
+  .image:focus-within .image__edit,
+  .image:focus-within .image__remove {
+    @apply opacity-100;
+  }
+
+  .image__edit {
+    @apply right-5;
+    background-image: url('/images/resize.svg');
+  }
+
+  .image__remove {
+    @apply -right-[10px];
+    background-image: url('/images/remove.svg');
+  }
+
+  .image__width-wrapper {
+    @apply bg-white py-[10px] px-5 pb-[25px] absolute w-[270px] -top-[70px] left-0 rounded shadow-[2px_1px_6px_rgba(0,0,0,0.15)];
+  }
+
+  /* Background image styles */
+  .download-pdf__pdf {
+    background-image: url('/images/download.svg');
+  }
+  
+  .download-pdf__template_download {
+    @apply w-[30px] h-[30px];
+    background-image: url('/images/template_download.svg');
+  }
+  
+  .download-pdf__template_upload {
+    @apply w-[30px] h-[30px];
+    background-image: url('/images/template_upload.svg');
+  }
+
+  /* Icon styles */
   .icon {
     @apply inline-block relative w-4 h-4 border-0 rounded-full;
+  }
+
+  .icon-absolute {
+    @apply absolute;
   }
 
   .icon-remove {
     @apply relative;
   }
-  
+
   .icon-remove::before,
   .icon-remove::after {
     content: '';
@@ -28,7 +165,7 @@
   .icon-add {
     @apply relative;
   }
-  
+
   .icon-add::before,
   .icon-add::after {
     content: '';
@@ -38,45 +175,145 @@
   .icon-add::after {
     @apply -rotate-90;
   }
+
+  /* Layout styles */
+  .w-17 {
+    @apply w-[17%];
+  }
+
+  .w-18 {
+    @apply w-[18%];
+  }
+
+  .row {
+    @apply relative border-b border-gray-200;
+  }
+
+  .row__remove {
+    @apply flex p-0 absolute top-[10px] -right-[20px] opacity-0 transition-opacity duration-200 ease-in-out;
+  }
+
+  .row:hover .row__remove,
+  .row:focus-within .row__remove {
+    @apply opacity-100;
+  }
+
+  /* Text styles */
+  /* Note: Most of these can use native Tailwind classes instead:
+   * .right -> text-right
+   * .center -> text-center
+   * .text-small -> text-xs
+   * .bold -> font-semibold
+   * .upper -> uppercase
+   */
+
+  /* Custom font sizes that don't match Tailwind's scale */
+  .fs-20 {
+    @apply text-[20px];
+  }
+
+  .fs-30 {
+    @apply text-[30px];
+  }
+
+  .fs-45 {
+    @apply text-[45px];
+  }
+
+  /* Add button.link styles to components layer since it's a component-level style */
+  button.link {
+    @apply flex items-center bg-transparent border-0 text-blue-600 hover:underline focus:outline-dotted focus:outline-1 focus:outline-cyan-500 focus:opacity-100;
+  }
+}
+
+/* Custom base styles if needed */
+@layer base {
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply font-sans text-sm text-[#555] bg-[#f2f3f5] p-0 m-0;
+  }
+
+  * {
+    @apply box-border;
+  }
+
+  ::placeholder {
+    @apply text-gray-400 opacity-100;
+  }
+
+  input,
+  textarea,
+  select {
+    @apply font-sans text-sm text-[#555] bg-transparent rounded outline-none;
+  }
+
+  button {
+    @apply font-sans text-sm rounded;
+  }
+
+  textarea {
+    @apply resize-y bg-transparent;
+  }
+
+  h1 {
+    @apply mt-0 mb-[30px];
+  }
 }
 
 :root {
-    /* Color Variables */
-    --color-primary: #101010;
-    --color-black-text: #222222;
-    --color-red: #af0505;
-    --color-white: #ffffff;
-    --color-gray-100: #f3f4f6;
-    --color-gray-200: #e5e7eb;
-    --color-gray-300: #d1d5db;
-    --color-gray-400: #9ca3af;
-    --color-gray-500: #6b7280;
-    --color-gray-600: #4b5563;
-    --color-gray-700: #374151;
-    --color-gray-800: #1f2937;
-    --color-gray-900: #111827;
-  }
-  
+  --color-primary: #101010;
+  --color-black-text: #222222;
+  --color-red: #af0505;
+  --color-white: #ffffff;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
+}
+
+.container {
+  width: 100%;
+  max-width: 1440px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+/* Optional responsive padding adjustments */
+@media (min-width: 640px) {
   .container {
-    width: 100%;
-    max-width: 1440px;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
   }
-  
-  /* Optional responsive padding adjustments */
-  @media (min-width: 640px) {
-    .container {
-      padding-left: 2rem;
-      padding-right: 2rem;
-    }
+}
+
+@media (min-width: 1024px) {
+  .container {
+    padding-left: 4rem;
+    padding-right: 4rem;
   }
-  
-  @media (min-width: 1024px) {
-    .container {
-      padding-left: 4rem;
-      padding-right: 4rem;
-    }
-  }
+}
+
+/*
+// Use these Tailwind classes instead of custom ones
+className="block"        // for display: block
+className="flex"         // for display: flex
+className="w-auto"       // for width: auto
+className="w-full"       // instead of w-100
+className="w-1/2"        // instead of w-50
+className="w-[55%]"      // instead of w-55
+className="w-[45%]"      // instead of w-45
+className="w-3/5"        // instead of w-60
+className="w-2/5"        // instead of w-40
+className="w-[48%]"      // instead of w-48
+
+*/

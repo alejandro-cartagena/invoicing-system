@@ -1,5 +1,5 @@
 import { Text as PdfText } from '@react-pdf/renderer'
-import compose from '../../styles/compose'
+import compose from '../../styles/compose.js'
 
 const Text = ({ className, pdfMode, children }) => {
   return (

@@ -1,15 +1,14 @@
-import ReactPDF from '@react-pdf/renderer'
+import { StyleSheet } from '@react-pdf/renderer'
 import styles from './styles'
 
 const compose = (classes) => {
-  const css = {
-    '@import': 'url(https://fonts.bunny.net/css?family=nunito:400,600)',
-  }
+  if (!classes) return {}
 
-  const classesArray = classes.replace(/\s+/g, ' ').split(' ')
+  const css = {}
+  const classesArray = classes.split(' ').filter(Boolean)
 
   classesArray.forEach((className) => {
-    if (typeof styles[className] !== undefined) {
+    if (styles[className]) {
       Object.assign(css, styles[className])
     }
   })

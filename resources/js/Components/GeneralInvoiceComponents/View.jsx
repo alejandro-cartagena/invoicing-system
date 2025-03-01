@@ -1,5 +1,5 @@
 import { View as PdfView } from '@react-pdf/renderer'
-import compose from '../../styles/compose'
+import compose from '../../styles/compose.js'
 
 const View = ({ className, pdfMode, children }) => {
   return (

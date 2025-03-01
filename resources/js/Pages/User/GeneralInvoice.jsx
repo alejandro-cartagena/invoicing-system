@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import InvoicePage from '@/Components/GeneralInvoiceComponents/InvoicePage';
 import UserAuthenticatedLayout from '@/Layouts/UserAuthenticatedLayout';
-import '../../scss/main.scss';
 
 const GeneralInvoice = () => {
     const [invoiceData, setInvoiceData] = useState(null);
@@ -22,7 +21,9 @@ const GeneralInvoice = () => {
     const handleInvoiceUpdate = (invoice) => {
         // Save updated invoice data to localStorage
         window.localStorage.setItem('invoiceData', JSON.stringify(invoice));
+        setInvoiceData(invoice);
     };
+
 
     return (
         <UserAuthenticatedLayout
@@ -32,7 +33,7 @@ const GeneralInvoice = () => {
                 </h2>
             }
         >
-            <div className="max-w-4xl mx-auto py-10">
+            <div className="max-w-2xl mx-auto py-10">
                 <InvoicePage 
                     data={invoiceData} 
                     onChange={handleInvoiceUpdate} 

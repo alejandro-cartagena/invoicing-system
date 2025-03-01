@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import Slider from 'rc-slider'
 import { Image } from '@react-pdf/renderer'
 import useOnClickOutside from '../../hooks/useOnClickOutside'
-import compose from '../../styles/compose'
+import compose from '../../styles/compose.js'
 import 'rc-slider/assets/index.css'
 
 const EditableFileImage = ({
