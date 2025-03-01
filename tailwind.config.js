@@ -15,6 +15,19 @@ export default {
             fontFamily: {
                 sans: ['Figtree', ...defaultTheme.fontFamily.sans],
             },
+            spacing: {
+                '1px': '1px',
+                '2px': '2px',
+            },
+            boxShadow: {
+                'invoice': '0 0 17px 0 rgba(16, 40, 73, 0.09)',
+            },
+            textIndent: {
+                '-9999em': '-9999em',
+            },
+            clipPath: {
+                'rect-0': 'rect(0, 0, 0, 0)',
+            },
         },
     },
 
