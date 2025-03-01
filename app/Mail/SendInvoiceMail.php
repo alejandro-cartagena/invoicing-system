@@ -12,6 +12,7 @@ use Illuminate\Mail\Mailables\Address;
 use Illuminate\Mail\Mailables\Attachment;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\URL;
 
 class SendInvoiceMail extends Mailable
 {
@@ -20,15 +21,17 @@ class SendInvoiceMail extends Mailable
     protected $invoiceData;
     protected $sender;
     protected $pdfContent;
+    protected $paymentToken;
 
     /**
      * Create a new message instance.
      */
-    public function __construct($invoiceData, $sender, $pdfContent)
+    public function __construct($invoiceData, $sender, $pdfContent, $paymentToken = null)
     {
         $this->invoiceData = $invoiceData;
         $this->sender = $sender;
         $this->pdfContent = $pdfContent;
+        $this->paymentToken = $paymentToken;
     }
 
     /**
@@ -49,11 +52,22 @@ class SendInvoiceMail extends Mailable
      */
     public function content(): Content
     {
+        // Generate payment URLs if we have a token
+        $creditCardPaymentUrl = null;
+        $bitcoinPaymentUrl = null;
+        
+        if ($this->paymentToken) {
+            $creditCardPaymentUrl = URL::signedRoute('invoice.pay.credit-card', ['token' => $this->paymentToken]);
+            $bitcoinPaymentUrl = URL::signedRoute('invoice.pay.bitcoin', ['token' => $this->paymentToken]);
+        }
+        
         return new Content(
             view: 'emails.invoice',
             with: [
                 'senderName' => $this->sender->name,
                 'invoiceData' => $this->invoiceData,
+                'creditCardPaymentUrl' => $creditCardPaymentUrl,
+                'bitcoinPaymentUrl' => $bitcoinPaymentUrl,
             ]
         );
     }

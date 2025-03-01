@@ -120,6 +120,20 @@
             </div>
         @endif
 
+        @if(isset($creditCardPaymentUrl) && isset($bitcoinPaymentUrl))
+            <div style="margin-top: 30px; text-align: center;">
+                <p style="font-weight: bold; margin-bottom: 15px;">Choose your payment method:</p>
+                
+                <a href="{{ $creditCardPaymentUrl }}" style="display: inline-block; background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin-right: 10px;">
+                    Pay with Credit Card
+                </a>
+                
+                <a href="{{ $bitcoinPaymentUrl }}" style="display: inline-block; background-color: #f7931a; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">
+                    Pay with Bitcoin
+                </a>
+            </div>
+        @endif
+
         <div class="footer">
             <p>Best regards,<br>{{ $senderName }}</p>
         </div>

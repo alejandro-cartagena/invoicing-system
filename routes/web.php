@@ -58,5 +58,25 @@ Route::post('/general-invoice/send-email', [InvoiceController::class, 'sendEmail
     ->name('user.general-invoice.send-email');
 
 
+// Invoice listing page
+Route::get('/invoices', [InvoiceController::class, 'index'])
+    ->middleware(['auth'])
+    ->name('user.invoices');
+
+// Payment routes (these will be accessed via email links)
+Route::get('/invoice/pay/{token}/credit-card', [InvoiceController::class, 'showCreditCardPayment'])
+    ->name('invoice.pay.credit-card');
+    
+Route::get('/invoice/pay/{token}/bitcoin', [InvoiceController::class, 'showBitcoinPayment'])
+    ->name('invoice.pay.bitcoin');
+
+// Payment processing routes
+Route::post('/invoice/process-credit-card', [InvoiceController::class, 'processCreditCardPayment'])
+    ->name('invoice.process.credit-card');
+    
+Route::post('/invoice/process-bitcoin', [InvoiceController::class, 'processBitcoinPayment'])
+    ->name('invoice.process.bitcoin');
+
+
 require __DIR__.'/auth.php';
 
