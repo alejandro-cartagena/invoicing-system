@@ -25,9 +25,14 @@ const GeneralInvoice = () => {
     };
 
     return (
-        <UserAuthenticatedLayout>
-            <div className="container">
-                <h1 className='text-3xl font-bold text-center mt-10'>Create Your General Invoice</h1>
+        <UserAuthenticatedLayout
+            header={
+                <h2 className="text-xl text-center font-semibold leading-tight text-gray-800">
+                    Create Your General Invoice
+                </h2>
+            }
+        >
+            <div className="max-w-4xl mx-auto py-10">
                 <InvoicePage 
                     data={invoiceData} 
                     onChange={handleInvoiceUpdate} 

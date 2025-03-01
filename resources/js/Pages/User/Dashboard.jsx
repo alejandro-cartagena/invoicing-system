@@ -29,7 +29,7 @@ export default function Dashboard() {
                     title="General Invoice" 
                     description="Create a general invoice"
                     className="h-full"
-                    onClick={() => router.visit(route('admin.create'))}
+                    onClick={() => router.visit(route('user.general-invoice'))}
                     />
                     <AdminHomePageCard
                     imageUrl={<FontAwesomeIcon 
