@@ -53,9 +53,9 @@ Route::middleware(['auth'])->group(function () {
 });
 
 
-Route::post('/invoice/send-email', [InvoiceController::class, 'sendEmail'])
+Route::post('/general-invoice/send-email', [InvoiceController::class, 'sendEmail'])
     ->middleware(['auth'])
-    ->name('invoice.send-email');
+    ->name('user.general-invoice.send-email');
 
 
 require __DIR__.'/auth.php';

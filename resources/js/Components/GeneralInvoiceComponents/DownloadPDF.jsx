@@ -8,8 +8,6 @@ const Download = ({ data, setData }) => {
   const debounced = useDebounce(data, 500)
   const title = data.invoiceTitle ? data.invoiceTitle.toLowerCase() : 'invoice'
 
-  console.log("Debounced Data: ", debounced);
-
   function handleInput(e) {
     if (!e.target.files?.length) return
 

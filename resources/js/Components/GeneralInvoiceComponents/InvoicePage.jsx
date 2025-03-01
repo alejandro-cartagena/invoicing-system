@@ -27,19 +27,55 @@ Font.register({
 
 const InvoicePage = ({ data, pdfMode, onChange }) => {
   const [invoice, setInvoice] = useState(data ? { ...data } : { ...initialInvoice })
-  const [subTotal, setSubTotal] = useState(0)
-  const [saleTax, setSaleTax] = useState(0)
+  
+  // Calculate values directly for PDF mode to avoid state timing issues
+  const calculateSubTotal = () => {
+    let total = 0;
+    
+    if (invoice && invoice.productLines && Array.isArray(invoice.productLines)) {
+      invoice.productLines.forEach((line) => {
+        if (line && typeof line === 'object') {
+          const quantity = parseFloat(line.quantity || 0);
+          const rate = parseFloat(line.rate || 0);
+          if (!isNaN(quantity) && !isNaN(rate)) {
+            total += quantity * rate;
+          }
+        }
+      });
+    }
+    
+    return total;
+  }
+
+  const calculateTax = (subTotal) => {
+    let taxRate = 0;
+    
+    if (invoice && invoice.taxLabel) {
+      const match = invoice.taxLabel.match(/(\d+)%/);
+      if (match && match[1]) {
+        taxRate = parseFloat(match[1]);
+      }
+    }
+    
+    return !isNaN(subTotal) && !isNaN(taxRate) ? (subTotal * taxRate / 100) : 0;
+  }
+
+  // For non-PDF mode, we'll still use state for reactivity
+  const [subTotal, setSubTotal] = useState(calculateSubTotal())
+  const [saleTax, setSaleTax] = useState(calculateTax(subTotal))
 
   const dateFormat = 'MMM dd, yyyy'
-  const invoiceDate = invoice.invoiceDate !== '' ? new Date(invoice.invoiceDate) : new Date()
-  const invoiceDueDate =
-    invoice.invoiceDueDate !== ''
-      ? new Date(invoice.invoiceDueDate)
-      : new Date(invoiceDate.valueOf())
+  const invoiceDate = invoice.invoiceDate 
+    ? new Date(invoice.invoiceDate) 
+    : new Date();
 
-  if (invoice.invoiceDueDate === '') {
-    invoiceDueDate.setDate(invoiceDueDate.getDate() + 30)
-  }
+  const invoiceDueDate = invoice.invoiceDueDate 
+    ? new Date(invoice.invoiceDueDate) 
+    : (() => {
+        const date = new Date(invoiceDate);
+        date.setDate(date.getDate() + 30);
+        return date;
+      })();
 
   const handleChange = (name, value) => {
     if (name !== 'productLines') {
@@ -102,32 +138,60 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
   }
 
   useEffect(() => {
-    let subTotal = 0
-
-    invoice.productLines.forEach((productLine) => {
-      const quantityNumber = parseFloat(productLine.quantity)
-      const rateNumber = parseFloat(productLine.rate)
-      const amount = quantityNumber && rateNumber ? quantityNumber * rateNumber : 0
-
-      subTotal += amount
-    })
-
-    setSubTotal(subTotal)
-  }, [invoice.productLines])
-
-  useEffect(() => {
-    const match = invoice.taxLabel.match(/(\d+)%/)
-    const taxRate = match ? parseFloat(match[1]) : 0
-    const saleTax = subTotal ? (subTotal * taxRate) / 100 : 0
-
-    setSaleTax(saleTax)
-  }, [subTotal, invoice.taxLabel])
-
-  useEffect(() => {
     if (onChange) {
       onChange(invoice)
     }
   }, [onChange, invoice])
+
+  useEffect(() => {
+    if (pdfMode) {
+      console.log('PDF Mode - Received data:', data);
+      console.log('PDF Mode - Invoice state:', invoice);
+    }
+  }, [pdfMode, data, invoice]);
+
+  // Add these useEffect hooks to update the subtotal and tax when product lines change
+  useEffect(() => {
+    const newSubTotal = calculateSubTotal();
+    setSubTotal(newSubTotal);
+  }, [invoice.productLines]);
+
+  useEffect(() => {
+    const newSaleTax = calculateTax(subTotal);
+    setSaleTax(newSaleTax);
+  }, [subTotal, invoice.taxLabel]);
+
+  // When in PDF mode, calculate values directly instead of relying on state
+  const pdfSubTotal = pdfMode ? calculateSubTotal() : subTotal
+  const pdfSaleTax = pdfMode ? calculateTax(pdfSubTotal) : saleTax
+  const pdfTotal = pdfSubTotal + pdfSaleTax
+
+  if (pdfMode) {
+    console.log('PDF Mode Calculations:');
+    console.log('Product Lines:', invoice.productLines);
+    console.log('Calculated SubTotal:', pdfSubTotal);
+    console.log('Tax Label:', invoice.taxLabel);
+    console.log('Calculated Tax:', pdfSaleTax);
+    console.log('Calculated Total:', pdfTotal);
+  }
+
+  useEffect(() => {
+    // Set default dates for new invoices
+    if (invoice.invoiceDate === '' || invoice.invoiceDueDate === '') {
+      const today = new Date();
+      const dueDate = new Date(today);
+      dueDate.setDate(dueDate.getDate() + 30); // Due date is 30 days from today
+      
+      const formattedToday = format(today, dateFormat);
+      const formattedDueDate = format(dueDate, dateFormat);
+      
+      setInvoice(prev => ({
+        ...prev,
+        invoiceDate: prev.invoiceDate || formattedToday,
+        invoiceDueDate: prev.invoiceDueDate || formattedDueDate
+      }));
+    }
+  }, []);
 
   return (
     <Document pdfMode={pdfMode}>
@@ -394,7 +458,9 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
               </View>
               <View className="w-[50%] p-[5px]" pdfMode={pdfMode}>
                 <Text className="text-right font-semibold dark" pdfMode={pdfMode}>
-                  {subTotal?.toFixed(2)}
+                  {pdfMode && data && data._calculatedSubTotal !== undefined 
+                    ? data._calculatedSubTotal.toFixed(2) 
+                    : pdfSubTotal.toFixed(2)}
                 </Text>
               </View>
             </View>
@@ -408,7 +474,9 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
               </View>
               <View className="w-[50%] p-[5px]" pdfMode={pdfMode}>
                 <Text className="text-right font-semibold dark" pdfMode={pdfMode}>
-                  {saleTax?.toFixed(2)}
+                  {pdfMode && data && data._calculatedTax !== undefined 
+                    ? data._calculatedTax.toFixed(2) 
+                    : pdfSaleTax.toFixed(2)}
                 </Text>
               </View>
             </View>
@@ -429,10 +497,9 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
                   pdfMode={pdfMode}
                 />
                 <Text className="text-gray-800 text-right font-bold bg-[#e3e3e3] w-auto" pdfMode={pdfMode}>
-                  {(typeof subTotal !== 'undefined' && typeof saleTax !== 'undefined'
-                    ? subTotal + saleTax
-                    : 0
-                  ).toFixed(2)}
+                  {pdfMode && data && data._calculatedTotal !== undefined 
+                    ? data._calculatedTotal.toFixed(2)
+                    : pdfTotal.toFixed(2)}
                 </Text>
               </View>
             </View>

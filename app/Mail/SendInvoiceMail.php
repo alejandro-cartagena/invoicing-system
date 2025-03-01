@@ -11,19 +11,25 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Mail\Mailables\Address;
 use Illuminate\Mail\Mailables\Attachment;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Log;
 
 class SendInvoiceMail extends Mailable
 {
     use Queueable, SerializesModels;
 
+    protected $invoiceData;
+    protected $sender;
+    protected $pdfContent;
+
     /**
      * Create a new message instance.
      */
-    public function __construct(
-        protected $invoiceData,
-        protected $sender,
-        protected $pdfContent
-    ) {}
+    public function __construct($invoiceData, $sender, $pdfContent)
+    {
+        $this->invoiceData = $invoiceData;
+        $this->sender = $sender;
+        $this->pdfContent = $pdfContent;
+    }
 
     /**
      * Get the message envelope.
@@ -59,10 +65,19 @@ class SendInvoiceMail extends Mailable
      */
     public function attachments(): array
     {
+        // Create a descriptive filename
+        $filename = sprintf(
+            'Invoice-%s-%s.pdf',
+            preg_replace('/[^a-zA-Z0-9]/', '-', $this->invoiceData['invoiceTitle'] ?? 'General'),
+            date('Y-m-d')
+        );
+
         return [
             Attachment::fromData(
-                fn () => $this->pdfContent,
-                'invoice.pdf'
+                function() {
+                    return $this->pdfContent;
+                },
+                $filename
             )->withMime('application/pdf')
         ];
     }

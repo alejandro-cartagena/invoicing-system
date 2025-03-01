@@ -42,6 +42,12 @@
     @apply fixed top-[200px] -ml-[140px] w-10 h-10 transition-opacity duration-200;
   }
 
+  @media (max-width: 900px) {
+    .download-pdf {
+      @apply hidden;
+    }
+  }
+
   .download-pdf.loading {
     @apply opacity-30;
   }
