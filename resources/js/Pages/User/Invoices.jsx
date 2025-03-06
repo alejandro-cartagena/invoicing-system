@@ -45,45 +45,6 @@ const Invoices = ({ invoices }) => {
         });
     };
 
-    const handleResend = (invoice) => {
-        Swal.fire({
-            title: 'Resend Options',
-            text: 'Do you want to edit this invoice before resending?',
-            icon: 'question',
-            showCancelButton: true,
-            showDenyButton: true,
-            confirmButtonColor: '#3085d6',
-            denyButtonColor: '#2563eb',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Resend as is',
-            denyButtonText: 'Edit first',
-            cancelButtonText: 'Cancel'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                // Resend without editing
-                router.post(route('user.invoice.resend', invoice.id), {}, {
-                    onSuccess: () => {
-                        Swal.fire(
-                            'Sent!',
-                            'Invoice has been resent.',
-                            'success'
-                        );
-                    },
-                    onError: () => {
-                        Swal.fire(
-                            'Error!',
-                            'Failed to resend invoice.',
-                            'error'
-                        );
-                    },
-                });
-            } else if (result.isDenied) {
-                // Navigate to the edit page
-                router.get(route('user.general-invoice.edit', invoice.id));
-            }
-        });
-    };
-
     const handleDownload = async (invoice) => {
         try {
             // Show loading indicator
@@ -246,7 +207,7 @@ const Invoices = ({ invoices }) => {
                                                     </button>
                                                     
                                                     <button 
-                                                        onClick={() => handleResend(invoice)}
+                                                        onClick={() => router.get(route('user.general-invoice.edit', invoice.id))}
                                                         className="text-indigo-600 hover:text-indigo-900 relative group"
                                                         aria-label="Resend Invoice"
                                                     >
