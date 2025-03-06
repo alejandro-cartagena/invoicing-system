@@ -5,6 +5,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrash, faEdit, faDownload, faEye, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
 import { router } from '@inertiajs/react';
 import Swal from 'sweetalert2';
+import axios from 'axios';
+import { generatePDF } from '@/utils/pdfGenerator';
 
 const Invoices = ({ invoices }) => {
     const handleEdit = (invoice) => {
@@ -80,6 +82,68 @@ const Invoices = ({ invoices }) => {
                 router.get(route('user.general-invoice.edit', invoice.id));
             }
         });
+    };
+
+    const handleDownload = async (invoice) => {
+        try {
+            // Show loading indicator
+            Swal.fire({
+                title: 'Generating PDF...',
+                text: 'Please wait while we prepare your invoice for download.',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // Fetch the invoice data
+            const response = await axios.get(route('user.invoice.download', invoice.id));
+            
+            if (response.data.success) {
+                // Get the invoice data
+                const invoiceData = response.data.invoiceData;
+                
+                // Generate the PDF using the shared function
+                const pdfBlob = await generatePDF(invoiceData);
+                
+                // Create a URL for the blob
+                const url = window.URL.createObjectURL(pdfBlob);
+                
+                // Create a temporary link element
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', `Invoice-${invoice.invoice_number}.pdf`);
+                
+                // Append to the document, click it, and remove it
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // Clean up the URL object
+                window.URL.revokeObjectURL(url);
+                
+                // Close the loading indicator
+                Swal.close();
+                
+                // Show success message
+                Swal.fire({
+                    title: 'Success!',
+                    text: 'Invoice downloaded successfully.',
+                    icon: 'success',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            } else {
+                throw new Error('Failed to fetch invoice data');
+            }
+        } catch (error) {
+            console.error('Download error:', error);
+            Swal.fire({
+                title: 'Error!',
+                text: 'Failed to download invoice. Please try again.',
+                icon: 'error'
+            });
+        }
     };
 
     return (
@@ -170,8 +234,8 @@ const Invoices = ({ invoices }) => {
                                                         </span>
                                                     </button>
                                                     
-                                                    <Link 
-                                                        href={route('user.invoice.download', invoice.id)}
+                                                    <button 
+                                                        onClick={() => handleDownload(invoice)}
                                                         className="text-green-600 hover:text-green-900 relative group"
                                                         aria-label="Download Invoice"
                                                     >
@@ -179,7 +243,7 @@ const Invoices = ({ invoices }) => {
                                                         <span className="invisible group-hover:visible absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
                                                             Download
                                                         </span>
-                                                    </Link>
+                                                    </button>
                                                     
                                                     <button 
                                                         onClick={() => handleResend(invoice)}

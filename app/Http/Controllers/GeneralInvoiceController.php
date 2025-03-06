@@ -268,14 +268,17 @@ class GeneralInvoiceController extends Controller
         if ($invoice->user_id !== Auth::id()) {
             abort(403, 'Unauthorized action.');
         }
-        
-        // Generate PDF from invoice data
-        $invoiceData = $invoice->invoice_data;
-        
-        // You'll need to implement the PDF generation logic here
-        $pdf = PDF::loadView('pdfs.invoice', ['data' => $invoiceData]);
-        
-        return $pdf->download('invoice-' . $invoice->invoice_number . '.pdf');
+
+        // Parse the invoice_data JSON if it's stored as a string
+        $invoiceData = is_string($invoice->invoice_data) 
+            ? json_decode($invoice->invoice_data, true) 
+            : $invoice->invoice_data;
+
+        return response()->json([
+            'success' => true,
+            'invoice' => $invoice,
+            'invoiceData' => $invoiceData
+        ]);
     }
 
     /**
