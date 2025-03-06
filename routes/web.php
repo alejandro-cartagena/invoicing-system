@@ -6,8 +6,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserProfileController;
 use Inertia\Inertia;
-use App\Http\Controllers\InvoiceController;
-
+use App\Http\Controllers\GeneralInvoiceController;
 
 Route::get('/', function () {
     return Inertia::render('Auth/Login', [
@@ -52,31 +51,55 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-
-Route::post('/general-invoice/send-email', [InvoiceController::class, 'sendEmail'])
+// Send general invoice email
+Route::post('/general-invoice/send-email', [GeneralInvoiceController::class, 'sendEmail'])
     ->middleware(['auth'])
     ->name('user.general-invoice.send-email');
 
 
+
+
+// Payment routes (these will be accessed via email links)
+Route::get('/general-invoice/pay/{token}/credit-card', [GeneralInvoiceController::class, 'showCreditCardPayment'])
+    ->name('general-invoice.pay.credit-card');
+    
+Route::get('/general-invoice/pay/{token}/bitcoin', [GeneralInvoiceController::class, 'showBitcoinPayment'])
+    ->name('general-invoice.pay.bitcoin');
+
+// Payment processing routes
+Route::post('/general-invoice/process-credit-card', [GeneralInvoiceController::class, 'processCreditCardPayment'])
+    ->name('general-invoice.process.credit-card');
+    
+Route::post('/general-invoice/process-bitcoin', [GeneralInvoiceController::class, 'processBitcoinPayment'])
+    ->name('general-invoice.process.bitcoin');
+
 // Invoice listing page
-Route::get('/invoices', [InvoiceController::class, 'index'])
+Route::get('/invoices', [GeneralInvoiceController::class, 'index'])
     ->middleware(['auth'])
     ->name('user.invoices');
 
-// Payment routes (these will be accessed via email links)
-Route::get('/invoice/pay/{token}/credit-card', [InvoiceController::class, 'showCreditCardPayment'])
-    ->name('invoice.pay.credit-card');
-    
-Route::get('/invoice/pay/{token}/bitcoin', [InvoiceController::class, 'showBitcoinPayment'])
-    ->name('invoice.pay.bitcoin');
+// Add these routes for invoice actions
+Route::delete('/invoice/{invoice}', [GeneralInvoiceController::class, 'destroy'])
+    ->middleware(['auth'])
+    ->name('user.invoice.destroy');
 
-// Payment processing routes
-Route::post('/invoice/process-credit-card', [InvoiceController::class, 'processCreditCardPayment'])
-    ->name('invoice.process.credit-card');
-    
-Route::post('/invoice/process-bitcoin', [InvoiceController::class, 'processBitcoinPayment'])
-    ->name('invoice.process.bitcoin');
+Route::post('/invoice/{invoice}/resend', [GeneralInvoiceController::class, 'resend'])
+    ->middleware(['auth'])
+    ->name('user.invoice.resend');
 
+Route::get('/invoice/download/{invoice}', [GeneralInvoiceController::class, 'download'])
+    ->middleware(['auth'])
+    ->name('user.invoice.download');
+
+// Add this new route for resending after edit
+Route::post('/invoice/{invoice}/resend-after-edit', [GeneralInvoiceController::class, 'resendAfterEdit'])
+    ->middleware(['auth'])
+    ->name('user.invoice.resend-after-edit');
+
+// Add this route for editing an invoice
+Route::get('/general-invoice/edit/{invoice}', [GeneralInvoiceController::class, 'edit'])
+    ->middleware(['auth'])
+    ->name('user.general-invoice.edit');
 
 require __DIR__.'/auth.php';
 

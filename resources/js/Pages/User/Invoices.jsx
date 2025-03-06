@@ -1,14 +1,101 @@
 import React from 'react';
 import UserAuthenticatedLayout from '@/Layouts/UserAuthenticatedLayout';
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faTrash, faEdit, faDownload, faEye, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
+import { router } from '@inertiajs/react';
+import Swal from 'sweetalert2';
 
 const Invoices = ({ invoices }) => {
+    const handleEdit = (invoice) => {
+        // Navigate to the edit page with the invoice ID
+        router.get(route('user.general-invoice.edit', invoice.id));
+    };
+
+    const handleDelete = (invoiceId, invoiceNumber) => {
+        Swal.fire({
+            title: 'Are you sure?',
+            text: `You are about to delete invoice ${invoiceNumber}`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, delete it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                router.delete(route('user.invoice.destroy', invoiceId), {
+                    onSuccess: () => {
+                        Swal.fire(
+                            'Deleted!',
+                            'Invoice has been deleted.',
+                            'success'
+                        );
+                    },
+                    onError: () => {
+                        Swal.fire(
+                            'Error!',
+                            'Failed to delete invoice.',
+                            'error'
+                        );
+                    },
+                });
+            }
+        });
+    };
+
+    const handleResend = (invoice) => {
+        Swal.fire({
+            title: 'Resend Options',
+            text: 'Do you want to edit this invoice before resending?',
+            icon: 'question',
+            showCancelButton: true,
+            showDenyButton: true,
+            confirmButtonColor: '#3085d6',
+            denyButtonColor: '#2563eb',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Resend as is',
+            denyButtonText: 'Edit first',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Resend without editing
+                router.post(route('user.invoice.resend', invoice.id), {}, {
+                    onSuccess: () => {
+                        Swal.fire(
+                            'Sent!',
+                            'Invoice has been resent.',
+                            'success'
+                        );
+                    },
+                    onError: () => {
+                        Swal.fire(
+                            'Error!',
+                            'Failed to resend invoice.',
+                            'error'
+                        );
+                    },
+                });
+            } else if (result.isDenied) {
+                // Navigate to the edit page
+                router.get(route('user.general-invoice.edit', invoice.id));
+            }
+        });
+    };
+
     return (
         <UserAuthenticatedLayout
             header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Your Invoices
-                </h2>
+                <div className="flex justify-between items-center">
+                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                        Your Invoices
+                    </h2>
+                    <Link
+                        href={route('user.general-invoice')}
+                        className="px-4 py-2 bg-gray-500 text-white rounded-md text-sm hover:bg-gray-600 transition-all duration-300"
+                    >
+                        Create New Invoice
+                    </Link>
+                </div>
             }
         >
             <Head title="Invoices" />
@@ -38,6 +125,9 @@ const Invoices = ({ invoices }) => {
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Status
                                         </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Actions
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
@@ -50,7 +140,7 @@ const Invoices = ({ invoices }) => {
                                                 {invoice.client_name}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                ${invoice.total}
+                                                ${parseFloat(invoice.total).toFixed(2)}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 {new Date(invoice.invoice_date).toLocaleDateString()}
@@ -66,13 +156,50 @@ const Invoices = ({ invoices }) => {
                                                     {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
                                                 </span>
                                             </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex space-x-4">
+                                                    
+                                                    <button 
+                                                        onClick={() => handleDelete(invoice.id, invoice.invoice_number)}
+                                                        className="text-red-600 hover:text-red-900 relative group"
+                                                        aria-label="Delete Invoice"
+                                                    >
+                                                        <FontAwesomeIcon icon={faTrash} />
+                                                        <span className="invisible group-hover:visible absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                                                            Delete
+                                                        </span>
+                                                    </button>
+                                                    
+                                                    <Link 
+                                                        href={route('user.invoice.download', invoice.id)}
+                                                        className="text-green-600 hover:text-green-900 relative group"
+                                                        aria-label="Download Invoice"
+                                                    >
+                                                        <FontAwesomeIcon icon={faDownload} />
+                                                        <span className="invisible group-hover:visible absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                                                            Download
+                                                        </span>
+                                                    </Link>
+                                                    
+                                                    <button 
+                                                        onClick={() => handleResend(invoice)}
+                                                        className="text-indigo-600 hover:text-indigo-900 relative group"
+                                                        aria-label="Resend Invoice"
+                                                    >
+                                                        <FontAwesomeIcon icon={faPaperPlane} />
+                                                        <span className="invisible group-hover:visible absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                                                            Resend
+                                                        </span>
+                                                    </button>
+                                                </div>
+                                            </td>
                                         </tr>
                                     ))}
                                     
                                     {invoices.length === 0 && (
                                         <tr>
-                                            <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-500">
-                                                No invoices found
+                                            <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
+                                                No invoices found. <Link href={route('user.general-invoice')} className="text-indigo-600 hover:text-indigo-900">Create your first invoice</Link>
                                             </td>
                                         </tr>
                                     )}

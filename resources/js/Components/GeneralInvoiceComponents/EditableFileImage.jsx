@@ -4,6 +4,11 @@ import { Image } from '@react-pdf/renderer'
 import useOnClickOutside from '../../hooks/useOnClickOutside'
 import compose from '../../styles/compose.js'
 import 'rc-slider/assets/index.css'
+import imageCompression from 'browser-image-compression'
+import { toast } from 'react-hot-toast'
+
+const MAX_IMAGE_SIZE_MB = 1; // Maximum image size in MB
+const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024; // Convert to bytes
 
 const EditableFileImage = ({
   className,
@@ -17,6 +22,7 @@ const EditableFileImage = ({
   const fileInput = useRef(null)
   const widthWrapper = useRef(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const marks = {
     100: '100px',
     150: '150px',
@@ -36,21 +42,68 @@ const EditableFileImage = ({
     fileInput?.current?.click()
   }
 
-  const handleChangeImage = () => {
-    if (fileInput?.current?.files) {
-      const files = fileInput.current.files
+  const handleFileChange = async (event) => {
+    const file = event.target.files[0]
+    if (!file) return
 
-      if (files.length > 0 && typeof onChangeImage === 'function') {
-        const reader = new FileReader()
-
-        reader.addEventListener('load', () => {
-          if (typeof reader.result === 'string') {
-            onChangeImage(reader.result)
-          }
-        })
-
-        reader.readAsDataURL(files[0])
+    try {
+      setIsLoading(true)
+      
+      // Check if it's an image
+      if (!file.type.startsWith('image/')) {
+        toast.error('The uploaded file is not an image')
+        return
       }
+      
+      // Check file size
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        toast(`Image is large (${(file.size / (1024 * 1024)).toFixed(2)}MB). Compressing...`, {
+          icon: '🔍',
+          duration: 3000
+        })
+        
+        try {
+          // Compression options
+          const options = {
+            maxSizeMB: MAX_IMAGE_SIZE_MB,
+            maxWidthOrHeight: 1200,
+            useWebWorker: true
+          }
+          
+          // Compress the image
+          const compressedFile = await imageCompression(file, options)
+          console.log(`Compressed from ${(file.size / (1024 * 1024)).toFixed(2)}MB to ${(compressedFile.size / (1024 * 1024)).toFixed(2)}MB`)
+          
+          // If still too large after compression
+          if (compressedFile.size > MAX_IMAGE_SIZE_BYTES) {
+            toast.error(`Image is still too large after compression (${(compressedFile.size / (1024 * 1024)).toFixed(2)}MB). Maximum size is ${MAX_IMAGE_SIZE_MB}MB.`)
+            return
+          }
+          
+          // Convert to base64 and call the change handler
+          const reader = new FileReader()
+          reader.onload = (e) => {
+            onChangeImage(e.target.result)
+            toast.success('Image compressed and uploaded successfully')
+          }
+          reader.readAsDataURL(compressedFile)
+        } catch (error) {
+          console.error('Error during image compression:', error)
+          toast.error(`Failed to compress image: ${error.message}`)
+        }
+      } else {
+        // If image is already within size limits
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          onChangeImage(e.target.result)
+        }
+        reader.readAsDataURL(file)
+      }
+    } catch (error) {
+      console.error('Error handling file:', error)
+      toast.error(`Error uploading image: ${error.message}`)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -89,9 +142,14 @@ const EditableFileImage = ({
   return (
     <div className={`image ${value ? 'mb-5' : ''} ${className ? className : ''}`}>
       {!value ? (
-        <button type="button" className="image__upload" onClick={handleUpload}>
-          {placeholder}
-        </button>
+        <>
+          <button type="button" className="image__upload" onClick={handleUpload}>
+            {placeholder}
+          </button>
+          <div className="text-xs text-gray-500 mt-1">
+            Max size: {MAX_IMAGE_SIZE_MB}MB
+          </div>
+        </>
       ) : (
         <>
           <img
@@ -135,7 +193,7 @@ const EditableFileImage = ({
         type="file"
         accept="image/*"
         className="image__file"
-        onChange={handleChangeImage}
+        onChange={handleFileChange}
       />
     </div>
   )

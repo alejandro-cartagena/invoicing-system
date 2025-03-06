@@ -14,7 +14,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 
-class SendInvoiceMail extends Mailable
+class SendGeneralInvoiceMail extends Mailable
 {
     use Queueable, SerializesModels;
 
@@ -22,16 +22,18 @@ class SendInvoiceMail extends Mailable
     protected $sender;
     protected $pdfContent;
     protected $paymentToken;
+    protected $isUpdated;
 
     /**
      * Create a new message instance.
      */
-    public function __construct($invoiceData, $sender, $pdfContent, $paymentToken = null)
+    public function __construct($invoiceData, $sender, $pdfContent, $paymentToken = null, $isUpdated = false)
     {
         $this->invoiceData = $invoiceData;
         $this->sender = $sender;
         $this->pdfContent = $pdfContent;
         $this->paymentToken = $paymentToken;
+        $this->isUpdated = $isUpdated;
     }
 
     /**
@@ -39,8 +41,12 @@ class SendInvoiceMail extends Mailable
      */
     public function envelope(): Envelope
     {
+        $subject = $this->isUpdated 
+            ? 'Updated Invoice from ' . $this->sender->name
+            : 'Invoice from ' . $this->sender->name;
+            
         return new Envelope(
-            subject: 'Invoice from ' . $this->sender->name,
+            subject: $subject,
             replyTo: [
                 new Address($this->sender->email, $this->sender->name),
             ]
@@ -57,8 +63,8 @@ class SendInvoiceMail extends Mailable
         $bitcoinPaymentUrl = null;
         
         if ($this->paymentToken) {
-            $creditCardPaymentUrl = URL::signedRoute('invoice.pay.credit-card', ['token' => $this->paymentToken]);
-            $bitcoinPaymentUrl = URL::signedRoute('invoice.pay.bitcoin', ['token' => $this->paymentToken]);
+            $creditCardPaymentUrl = URL::signedRoute('general-invoice.pay.credit-card', ['token' => $this->paymentToken]);
+            $bitcoinPaymentUrl = URL::signedRoute('general-invoice.pay.bitcoin', ['token' => $this->paymentToken]);
         }
         
         return new Content(
@@ -68,6 +74,7 @@ class SendInvoiceMail extends Mailable
                 'invoiceData' => $this->invoiceData,
                 'creditCardPaymentUrl' => $creditCardPaymentUrl,
                 'bitcoinPaymentUrl' => $bitcoinPaymentUrl,
+                'isUpdated' => $this->isUpdated,
             ]
         );
     }
