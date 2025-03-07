@@ -2,7 +2,7 @@ import React from 'react'
 import { PDFDownloadLink } from '@react-pdf/renderer'
 import { useDebounce } from '@uidotdev/usehooks'
 import InvoicePage from './InvoicePage'
-import FileSaver from 'file-saver'
+import { saveTemplate, handleTemplateUpload } from '@/utils/templateHandler'
 
 const Download = ({ data, setData }) => {
   const debounced = useDebounce(data, 500)
@@ -10,30 +10,11 @@ const Download = ({ data, setData }) => {
 
   function handleInput(e) {
     if (!e.target.files?.length) return
-
-    const file = e.target.files[0]
-    file
-      .text()
-      .then((str) => {
-        try {
-          if (!(str.startsWith('{') && str.endsWith('}'))) {
-            str = atob(str)
-          }
-          const d = JSON.parse(str)
-          setData(d)
-        } catch (e) {
-          console.error(e)
-          return
-        }
-      })
-      .catch((err) => console.error(err))
+    handleTemplateUpload(e.target.files[0], setData)
   }
 
   function handleSaveTemplate() {
-    const blob = new Blob([JSON.stringify(debounced)], {
-      type: 'text/plain;charset=utf-8',
-    })
-    FileSaver(blob, title + '.template')
+    saveTemplate(data)
   }
 
   return (

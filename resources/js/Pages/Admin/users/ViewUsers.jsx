@@ -171,14 +171,7 @@ const ViewUsers = ({ users }) => {
 
                     {/* Pagination controls */}
                     {totalPages > 1 && (
-                        <div className="mt-4 flex justify-between items-center">
-                            <div className="text-sm text-gray-700">
-                                Showing <span className="font-medium">{indexOfFirstUser + 1}</span> to{" "}
-                                <span className="font-medium">
-                                    {Math.min(indexOfLastUser, filteredUsers.length)}
-                                </span>{" "}
-                                of <span className="font-medium">{filteredUsers.length}</span> results
-                            </div>
+                        <div className="mt-4 flex justify-center items-center">
                             <div className="flex space-x-2">
                                 <button
                                     onClick={() => handlePageChange(currentPage - 1)}

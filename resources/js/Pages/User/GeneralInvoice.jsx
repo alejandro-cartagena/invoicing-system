@@ -6,6 +6,9 @@ import { toast } from 'react-hot-toast';
 import axios from 'axios';
 import { format } from 'date-fns';
 import { generatePDF, convertBlobToBase64, calculateBase64Size } from '@/utils/pdfGenerator.jsx';
+import FileSaver from 'file-saver';
+import { PDFDownloadLink } from '@react-pdf/renderer';
+import { saveTemplate, handleTemplateUpload } from '@/utils/templateHandler';
 
 const MAX_IMAGE_SIZE_MB = 1; // Maximum image size in MB
 const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024; // Convert to bytes
@@ -128,6 +131,15 @@ const GeneralInvoice = () => {
         }
     };
 
+    const handleSaveTemplate = () => {
+        saveTemplate(invoiceData);
+    };
+
+    const handleFileUpload = (e) => {
+        if (!e.target.files?.length) return;
+        handleTemplateUpload(e.target.files[0], setInvoiceData);
+    };
+
     return (
         <UserAuthenticatedLayout
             header={
@@ -157,10 +169,59 @@ const GeneralInvoice = () => {
                             {sending ? 'Sending...' : (isEditing ? 'Update & Resend' : 'Send Invoice')}
                         </button>
                     </div>
+
+                    
                 </div>
 
-                <div className="text-xs text-gray-500 mt-1">
-                    Note: Logo images must be less than {MAX_IMAGE_SIZE_MB}MB. Larger images will be automatically compressed.
+                {/* Mobile-only buttons */}
+                <div className="md:hidden my-4 flex justify-center gap-4">
+                    <button 
+                        onClick={async () => {
+                            try {
+                                // Show loading indicator
+                                toast.loading('Generating PDF...');
+                                
+                                // Use the same PDF generation logic as the email function
+                                const pdfBlob = await generatePDF(invoiceData);
+                                
+                                // Create and click download link
+                                const url = window.URL.createObjectURL(pdfBlob);
+                                const link = document.createElement('a');
+                                link.href = url;
+                                link.setAttribute('download', 'invoice.pdf');
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                                window.URL.revokeObjectURL(url);
+                                
+                                toast.dismiss();
+                                toast.success('PDF downloaded successfully');
+                            } catch (error) {
+                                console.error('PDF generation error:', error);
+                                toast.error('Failed to generate PDF');
+                            }
+                        }}
+                        className="px-3 py-2 bg-gray-500 text-white rounded-md text-sm hover:bg-gray-600 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gray-600 focus:ring-offset-2 active:bg-gray-700"
+                    >
+                        Save PDF
+                    </button>
+
+                    <button
+                        onClick={handleSaveTemplate}
+                        className="px-3 py-2 bg-gray-500 text-white rounded-md text-sm hover:bg-gray-600 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gray-600 focus:ring-offset-2 active:bg-gray-700"
+                    >
+                        Save Template
+                    </button>
+
+                    <label className="px-3 py-2 bg-gray-500 text-white rounded-md text-sm cursor-pointer hover:bg-gray-600 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gray-600 focus:ring-offset-2 active:bg-gray-700">
+                        Upload Template
+                        <input
+                            type="file"
+                            accept=".json,.template"
+                            onChange={handleFileUpload}
+                            className="sr-only"
+                        />
+                    </label>
                 </div>
 
                 <InvoicePage 
