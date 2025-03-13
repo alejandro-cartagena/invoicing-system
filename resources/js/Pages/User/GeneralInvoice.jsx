@@ -95,10 +95,10 @@ const GeneralInvoice = () => {
                 
                 toast.success(successMessage);
                 
-                // Redirect to invoices page
+                // Use setTimeout to redirect after showing the toast
                 setTimeout(() => {
                     router.get(route('user.invoices'));
-                }, 1500);
+                }, 2000); // Wait 2 seconds before redirecting
             } else {
                 throw new Error(response.data.message || 'Failed to send invoice');
             }

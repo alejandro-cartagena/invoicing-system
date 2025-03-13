@@ -7,12 +7,16 @@ import { router } from '@inertiajs/react';
 import Swal from 'sweetalert2';
 import axios from 'axios';
 import { generatePDF } from '@/utils/pdfGenerator';
+import { format, parseISO } from 'date-fns';
 
 const Invoices = ({ invoices }) => {
-    const handleEdit = (invoice) => {
-        // Navigate to the edit page with the invoice ID
-        router.get(route('user.general-invoice.edit', invoice.id));
-    };
+
+    console.log(invoices);
+
+    const formatDate = (dateStr) => {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString("en-US", { year: "2-digit", month: "2-digit", day: "2-digit" });
+      };
 
     const handleDelete = (invoiceId, invoiceNumber) => {
         Swal.fire({
@@ -168,10 +172,10 @@ const Invoices = ({ invoices }) => {
                                                 ${parseFloat(invoice.total).toFixed(2)}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                {new Date(invoice.invoice_date).toLocaleDateString()}
+                                                {formatDate(invoice.invoice_data.invoiceDate)}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                {new Date(invoice.due_date).toLocaleDateString()}
+                                                {formatDate(invoice.invoice_data.invoiceDueDate)}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
