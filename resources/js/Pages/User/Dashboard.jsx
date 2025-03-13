@@ -40,7 +40,7 @@ export default function Dashboard() {
                     title="Real Estate Invoice"
                     description="Create a real estate invoice"
                     className="h-full"
-                    onClick={() => router.visit(route('admin.users.index'))}
+                    onClick={() => router.visit(route('user.real-estate-invoice'))}
                     />
                 </div>
             </div>

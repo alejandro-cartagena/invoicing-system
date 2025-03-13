@@ -11,9 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('general_invoices', function (Blueprint $table) {
+        Schema::create('invoices', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->enum('invoice_type', ['general', 'real_estate'])->default('general');
             $table->string('invoice_number');
             $table->string('client_name');
             $table->string('client_email');
@@ -27,7 +28,18 @@ return new class extends Migration
             $table->string('payment_method')->nullable(); // credit_card, bitcoin, etc.
             $table->json('invoice_data'); // Store the full invoice data as JSON
             $table->string('payment_token')->unique()->nullable(); // For secure payment links
+
+            // Additional real estate specific fields - make them nullable
+            $table->string('property_address')->nullable();
+            $table->string('title_number')->nullable();
+            $table->string('buyer_name')->nullable();
+            $table->string('seller_name')->nullable();
+            $table->string('agent_name')->nullable();
+
             $table->timestamps();
+            
+            // Add an index on invoice_type for faster queries
+            $table->index('invoice_type');
         });
     }
 
@@ -36,6 +48,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('general_invoices');
+        Schema::dropIfExists('invoices');
     }
 };

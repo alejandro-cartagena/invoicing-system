@@ -6,7 +6,7 @@ import { faTrash, faEdit, faDownload, faEye, faPaperPlane } from '@fortawesome/f
 import { router } from '@inertiajs/react';
 import Swal from 'sweetalert2';
 import axios from 'axios';
-import { generatePDF } from '@/utils/pdfGenerator';
+import { generatePDF, generateRealEstatePDF } from '@/utils/pdfGenerator';
 import { format, parseISO } from 'date-fns';
 
 const Invoices = ({ invoices }) => {
@@ -66,10 +66,23 @@ const Invoices = ({ invoices }) => {
             
             if (response.data.success) {
                 // Get the invoice data
-                const invoiceData = response.data.invoiceData;
+                let invoiceData = response.data.invoiceData;
+                let pdfBlob;
                 
-                // Generate the PDF using the shared function
-                const pdfBlob = await generatePDF(invoiceData);
+                // For real estate invoices, ensure the real estate fields are included
+                if (invoice.invoice_type === 'real_estate') {
+                    invoiceData = {
+                        ...invoiceData,
+                        propertyAddress: invoice.property_address,
+                        titleNumber: invoice.title_number,
+                        buyerName: invoice.buyer_name,
+                        sellerName: invoice.seller_name,
+                        agentName: invoice.agent_name
+                    };
+                    pdfBlob = await generateRealEstatePDF(invoiceData);
+                } else {
+                    pdfBlob = await generatePDF(invoiceData);
+                }
                 
                 // Create a URL for the blob
                 const url = window.URL.createObjectURL(pdfBlob);
@@ -111,6 +124,18 @@ const Invoices = ({ invoices }) => {
         }
     };
 
+    // Add this function to get a friendly display name for the invoice type
+    const getInvoiceTypeDisplay = (type) => {
+        switch(type) {
+            case 'general':
+                return 'General';
+            case 'real_estate':
+                return 'Real Estate';
+            default:
+                return type.charAt(0).toUpperCase() + type.slice(1);
+        }
+    };
+
     return (
         <UserAuthenticatedLayout
             header={
@@ -140,6 +165,9 @@ const Invoices = ({ invoices }) => {
                                             Invoice #
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Type
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Client
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -164,6 +192,12 @@ const Invoices = ({ invoices }) => {
                                         <tr key={invoice.id}>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 {invoice.invoice_number}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                                    ${invoice.invoice_type === 'real_estate' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
+                                                    {getInvoiceTypeDisplay(invoice.invoice_type)}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 {invoice.client_name}

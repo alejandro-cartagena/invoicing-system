@@ -1,5 +1,8 @@
 import React from 'react';
 import { format } from 'date-fns';
+import { pdf } from '@react-pdf/renderer';
+import RealEstateInvoicePage from '@/Components/GeneralInvoiceComponents/RealEstateInvoicePage';
+import InvoicePage from '@/Components/GeneralInvoiceComponents/InvoicePage';
 
 export const generatePDF = async (data) => {
     try {
@@ -42,11 +45,9 @@ export const generatePDF = async (data) => {
             completeData.invoiceDueDate = format(dueDate, 'MMM dd, yyyy');
         }
         
-        // Dynamically import to reduce initial bundle size
-        const { pdf } = await import('@react-pdf/renderer');
-        const InvoicePage = (await import('@/Components/GeneralInvoiceComponents/InvoicePage')).default;
-        
-        const blob = await pdf(<InvoicePage data={completeData} pdfMode={true} />).toBlob();
+        const blob = await pdf(
+            <InvoicePage data={completeData} pdfMode={true} />
+        ).toBlob();
         return blob;
     } catch (error) {
         console.error('PDF generation error:', error);
@@ -54,23 +55,23 @@ export const generatePDF = async (data) => {
     }
 };
 
+export const generateRealEstatePDF = async (data) => {
+    const blob = await pdf(
+        <RealEstateInvoicePage data={data} pdfMode={true} />
+    ).toBlob();
+    return blob;
+};
+
 export const convertBlobToBase64 = (blob) => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
+        reader.onload = () => resolve(reader.result.split(',')[1]);
         reader.onerror = reject;
         reader.readAsDataURL(blob);
     });
 };
 
 export const calculateBase64Size = (base64String) => {
-    if (!base64String) return 0;
-    
-    // Remove the data URL prefix if present
-    const base64Data = base64String.includes('base64,') 
-        ? base64String.split('base64,')[1] 
-        : base64String;
-    
-    // Calculate size: base64 string length * 3/4 gives approximate decoded size
-    return Math.ceil((base64Data.length * 3) / 4);
+    const padding = base64String.endsWith('==') ? 2 : base64String.endsWith('=') ? 1 : 0;
+    return (base64String.length * 3) / 4 - padding;
 }; 

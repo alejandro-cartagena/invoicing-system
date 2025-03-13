@@ -6,7 +6,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserProfileController;
 use Inertia\Inertia;
-use App\Http\Controllers\GeneralInvoiceController;
+use App\Http\Controllers\InvoiceController;
 
 Route::get('/', function () {
     return Inertia::render('Auth/Login', [
@@ -30,6 +30,10 @@ Route::get('/general-invoice', function () {
     return Inertia::render('User/GeneralInvoice');
 })->middleware(['auth', 'verified'])->name('user.general-invoice');
 
+Route::get('/real-estate-invoice', function () {
+    return Inertia::render('User/RealEstateInvoice');
+})->middleware(['auth', 'verified'])->name('user.real-estate-invoice');
+
 
 Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/profile', [ProfileController::class, 'edit'])->name('admin.profile.edit');
@@ -52,54 +56,59 @@ Route::middleware(['auth'])->group(function () {
 });
 
 // Send general invoice email
-Route::post('/general-invoice/send-email', [GeneralInvoiceController::class, 'sendEmail'])
+Route::post('/invoice/send-email', [InvoiceController::class, 'sendEmail'])
     ->middleware(['auth'])
-    ->name('user.general-invoice.send-email');
+    ->name('user.invoice.send-email');
 
 
 
 
 // Payment routes (these will be accessed via email links)
-Route::get('/general-invoice/pay/{token}/credit-card', [GeneralInvoiceController::class, 'showCreditCardPayment'])
+Route::get('/general-invoice/pay/{token}/credit-card', [InvoiceController::class, 'showCreditCardPayment'])
     ->name('general-invoice.pay.credit-card');
     
-Route::get('/general-invoice/pay/{token}/bitcoin', [GeneralInvoiceController::class, 'showBitcoinPayment'])
+Route::get('/general-invoice/pay/{token}/bitcoin', [InvoiceController::class, 'showBitcoinPayment'])
     ->name('general-invoice.pay.bitcoin');
 
 // Payment processing routes
-Route::post('/general-invoice/process-credit-card', [GeneralInvoiceController::class, 'processCreditCardPayment'])
+Route::post('/general-invoice/process-credit-card', [InvoiceController::class, 'processCreditCardPayment'])
     ->name('general-invoice.process.credit-card');
     
-Route::post('/general-invoice/process-bitcoin', [GeneralInvoiceController::class, 'processBitcoinPayment'])
+Route::post('/general-invoice/process-bitcoin', [InvoiceController::class, 'processBitcoinPayment'])
     ->name('general-invoice.process.bitcoin');
 
 // Invoice listing page
-Route::get('/invoices', [GeneralInvoiceController::class, 'index'])
+Route::get('/invoices', [InvoiceController::class, 'index'])
     ->middleware(['auth'])
     ->name('user.invoices');
 
 // Add these routes for invoice actions
-Route::delete('/invoice/{invoice}', [GeneralInvoiceController::class, 'destroy'])
+Route::delete('/invoice/{invoice}', [InvoiceController::class, 'destroy'])
     ->middleware(['auth'])
     ->name('user.invoice.destroy');
 
-Route::post('/invoice/{invoice}/resend', [GeneralInvoiceController::class, 'resend'])
+Route::post('/invoice/{invoice}/resend', [InvoiceController::class, 'resend'])
     ->middleware(['auth'])
     ->name('user.invoice.resend');
 
-Route::get('/invoice/download/{invoice}', [GeneralInvoiceController::class, 'download'])
+Route::get('/invoice/download/{invoice}', [InvoiceController::class, 'download'])
     ->middleware(['auth'])
     ->name('user.invoice.download');
 
 // Add this new route for resending after edit
-Route::post('/invoice/{invoice}/resend-after-edit', [GeneralInvoiceController::class, 'resendAfterEdit'])
+Route::post('/invoice/{invoice}/resend-after-edit', [InvoiceController::class, 'resendAfterEdit'])
     ->middleware(['auth'])
     ->name('user.invoice.resend-after-edit');
 
-// Add this route for editing an invoice
-Route::get('/general-invoice/edit/{invoice}', [GeneralInvoiceController::class, 'edit'])
+// Add this route for editing a general invoice
+Route::get('/general-invoice/edit/{invoice}', [InvoiceController::class, 'edit'])
     ->middleware(['auth'])
     ->name('user.general-invoice.edit');
+
+// Add this route for editing a real estate invoice
+Route::get('/real-estate-invoice/edit/{invoice}', [InvoiceController::class, 'edit'])
+    ->middleware(['auth'])
+    ->name('user.real-estate-invoice.edit');
 
 require __DIR__.'/auth.php';
 

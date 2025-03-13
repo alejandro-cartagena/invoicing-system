@@ -13,27 +13,30 @@ use Illuminate\Mail\Mailables\Attachment;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
+use App\Models\User;
 
-class SendGeneralInvoiceMail extends Mailable
+class SendInvoiceMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    protected $invoiceData;
-    protected $sender;
-    protected $pdfContent;
-    protected $paymentToken;
-    protected $isUpdated;
+    public $invoiceData;
+    public $user;
+    public $pdfContent;
+    public $paymentToken;
+    public $isUpdate;
+    public $invoiceType;
 
     /**
      * Create a new message instance.
      */
-    public function __construct($invoiceData, $sender, $pdfContent, $paymentToken = null, $isUpdated = false)
+    public function __construct($invoiceData, User $user, $pdfContent, $paymentToken, $isUpdate = false, $invoiceType = 'general')
     {
         $this->invoiceData = $invoiceData;
-        $this->sender = $sender;
+        $this->user = $user;
         $this->pdfContent = $pdfContent;
         $this->paymentToken = $paymentToken;
-        $this->isUpdated = $isUpdated;
+        $this->isUpdate = $isUpdate;
+        $this->invoiceType = $invoiceType;
     }
 
     /**
@@ -41,14 +44,18 @@ class SendGeneralInvoiceMail extends Mailable
      */
     public function envelope(): Envelope
     {
-        $subject = $this->isUpdated 
-            ? 'Updated Invoice from ' . $this->sender->name
-            : 'Invoice from ' . $this->sender->name;
+        $subject = $this->isUpdate 
+            ? 'UPDATED: Invoice from ' . $this->user->business_name
+            : 'Invoice from ' . $this->user->business_name;
             
+        if ($this->invoiceType === 'real_estate') {
+            $subject = 'Real Estate ' . $subject;
+        }
+
         return new Envelope(
             subject: $subject,
             replyTo: [
-                new Address($this->sender->email, $this->sender->name),
+                new Address($this->user->email, $this->user->business_name),
             ]
         );
     }
@@ -70,11 +77,11 @@ class SendGeneralInvoiceMail extends Mailable
         return new Content(
             view: 'emails.invoice',
             with: [
-                'senderName' => $this->sender->name,
+                'senderName' => $this->user->business_name,
                 'invoiceData' => $this->invoiceData,
                 'creditCardPaymentUrl' => $creditCardPaymentUrl,
                 'bitcoinPaymentUrl' => $bitcoinPaymentUrl,
-                'isUpdated' => $this->isUpdated,
+                'isUpdated' => $this->isUpdate,
             ]
         );
     }

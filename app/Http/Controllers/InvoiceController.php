@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Mail\SendGeneralInvoiceMail;
-use App\Models\GeneralInvoice;
+use App\Mail\SendInvoiceMail;
+use App\Models\Invoice;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Barryvdh\DomPDF\Facade\Pdf;
 
-class GeneralInvoiceController extends Controller
+class InvoiceController extends Controller
 {
     public function sendEmail(Request $request)
     {
@@ -21,6 +21,13 @@ class GeneralInvoiceController extends Controller
                 'invoiceData' => 'required|array',
                 'pdfBase64' => 'required|string',
                 'recipientEmail' => 'required|email',
+                'invoiceType' => 'required|in:general,real_estate',
+                // Validate real estate fields if invoice type is real_estate
+                'propertyAddress' => 'required_if:invoiceType,real_estate',
+                'titleNumber' => 'required_if:invoiceType,real_estate',
+                'buyerName' => 'required_if:invoiceType,real_estate',
+                'sellerName' => 'required_if:invoiceType,real_estate',
+                'agentName' => 'required_if:invoiceType,real_estate',
             ]);
 
             // Check PDF size before processing
@@ -99,9 +106,10 @@ class GeneralInvoiceController extends Controller
             // Generate a unique payment token
             $paymentToken = Str::random(64);
             
-            // Save invoice to database
-            $invoice = GeneralInvoice::create([
+            // Create invoice data array
+            $invoiceCreateData = [
                 'user_id' => $user->id,
+                'invoice_type' => $validated['invoiceType'],
                 'invoice_number' => $invoiceData['invoiceTitle'] ?? ('INV-' . time()),
                 'client_name' => $invoiceData['clientName'] ?? 'Client',
                 'client_email' => $validated['recipientEmail'],
@@ -114,15 +122,29 @@ class GeneralInvoiceController extends Controller
                 'status' => 'sent',
                 'invoice_data' => $invoiceData,
                 'payment_token' => $paymentToken,
-            ]);
+            ];
+            
+            // Add real estate specific fields if applicable
+            if ($validated['invoiceType'] === 'real_estate') {
+                $invoiceCreateData['property_address'] = $validated['propertyAddress'];
+                $invoiceCreateData['title_number'] = $validated['titleNumber'];
+                $invoiceCreateData['buyer_name'] = $validated['buyerName'];
+                $invoiceCreateData['seller_name'] = $validated['sellerName'];
+                $invoiceCreateData['agent_name'] = $validated['agentName'];
+            }
+            
+            // Save invoice to database
+            $invoice = Invoice::create($invoiceCreateData);
 
             // Send the email with the PDF attachment
             Mail::to($validated['recipientEmail'])
-                ->send(new SendGeneralInvoiceMail(
+                ->send(new SendInvoiceMail(
                     $invoiceData,
                     $user,
                     $decodedPdf, // Pass the decoded PDF content
-                    $invoice->payment_token // Pass the payment token
+                    $invoice->payment_token, // Pass the payment token
+                    false, // Not an update
+                    $validated['invoiceType'] // Pass the invoice type
                 ));
 
             return response()->json([
@@ -166,9 +188,21 @@ class GeneralInvoiceController extends Controller
     
     public function index()
     {
-        $invoices = GeneralInvoice::where('user_id', Auth::id())
+        $invoices = Invoice::where('user_id', Auth::id())
             ->orderBy('created_at', 'desc')
-            ->get();
+            ->get()
+            ->map(function ($invoice) {
+                // Convert UTC dates to your local timezone and format them
+                $invoice->invoice_date = \Carbon\Carbon::parse($invoice->invoice_date)
+                    ->setTimezone(config('app.timezone'))
+                    ->format('Y-m-d');
+                
+                $invoice->due_date = \Carbon\Carbon::parse($invoice->due_date)
+                    ->setTimezone(config('app.timezone'))
+                    ->format('Y-m-d');
+                    
+                return $invoice;
+            });
             
         return Inertia::render('User/Invoices', [
             'invoices' => $invoices
@@ -177,7 +211,7 @@ class GeneralInvoiceController extends Controller
 
     public function showCreditCardPayment(string $token)
     {
-        $invoice = GeneralInvoice::where('payment_token', $token)
+        $invoice = Invoice::where('payment_token', $token)
             ->where('status', '!=', 'paid')
             ->firstOrFail();
             
@@ -189,7 +223,7 @@ class GeneralInvoiceController extends Controller
 
     public function showBitcoinPayment(string $token)
     {
-        $invoice = GeneralInvoice::where('payment_token', $token)
+        $invoice = Invoice::where('payment_token', $token)
             ->where('status', '!=', 'paid')
             ->firstOrFail();
             
@@ -219,7 +253,7 @@ class GeneralInvoiceController extends Controller
         ]);
     }
 
-    public function destroy(GeneralInvoice $invoice)
+    public function destroy(Invoice $invoice)
     {
         // Check if the invoice belongs to the authenticated user
         if ($invoice->user_id !== Auth::id()) {
@@ -232,7 +266,7 @@ class GeneralInvoiceController extends Controller
         return redirect()->route('user.invoices')->with('success', 'Invoice deleted successfully');
     }
 
-    public function resend(GeneralInvoice $invoice)
+    public function resend(Invoice $invoice)
     {
         // Check if the invoice belongs to the authenticated user
         if ($invoice->user_id !== Auth::id()) {
@@ -252,17 +286,19 @@ class GeneralInvoiceController extends Controller
         
         // Send the email with the PDF attachment
         Mail::to($invoice->client_email)
-            ->send(new SendGeneralInvoiceMail(
+            ->send(new SendInvoiceMail(
                 $invoiceData,
                 $user,
                 $pdfContent,
-                $invoice->payment_token
+                $invoice->payment_token,
+                false,
+                $invoice->invoice_type
             ));
         
         return redirect()->route('user.invoices')->with('success', 'Invoice resent successfully');
     }
 
-    public function download(GeneralInvoice $invoice)
+    public function download(Invoice $invoice)
     {
         // Check if the invoice belongs to the authenticated user
         if ($invoice->user_id !== Auth::id()) {
@@ -284,7 +320,7 @@ class GeneralInvoiceController extends Controller
     /**
      * Resend an invoice after editing by deleting the old one and creating a new one.
      */
-    public function resendAfterEdit(Request $request, GeneralInvoice $invoice)
+    public function resendAfterEdit(Request $request, Invoice $invoice)
     {
         // Check if the invoice belongs to the authenticated user
         if ($invoice->user_id !== Auth::id()) {
@@ -363,8 +399,9 @@ class GeneralInvoiceController extends Controller
             $paymentToken = Str::random(64);
             
             // Create a new invoice
-            $newInvoice = GeneralInvoice::create([
+            $newInvoice = Invoice::create([
                 'user_id' => $user->id,
+                'invoice_type' => $invoice->invoice_type,
                 'invoice_number' => $invoiceData['invoiceTitle'] ?? ('INV-' . time()),
                 'client_name' => $invoiceData['clientName'] ?? 'Client',
                 'client_email' => $validated['recipientEmail'],
@@ -381,12 +418,13 @@ class GeneralInvoiceController extends Controller
 
             // Send the email with the PDF attachment
             Mail::to($validated['recipientEmail'])
-                ->send(new SendGeneralInvoiceMail(
+                ->send(new SendInvoiceMail(
                     $invoiceData,
                     $user,
                     $decodedPdf, // Pass the decoded PDF content
                     $newInvoice->payment_token, // Pass the payment token
-                    true // Indicate this is an updated invoice
+                    true, // Indicate this is an updated invoice
+                    $invoice->invoice_type
                 ));
             
             // Delete the old invoice after successfully creating the new one
@@ -418,19 +456,29 @@ class GeneralInvoiceController extends Controller
     /**
      * Show the form for editing the specified invoice.
      */
-    public function edit(GeneralInvoice $invoice)
+    public function edit(Invoice $invoice)
     {
         // Check if the invoice belongs to the authenticated user
         if ($invoice->user_id !== Auth::id()) {
             abort(403, 'Unauthorized action.');
         }
-        
-        // Return the GeneralInvoice page with the invoice data
-        return Inertia::render('User/GeneralInvoice', [
-            'invoiceData' => $invoice->invoice_data,
-            'recipientEmail' => $invoice->client_email,
-            'invoiceId' => $invoice->id,
-            'isEditing' => true,
-        ]);
+
+        if ($invoice->invoice_type === 'real_estate') {
+            return Inertia::render('User/RealEstateInvoice', [
+                'invoiceData' => $invoice->invoice_data,
+                'recipientEmail' => $invoice->client_email,
+                'invoiceId' => $invoice->id,
+                'isEditing' => true,
+            ]);
+        }
+        else {
+            // Return the GeneralInvoice page with the invoice data
+            return Inertia::render('User/GeneralInvoice', [
+                'invoiceData' => $invoice->invoice_data,
+                'recipientEmail' => $invoice->client_email,
+                'invoiceId' => $invoice->id,
+                'isEditing' => true,
+            ]);
+        }
     }
 }

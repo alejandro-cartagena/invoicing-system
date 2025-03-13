@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import InvoicePage from '@/Components/GeneralInvoiceComponents/InvoicePage';
+import RealEstateInvoicePage from '@/Components/GeneralInvoiceComponents/RealEstateInvoicePage';
 import UserAuthenticatedLayout from '@/Layouts/UserAuthenticatedLayout';
 import { router, usePage } from '@inertiajs/react';
 import { toast } from 'react-hot-toast';
@@ -84,7 +84,12 @@ const GeneralInvoice = () => {
                 recipientEmail,
                 invoiceData,
                 pdfBase64: base64data,
-                invoiceType: 'general',
+                invoiceType: 'real_estate',
+                propertyAddress: invoiceData.propertyAddress,
+                titleNumber: invoiceData.titleNumber,
+                buyerName: invoiceData.buyerName,
+                sellerName: invoiceData.sellerName,
+                agentName: invoiceData.agentName
             });
 
             console.log('Backend response:', response.data);
@@ -225,7 +230,7 @@ const GeneralInvoice = () => {
                     </label>
                 </div>
 
-                <InvoicePage 
+                <RealEstateInvoicePage 
                     data={invoiceData} 
                     onChange={handleInvoiceUpdate} 
                 />

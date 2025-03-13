@@ -19,4 +19,12 @@ class UserProfile extends Model
     {
         return $this->belongsTo(User::class);
     }
+    
+    /**
+     * Get the invoices associated with this user profile.
+     */
+    public function invoices()
+    {
+        return $this->hasMany(Invoice::class, 'user_id', 'user_id');
+    }
 }
