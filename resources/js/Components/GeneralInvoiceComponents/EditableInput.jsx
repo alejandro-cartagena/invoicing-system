@@ -1,7 +1,7 @@
 import { Text } from '@react-pdf/renderer'
 import compose from '../../styles/compose.js'
 
-const EditableInput = ({ className, placeholder, value, onChange, pdfMode }) => {
+const EditableInput = ({ className, placeholder, value, onChange, pdfMode, readOnly }) => {
   return (
     <>
       {pdfMode ? (
@@ -13,6 +13,7 @@ const EditableInput = ({ className, placeholder, value, onChange, pdfMode }) => 
           placeholder={placeholder || ''}
           value={value || ''}
           onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+          readOnly={readOnly}
         />
       )}
     </>

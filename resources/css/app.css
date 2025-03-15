@@ -10,7 +10,7 @@
   .input,
   .span,
   .select {
-    @apply inline-block w-[98%] py-1 pr-3 pl-0 mb-[1px] border border-dotted border-transparent transition-all duration-200;
+    @apply inline-block w-[98%] py-1 pl-0 mb-[1px] border border-dotted border-transparent transition-all duration-200;
   }
 
   .input:hover,

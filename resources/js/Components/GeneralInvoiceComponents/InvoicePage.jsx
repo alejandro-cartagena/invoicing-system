@@ -255,7 +255,7 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
         <View className="flex mt-[40px]" pdfMode={pdfMode}>
           <View className="w-[55%]" pdfMode={pdfMode}>
             <EditableInput
-              className="font-semibold dark mb-[5px]"
+              className="text-xl font-semibold dark mb-[5px]"
               value={invoice.billTo}
               onChange={(value) => handleChange('billTo', value)}
               pdfMode={pdfMode}

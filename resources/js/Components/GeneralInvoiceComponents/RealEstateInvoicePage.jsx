@@ -262,10 +262,11 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
         <View className="flex mt-[40px]" pdfMode={pdfMode}>
           <View className="w-[55%]" pdfMode={pdfMode}>
             <EditableInput
-              className="font-semibold dark mb-[5px]"
+              className="text-xl font-semibold dark mb-[5px]"
               value={invoice.billTo}
               onChange={(value) => handleChange('billTo', value)}
               pdfMode={pdfMode}
+              readOnly={true}
             />
             <EditableInput
               placeholder="Your Client's Name"
@@ -300,6 +301,7 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
                   value={invoice.invoiceTitleLabel}
                   onChange={(value) => handleChange('invoiceTitleLabel', value)}
                   pdfMode={pdfMode}
+                  readOnly={true}
                 />
               </View>
               <View className="w-[60%]" pdfMode={pdfMode}>
@@ -318,6 +320,7 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
                   value={invoice.invoiceDateLabel}
                   onChange={(value) => handleChange('invoiceDateLabel', value)}
                   pdfMode={pdfMode}
+                  readOnly={true}
                 />
               </View>
               <View className="w-[60%]" pdfMode={pdfMode}>
@@ -341,6 +344,7 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
                   value={invoice.invoiceDueDateLabel}
                   onChange={(value) => handleChange('invoiceDueDateLabel', value)}
                   pdfMode={pdfMode}
+                  readOnly={true}
                 />
               </View>
               <View className="w-[60%]" pdfMode={pdfMode}>
@@ -361,17 +365,19 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
         </View>
 
         <View className="mt-[20px] mb-[20px]" pdfMode={pdfMode}>
-            <Text className="font-bold text-lg mb-[10px]" pdfMode={pdfMode}>
+            <Text className="font-semibold dark text-xl mb-[10px]" pdfMode={pdfMode}>
                 Real Estate Information
             </Text>
-            <View className="flex flex-col space-y-2" pdfMode={pdfMode}>
+            
+            {/* Property Address */}
+            <View className="mb-[10px]" pdfMode={pdfMode}>
                 <View className="flex" pdfMode={pdfMode}>
                     <View className="w-[30%]" pdfMode={pdfMode}>
                         <EditableInput
                             className="font-semibold"
                             value="Property Address:"
                             pdfMode={pdfMode}
-                            readOnly
+                            readOnly={true}
                         />
                     </View>
                     <View className="w-[70%]" pdfMode={pdfMode}>
@@ -383,14 +389,17 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
                         />
                     </View>
                 </View>
+            </View>
 
+            {/* Title Number */}
+            <View className="mb-[10px]" pdfMode={pdfMode}>
                 <View className="flex" pdfMode={pdfMode}>
                     <View className="w-[30%]" pdfMode={pdfMode}>
                         <EditableInput
                             className="font-semibold"
                             value="Title Number:"
                             pdfMode={pdfMode}
-                            readOnly
+                            readOnly={true}
                         />
                     </View>
                     <View className="w-[70%]" pdfMode={pdfMode}>
@@ -402,14 +411,17 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
                         />
                     </View>
                 </View>
+            </View>
 
+            {/* Buyer Name */}
+            <View className="mb-[10px]" pdfMode={pdfMode}>
                 <View className="flex" pdfMode={pdfMode}>
                     <View className="w-[30%]" pdfMode={pdfMode}>
                         <EditableInput
                             className="font-semibold"
                             value="Buyer Name:"
                             pdfMode={pdfMode}
-                            readOnly
+                            readOnly={true}
                         />
                     </View>
                     <View className="w-[70%]" pdfMode={pdfMode}>
@@ -421,14 +433,17 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
                         />
                     </View>
                 </View>
+            </View>
 
+            {/* Seller Name */}
+            <View className="mb-[10px]" pdfMode={pdfMode}>
                 <View className="flex" pdfMode={pdfMode}>
                     <View className="w-[30%]" pdfMode={pdfMode}>
                         <EditableInput
                             className="font-semibold"
                             value="Seller Name:"
                             pdfMode={pdfMode}
-                            readOnly
+                            readOnly={true}
                         />
                     </View>
                     <View className="w-[70%]" pdfMode={pdfMode}>
@@ -440,14 +455,17 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
                         />
                     </View>
                 </View>
+            </View>
 
+            {/* Real Estate Agent */}
+            <View className="mb-[10px]" pdfMode={pdfMode}>
                 <View className="flex" pdfMode={pdfMode}>
                     <View className="w-[30%]" pdfMode={pdfMode}>
                         <EditableInput
                             className="font-semibold"
                             value="Real Estate Agent:"
                             pdfMode={pdfMode}
-                            readOnly
+                            readOnly={true}
                         />
                     </View>
                     <View className="w-[70%]" pdfMode={pdfMode}>
@@ -600,7 +618,7 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
               </View>
               <View className="w-[50%] p-[5px] flex" pdfMode={pdfMode}>
                 <EditableInput
-                  className="text-gray-800 font-bold text-right ml-[30px] bg-[#e3e3e3]"
+                  className="text-gray-800 font-bold text-right bg-[#e3e3e3]"
                   value={invoice.currency}
                   onChange={(value) => handleChange('currency', value)}
                   pdfMode={pdfMode}
