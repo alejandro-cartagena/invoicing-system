@@ -14,7 +14,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use App\Models\User;
-
+use App\Models\UserProfile;
 class SendInvoiceMail extends Mailable
 {
     use Queueable, SerializesModels;
@@ -31,6 +31,14 @@ class SendInvoiceMail extends Mailable
      */
     public function __construct($invoiceData, User $user, $pdfContent, $paymentToken, $isUpdate = false, $invoiceType = 'general')
     {
+        // Add the invoice type to the invoice data
+        $invoiceData['invoice_type'] = $invoiceType;
+        
+        // Ensure the user profile is loaded
+        if (!$user->relationLoaded('profile')) {
+            $user->load('profile');
+        }
+        
         $this->invoiceData = $invoiceData;
         $this->user = $user;
         $this->pdfContent = $pdfContent;
@@ -44,9 +52,11 @@ class SendInvoiceMail extends Mailable
      */
     public function envelope(): Envelope
     {
+        $businessName = $this->user->profile ? $this->user->profile->business_name : $this->user->name;
+        
         $subject = $this->isUpdate 
-            ? 'UPDATED: Invoice from ' . $this->user->business_name
-            : 'Invoice from ' . $this->user->business_name;
+            ? 'UPDATED: Invoice from ' . $businessName
+            : 'Invoice from ' . $businessName;
             
         if ($this->invoiceType === 'real_estate') {
             $subject = 'Real Estate ' . $subject;
@@ -55,7 +65,7 @@ class SendInvoiceMail extends Mailable
         return new Envelope(
             subject: $subject,
             replyTo: [
-                new Address($this->user->email, $this->user->business_name),
+                new Address($this->user->email, $businessName),
             ]
         );
     }
@@ -74,10 +84,12 @@ class SendInvoiceMail extends Mailable
             $bitcoinPaymentUrl = URL::signedRoute('general-invoice.pay.bitcoin', ['token' => $this->paymentToken]);
         }
         
+        $businessName = $this->user->profile ? $this->user->profile->business_name : $this->user->name;
+        
         return new Content(
             view: 'emails.invoice',
             with: [
-                'senderName' => $this->user->business_name,
+                'senderName' => $businessName,
                 'invoiceData' => $this->invoiceData,
                 'creditCardPaymentUrl' => $creditCardPaymentUrl,
                 'bitcoinPaymentUrl' => $bitcoinPaymentUrl,

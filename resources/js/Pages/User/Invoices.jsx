@@ -11,8 +11,6 @@ import { format, parseISO } from 'date-fns';
 
 const Invoices = ({ invoices }) => {
 
-    console.log(invoices);
-
     const formatDate = (dateStr) => {
         const date = new Date(dateStr);
         return date.toLocaleDateString("en-US", { year: "2-digit", month: "2-digit", day: "2-digit" });
@@ -71,13 +69,14 @@ const Invoices = ({ invoices }) => {
                 
                 // For real estate invoices, ensure the real estate fields are included
                 if (invoice.invoice_type === 'real_estate') {
+                    // Get the real estate fields from invoice_data instead of the root invoice object
                     invoiceData = {
                         ...invoiceData,
-                        propertyAddress: invoice.property_address,
-                        titleNumber: invoice.title_number,
-                        buyerName: invoice.buyer_name,
-                        sellerName: invoice.seller_name,
-                        agentName: invoice.agent_name
+                        propertyAddress: invoice.invoice_data.propertyAddress,
+                        titleNumber: invoice.invoice_data.titleNumber,
+                        buyerName: invoice.invoice_data.buyerName,
+                        sellerName: invoice.invoice_data.sellerName,
+                        agentName: invoice.invoice_data.agentName
                     };
                     pdfBlob = await generateRealEstatePDF(invoiceData);
                 } else {

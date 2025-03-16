@@ -5,9 +5,7 @@ import RealEstateInvoicePage from '@/Components/GeneralInvoiceComponents/RealEst
 import InvoicePage from '@/Components/GeneralInvoiceComponents/InvoicePage';
 
 export const generatePDF = async (data) => {
-    try {
-        console.log('Generating PDF with data:', JSON.stringify(data));
-        
+    try {        
         // Make sure we're passing a complete copy of the data with pre-calculated values
         const completeData = JSON.parse(JSON.stringify(data));
         

@@ -150,12 +150,6 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
     }
   }, [onChange, invoice])
 
-  useEffect(() => {
-    if (pdfMode) {
-      console.log('PDF Mode - Received data:', data);
-      console.log('PDF Mode - Invoice state:', invoice);
-    }
-  }, [pdfMode, data, invoice]);
 
   // Add these useEffect hooks to update the subtotal and tax when product lines change
   useEffect(() => {
@@ -172,15 +166,6 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
   const pdfSubTotal = pdfMode ? calculateSubTotal() : subTotal
   const pdfSaleTax = pdfMode ? calculateTax(pdfSubTotal) : saleTax
   const pdfTotal = pdfSubTotal + pdfSaleTax
-
-  if (pdfMode) {
-    console.log('PDF Mode Calculations:');
-    console.log('Product Lines:', invoice.productLines);
-    console.log('Calculated SubTotal:', pdfSubTotal);
-    console.log('Tax Label:', invoice.taxLabel);
-    console.log('Calculated Tax:', pdfSaleTax);
-    console.log('Calculated Total:', pdfTotal);
-  }
 
   useEffect(() => {
     // Set default dates for new invoices

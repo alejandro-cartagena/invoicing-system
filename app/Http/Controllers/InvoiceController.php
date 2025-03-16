@@ -71,6 +71,17 @@ class InvoiceController extends Controller
             // Extract invoice data
             $invoiceData = $validated['invoiceData'];
             
+            // If this is a real estate invoice, ensure the real estate fields are included in invoiceData
+            if ($validated['invoiceType'] === 'real_estate') {
+                $invoiceData = array_merge($invoiceData, [
+                    'propertyAddress' => $validated['propertyAddress'],
+                    'titleNumber' => $validated['titleNumber'],
+                    'buyerName' => $validated['buyerName'],
+                    'sellerName' => $validated['sellerName'],
+                    'agentName' => $validated['agentName']
+                ]);
+            }
+            
             // Calculate values to store in database
             $subTotal = 0;
             if (isset($invoiceData['productLines']) && is_array($invoiceData['productLines'])) {
@@ -124,15 +135,6 @@ class InvoiceController extends Controller
                 'payment_token' => $paymentToken,
             ];
             
-            // Add real estate specific fields if applicable
-            if ($validated['invoiceType'] === 'real_estate') {
-                $invoiceCreateData['property_address'] = $validated['propertyAddress'];
-                $invoiceCreateData['title_number'] = $validated['titleNumber'];
-                $invoiceCreateData['buyer_name'] = $validated['buyerName'];
-                $invoiceCreateData['seller_name'] = $validated['sellerName'];
-                $invoiceCreateData['agent_name'] = $validated['agentName'];
-            }
-            
             // Save invoice to database
             $invoice = Invoice::create($invoiceCreateData);
 
@@ -141,10 +143,10 @@ class InvoiceController extends Controller
                 ->send(new SendInvoiceMail(
                     $invoiceData,
                     $user,
-                    $decodedPdf, // Pass the decoded PDF content
-                    $invoice->payment_token, // Pass the payment token
-                    false, // Not an update
-                    $validated['invoiceType'] // Pass the invoice type
+                    $decodedPdf,
+                    $invoice->payment_token,
+                    false,
+                    $validated['invoiceType']
                 ));
 
             return response()->json([
@@ -276,18 +278,28 @@ class InvoiceController extends Controller
         // Get the user
         $user = Auth::user();
         
-        // Regenerate the PDF from the stored invoice data
+        // Get the invoice data
         $invoiceData = $invoice->invoice_data;
         
-        // You'll need to implement the PDF generation logic here
-        // For now, we'll use a placeholder
+        // If this is a real estate invoice, ensure the fields are included
+        if ($invoice->invoice_type === 'real_estate') {
+            $invoiceData = array_merge($invoiceData, [
+                'propertyAddress' => $invoice->property_address,
+                'titleNumber' => $invoice->title_number,
+                'buyerName' => $invoice->buyer_name,
+                'sellerName' => $invoice->seller_name,
+                'agentName' => $invoice->agent_name
+            ]);
+        }
+        
+        // Generate the PDF
         $pdf = PDF::loadView('pdfs.invoice', ['data' => $invoiceData]);
         $pdfContent = $pdf->output();
         
         // Send the email with the PDF attachment
         Mail::to($invoice->client_email)
             ->send(new SendInvoiceMail(
-                $invoiceData,
+                $invoiceData, // Now includes real estate fields
                 $user,
                 $pdfContent,
                 $invoice->payment_token,
@@ -322,16 +334,17 @@ class InvoiceController extends Controller
      */
     public function resendAfterEdit(Request $request, Invoice $invoice)
     {
-        // Check if the invoice belongs to the authenticated user
-        if ($invoice->user_id !== Auth::id()) {
-            abort(403, 'Unauthorized action.');
-        }
-        
         try {
             $validated = $request->validate([
                 'invoiceData' => 'required|array',
                 'pdfBase64' => 'required|string',
                 'recipientEmail' => 'required|email',
+                // Add validation for real estate fields if it's a real estate invoice
+                'propertyAddress' => 'required_if:invoiceType,real_estate',
+                'titleNumber' => 'required_if:invoiceType,real_estate',
+                'buyerName' => 'required_if:invoiceType,real_estate',
+                'sellerName' => 'required_if:invoiceType,real_estate',
+                'agentName' => 'required_if:invoiceType,real_estate',
             ]);
 
             // Get the authenticated user
@@ -362,6 +375,17 @@ class InvoiceController extends Controller
 
             // Extract invoice data
             $invoiceData = $validated['invoiceData'];
+            
+            // If this is a real estate invoice, ensure the real estate fields are included in invoiceData
+            if ($invoice->invoice_type === 'real_estate') {
+                $invoiceData = array_merge($invoiceData, [
+                    'propertyAddress' => $validated['propertyAddress'],
+                    'titleNumber' => $validated['titleNumber'],
+                    'buyerName' => $validated['buyerName'],
+                    'sellerName' => $validated['sellerName'],
+                    'agentName' => $validated['agentName']
+                ]);
+            }
             
             // Calculate values to store in database
             $subTotal = 0;
@@ -419,11 +443,11 @@ class InvoiceController extends Controller
             // Send the email with the PDF attachment
             Mail::to($validated['recipientEmail'])
                 ->send(new SendInvoiceMail(
-                    $invoiceData,
+                    $invoiceData, // Now includes real estate fields
                     $user,
-                    $decodedPdf, // Pass the decoded PDF content
-                    $newInvoice->payment_token, // Pass the payment token
-                    true, // Indicate this is an updated invoice
+                    $decodedPdf,
+                    $newInvoice->payment_token,
+                    true,
                     $invoice->invoice_type
                 ));
             

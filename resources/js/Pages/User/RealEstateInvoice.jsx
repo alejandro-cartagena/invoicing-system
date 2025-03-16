@@ -9,6 +9,7 @@ import { generatePDF, convertBlobToBase64, calculateBase64Size } from '@/utils/p
 import FileSaver from 'file-saver';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { saveTemplate, handleTemplateUpload } from '@/utils/templateHandler';
+import { generateRealEstatePDF } from '@/utils/pdfGenerator.jsx';
 
 const MAX_IMAGE_SIZE_MB = 1; // Maximum image size in MB
 const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024; // Convert to bytes
@@ -49,10 +50,8 @@ const GeneralInvoice = () => {
 
         setSending(true);
         try {
-            // Generate PDF
-            console.log('Generating PDF...');
-            const pdfBlob = await generatePDF(invoiceData);
-            console.log('PDF generated successfully');
+            // Generate PDF - Use generateRealEstatePDF instead of generatePDF
+            const pdfBlob = await generateRealEstatePDF(invoiceData);
 
             // Check PDF size
             if (pdfBlob.size > 8 * 1024 * 1024) { // 8MB limit for the PDF
@@ -60,9 +59,7 @@ const GeneralInvoice = () => {
             }
 
             // Convert to base64
-            console.log('Converting PDF to base64...');
             const base64data = await convertBlobToBase64(pdfBlob);
-            console.log('PDF converted to base64, length:', base64data.length);
 
             // Determine the endpoint based on the current state
             let endpoint;
@@ -72,13 +69,6 @@ const GeneralInvoice = () => {
             } else {
                 endpoint = '/invoice/send-email';
             }
-
-            console.log('Sending to backend...', {
-                recipientEmail,
-                invoiceDataLength: JSON.stringify(invoiceData).length,
-                pdfBase64Length: base64data.length,
-                endpoint: endpoint
-            });
 
             const response = await axios.post(endpoint, {
                 recipientEmail,
@@ -92,7 +82,6 @@ const GeneralInvoice = () => {
                 agentName: invoiceData.agentName
             });
 
-            console.log('Backend response:', response.data);
 
             if (response.data.success) {
                 let successMessage = isEditing 
@@ -150,7 +139,7 @@ const GeneralInvoice = () => {
         <UserAuthenticatedLayout
             header={
                 <h2 className="text-xl text-center font-semibold leading-tight text-gray-800">
-                    {isEditing ? 'Edit and Resend Invoice' : 'Create Your General Invoice'}
+                    {isEditing ? 'Edit and Resend Invoice' : 'Create Your Real Estate Invoice'}
                 </h2>
             }
         >
@@ -184,11 +173,10 @@ const GeneralInvoice = () => {
                     <button 
                         onClick={async () => {
                             try {
-                                // Show loading indicator
                                 toast.loading('Generating PDF...');
                                 
-                                // Use the same PDF generation logic as the email function
-                                const pdfBlob = await generatePDF(invoiceData);
+                                // Use generateRealEstatePDF instead of generatePDF
+                                const pdfBlob = await generateRealEstatePDF(invoiceData);
                                 
                                 // Create and click download link
                                 const url = window.URL.createObjectURL(pdfBlob);

@@ -50,9 +50,7 @@ const GeneralInvoice = () => {
         setSending(true);
         try {
             // Generate PDF
-            console.log('Generating PDF...');
             const pdfBlob = await generatePDF(invoiceData);
-            console.log('PDF generated successfully');
 
             // Check PDF size
             if (pdfBlob.size > 8 * 1024 * 1024) { // 8MB limit for the PDF
@@ -60,9 +58,7 @@ const GeneralInvoice = () => {
             }
 
             // Convert to base64
-            console.log('Converting PDF to base64...');
             const base64data = await convertBlobToBase64(pdfBlob);
-            console.log('PDF converted to base64, length:', base64data.length);
 
             // Determine the endpoint based on the current state
             let endpoint;
@@ -73,21 +69,12 @@ const GeneralInvoice = () => {
                 endpoint = '/invoice/send-email';
             }
 
-            console.log('Sending to backend...', {
-                recipientEmail,
-                invoiceDataLength: JSON.stringify(invoiceData).length,
-                pdfBase64Length: base64data.length,
-                endpoint: endpoint
-            });
-
             const response = await axios.post(endpoint, {
                 recipientEmail,
                 invoiceData,
                 pdfBase64: base64data,
                 invoiceType: 'general',
             });
-
-            console.log('Backend response:', response.data);
 
             if (response.data.success) {
                 let successMessage = isEditing 
