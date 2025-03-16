@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import UserAuthenticatedLayout from '@/Layouts/UserAuthenticatedLayout';
 import { Head, Link } from '@inertiajs/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTrash, faEdit, faDownload, faEye, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
+import { faTrash, faEdit, faDownload, faEye, faPaperPlane, faSearch, faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import { router } from '@inertiajs/react';
 import Swal from 'sweetalert2';
 import axios from 'axios';
@@ -10,6 +10,27 @@ import { generatePDF, generateRealEstatePDF } from '@/utils/pdfGenerator';
 import { format, parseISO } from 'date-fns';
 
 const Invoices = ({ invoices }) => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const invoicesPerPage = 10;
+
+    // Filter invoices based on search
+    const filteredInvoices = invoices.filter(invoice => 
+        invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        invoice.client_name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    // Calculate pagination
+    const indexOfLastInvoice = currentPage * invoicesPerPage;
+    const indexOfFirstInvoice = indexOfLastInvoice - invoicesPerPage;
+    const displayedInvoices = filteredInvoices.slice(indexOfFirstInvoice, indexOfLastInvoice);
+    const totalPages = Math.ceil(filteredInvoices.length / invoicesPerPage);
+
+    const handlePageChange = (newPage) => {
+        if (newPage > 0 && newPage <= totalPages) {
+            setCurrentPage(newPage);
+        }
+    };
 
     const formatDate = (dateStr) => {
         const date = new Date(dateStr);
@@ -142,12 +163,6 @@ const Invoices = ({ invoices }) => {
                     <h2 className="text-xl font-semibold leading-tight text-gray-800">
                         Your Invoices
                     </h2>
-                    <Link
-                        href={route('user.general-invoice')}
-                        className="px-4 py-2 bg-gray-500 text-white rounded-md text-sm hover:bg-gray-600 transition-all duration-300"
-                    >
-                        Create New Invoice
-                    </Link>
                 </div>
             }
         >
@@ -155,6 +170,47 @@ const Invoices = ({ invoices }) => {
 
             <div className="py-12">
                 <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
+                    {/* Add Search Bar */}
+                    <div className="mb-6">
+                        <div className="flex flex-col md:flex-row justify-between items-start space-y-4 md:space-y-0 md:items-start">
+                            <div className="w-full md:w-auto">
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        placeholder="Search invoices..."
+                                        className="w-full md:w-[300px] p-2 pl-10 border rounded"
+                                        onChange={(e) => {
+                                            setSearchTerm(e.target.value);
+                                            setCurrentPage(1); // Reset to first page on search
+                                        }}
+                                    />
+                                    <FontAwesomeIcon 
+                                        icon={faSearch} 
+                                        className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                                    />
+                                </div>
+                                <p className="mt-2 text-sm text-gray-500">
+                                    Search by client name or invoice number
+                                </p>
+                            </div>
+                            
+                            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 w-full md:w-auto">
+                                <Link
+                                    href={route('user.general-invoice')}
+                                    className="px-4 py-2 bg-gray-500 text-white rounded-md text-sm hover:bg-gray-600 transition-all duration-300 text-center"
+                                >
+                                    Create General Invoice
+                                </Link>
+                                <Link
+                                    href={route('user.real-estate-invoice')}
+                                    className="px-4 py-2 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 transition-all duration-300 text-center"
+                                >
+                                    Create Real Estate Invoice
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                         <div className="p-6 bg-white border-b border-gray-200">
                             <table className="min-w-full divide-y divide-gray-200">
@@ -187,7 +243,7 @@ const Invoices = ({ invoices }) => {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {invoices.map((invoice) => (
+                                    {displayedInvoices.map((invoice) => (
                                         <tr key={invoice.id}>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 {invoice.invoice_number}
@@ -258,10 +314,11 @@ const Invoices = ({ invoices }) => {
                                         </tr>
                                     ))}
                                     
-                                    {invoices.length === 0 && (
+                                    {displayedInvoices.length === 0 && (
                                         <tr>
-                                            <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
-                                                No invoices found. <Link href={route('user.general-invoice')} className="text-indigo-600 hover:text-indigo-900">Create your first invoice</Link>
+                                            <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
+                                                {searchTerm ? 'No invoices found matching your search.' : 'No invoices found. '}
+                                                {!searchTerm && <Link href={route('user.general-invoice')} className="text-indigo-600 hover:text-indigo-900">Create your first invoice</Link>}
                                             </td>
                                         </tr>
                                     )}
@@ -269,6 +326,51 @@ const Invoices = ({ invoices }) => {
                             </table>
                         </div>
                     </div>
+
+                    {/* Add Pagination Controls */}
+                    {totalPages > 1 && (
+                        <div className="mt-4 flex justify-center items-center">
+                            <div className="flex space-x-2">
+                                <button
+                                    onClick={() => handlePageChange(currentPage - 1)}
+                                    disabled={currentPage === 1}
+                                    className={`px-3 py-1 rounded ${
+                                        currentPage === 1
+                                            ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                                            : "bg-gray-300 text-gray-700 hover:bg-gray-400"
+                                    }`}
+                                >
+                                    <FontAwesomeIcon icon={faChevronLeft} />
+                                </button>
+                                
+                                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                                    <button
+                                        key={page}
+                                        onClick={() => handlePageChange(page)}
+                                        className={`px-3 py-1 rounded ${
+                                            currentPage === page
+                                                ? "bg-gray-800 text-white"
+                                                : "bg-gray-300 text-gray-700 hover:bg-gray-400"
+                                        }`}
+                                    >
+                                        {page}
+                                    </button>
+                                ))}
+                                
+                                <button
+                                    onClick={() => handlePageChange(currentPage + 1)}
+                                    disabled={currentPage === totalPages}
+                                    className={`px-3 py-1 rounded ${
+                                        currentPage === totalPages
+                                            ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                                            : "bg-gray-300 text-gray-700 hover:bg-gray-400"
+                                    }`}
+                                >
+                                    <FontAwesomeIcon icon={faChevronRight} />
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </UserAuthenticatedLayout>
