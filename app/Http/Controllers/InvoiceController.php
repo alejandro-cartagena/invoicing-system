@@ -237,12 +237,178 @@ class InvoiceController extends Controller
 
     public function processCreditCardPayment(Request $request)
     {
-        // This will be implemented when you integrate with the payment gateway
-        // For now, just return a placeholder response
-        return response()->json([
-            'success' => true,
-            'message' => 'Payment processing will be implemented soon'
-        ]);
+        try {
+            // Log the raw request data for debugging
+            \Log::info('Raw payment request data:', $request->all());
+            
+            $validated = $request->validate([
+                'token' => 'required|string',
+                'invoiceId' => 'required|integer',
+                'amount' => 'required|numeric',
+                'firstName' => 'required|string|max:255',
+                'lastName' => 'required|string|max:255',
+                'address' => 'required|string|max:255',
+                'city' => 'required|string|max:255',
+                'state' => 'required|string|max:255',
+                'zip' => 'required|string|max:20',
+                'phone' => 'required|string|max:20',
+            ]);
+            
+            // Log the validated data
+            \Log::info('Validated payment data:', $validated);
+            
+            // Find the invoice
+            $invoice = Invoice::findOrFail($validated['invoiceId']);
+            
+            // Check if the invoice is already paid
+            if ($invoice->status === 'paid') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This invoice has already been paid.'
+                ], 400);
+            }
+            
+            // Log the token for debugging
+            \Log::info('Payment token received', [
+                'token' => $validated['token'],
+                'is_test_token' => in_array($validated['token'], [
+                    '00000000-000000-000000-000000000000',
+                    '11111111-111111-111111-111111111111'
+                ])
+            ]);
+            
+            // Only simulate for specific test tokens
+            if (in_array($validated['token'], [
+                '00000000-000000-000000-000000000000',
+                '11111111-111111-111111-111111111111'
+            ])) {
+                \Log::info('Using predefined test token, simulating successful payment');
+                
+                // Update the invoice status
+                $invoice->status = 'paid';
+                $invoice->payment_date = now();
+                $invoice->transaction_id = 'TEST-' . uniqid();
+                $invoice->save();
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Test payment processed successfully',
+                    'transaction_id' => $invoice->transaction_id,
+                    'auth_code' => 'TEST123'
+                ]);
+            }
+            
+            // Prepare the payment data
+            $paymentData = [
+                'security_key' => env('DVF_PRIVATE_KEY', 'B6z4wK8d42A82b2vn89WQ578xHCxDQEc'),
+                'payment_token' => $validated['token'],
+                'type' => 'sale',
+                'amount' => $validated['amount'],
+                'first_name' => $validated['firstName'],
+                'last_name' => $validated['lastName'],
+                'address1' => $validated['address'],
+                'city' => $validated['city'],
+                'state' => $validated['state'],
+                'zip' => $validated['zip'],
+                'phone' => $validated['phone'],
+                'order_id' => $invoice->invoice_number,
+                'customer_id' => $invoice->client_email,
+                'currency' => 'USD',
+            ];
+            
+            \Log::info('Sending payment request to gateway', [
+                'url' => 'https://dvfsolutions.transactiongateway.com/api/transact.php',
+                'data' => array_merge($paymentData, ['security_key' => '[REDACTED]'])
+            ]);
+            
+            // Send the payment request to DVF Solutions
+            $ch = curl_init('https://dvfsolutions.transactiongateway.com/api/transact.php');
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($paymentData));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            
+            // Disable SSL verification for local development
+            if (app()->environment('local')) {
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            } else {
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+            }
+            
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            $response = curl_exec($ch);
+            
+            // Check for cURL errors
+            if (curl_errno($ch)) {
+                $error = curl_error($ch);
+                \Log::error('cURL error: ' . $error);
+                curl_close($ch);
+                throw new \Exception('cURL error: ' . $error);
+            }
+            
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            
+            // Log the raw response for debugging
+            \Log::info('Payment gateway raw response', [
+                'http_code' => $httpCode,
+                'response' => $response
+            ]);
+            
+            // Check if we got a valid HTTP response
+            if ($httpCode != 200) {
+                throw new \Exception('Payment gateway returned HTTP code ' . $httpCode);
+            }
+            
+            // Parse the response
+            parse_str($response, $responseData);
+            \Log::info('Payment gateway parsed response', $responseData);
+            
+            // Check if the payment was successful
+            if (isset($responseData['response']) && $responseData['response'] == 1) {
+                // Update the invoice status
+                $invoice->status = 'paid';
+                $invoice->payment_date = now();
+                $invoice->transaction_id = $responseData['transactionid'] ?? null;
+                $invoice->save();
+                
+                // Return success response
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Payment processed successfully',
+                    'transaction_id' => $responseData['transactionid'] ?? null,
+                    'auth_code' => $responseData['authcode'] ?? null
+                ]);
+            } else {
+                // Return error response
+                return response()->json([
+                    'success' => false,
+                    'message' => $responseData['responsetext'] ?? 'Payment processing failed',
+                    'error_code' => $responseData['response_code'] ?? null
+                ], 400);
+            }
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('Validation error: ' . json_encode($e->errors()));
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while processing your payment: ' . implode(' ', array_map(function($errors) {
+                    return implode(' ', $errors);
+                }, $e->errors()))
+            ], 422);
+        } catch (\Exception $e) {
+            \Log::error('Payment processing error: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while processing your payment: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     public function processBitcoinPayment(Request $request)

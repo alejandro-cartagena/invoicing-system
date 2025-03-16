@@ -31,6 +31,9 @@ class Invoice extends Model
         'buyer_name',
         'seller_name',
         'agent_name',
+        // Payment specific fields
+        'payment_date',
+        'transaction_id',
     ];
 
     protected $casts = [
