@@ -46,6 +46,11 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::delete('/admin/users/{user}', [UserProfileController::class, 'destroy'])->name('admin.users.destroy');
     Route::get('/admin/users/{user}/edit', [UserProfileController::class, 'edit'])->name('admin.users.edit');
     Route::patch('/admin/users/{user}', [UserProfileController::class, 'update'])->name('admin.users.update');
+
+    // Add this route for fetching merchant information
+    Route::get('/admin/fetch-merchant-info/{gateway_id}', [UserProfileController::class, 'fetchMerchantInfo'])
+        ->middleware(['auth', 'admin'])
+        ->name('admin.fetch-merchant-info');
 });
 
 

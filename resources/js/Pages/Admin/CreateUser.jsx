@@ -1,4 +1,6 @@
 import { useForm, router } from '@inertiajs/react';
+import { useState } from 'react';
+import axios from 'axios';
 import AdminAuthenticatedLayout from '@/Layouts/AdminAuthenticatedLayout';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
@@ -16,7 +18,11 @@ export default function Create() {
         merchant_id: '',
         first_name: '',
         last_name: '',
+        gateway_id: '',
     });
+    
+    const [fetchingMerchant, setFetchingMerchant] = useState(false);
+    const [merchantFetchError, setMerchantFetchError] = useState('');
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -25,6 +31,47 @@ export default function Create() {
                 console.log('Submission errors:', errors);
             },
         });
+    };
+    
+    // Function to fetch merchant information
+    const fetchMerchantInfo = async () => {
+        if (!data.gateway_id) {
+            setMerchantFetchError('Please enter a Gateway ID');
+            return;
+        }
+        
+        setFetchingMerchant(true);
+        setMerchantFetchError('');
+        
+        try {
+            // Make a request to your backend endpoint that will call the NMI API
+            const response = await axios.get(route('admin.fetch-merchant-info', { gateway_id: data.gateway_id }));
+            
+            console.log('Merchant information:', response.data);
+            
+            // If you want to auto-fill the form with merchant data
+            if (response.data.merchant) {
+                const merchant = response.data.merchant;
+                setData({
+                    ...data,
+                    business_name: merchant.company || '',
+                    address: merchant.address1 || '',
+                    phone_number: merchant.phone ? merchant.phone.replace(/\D/g, '') : '',
+                    first_name: merchant.firstName || '',
+                    last_name: merchant.lastName || '',
+                    email: merchant.email || '',
+                    merchant_id: data.gateway_id, // Use gateway_id as merchant_id
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching merchant:', error);
+            setMerchantFetchError(
+                error.response?.data?.message || 
+                'Failed to fetch merchant information. Please check the Gateway ID and try again.'
+            );
+        } finally {
+            setFetchingMerchant(false);
+        }
     };
 
     return (
@@ -36,6 +83,39 @@ export default function Create() {
                             <h2 className="text-lg font-medium text-gray-900">
                                 Create New User
                             </h2>
+                            
+                            {/* Gateway ID section */}
+                            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                <h3 className="text-md font-medium text-gray-800 mb-2">
+                                    Fetch Merchant Information
+                                </h3>
+                                <div className="flex items-end gap-4">
+                                    <div className="flex-1">
+                                        <InputLabel htmlFor="gateway_id" value="Gateway ID" />
+                                        <TextInput
+                                            id="gateway_id"
+                                            type="text"
+                                            className="mt-1 block w-full"
+                                            value={data.gateway_id}
+                                            onChange={(e) => setData('gateway_id', e.target.value)}
+                                        />
+                                    </div>
+                                    <PrimaryButton 
+                                        type="button" 
+                                        onClick={fetchMerchantInfo}
+                                        disabled={fetchingMerchant}
+                                        className="mb-1"
+                                    >
+                                        {fetchingMerchant ? 'Fetching...' : 'Fetch Merchant'}
+                                    </PrimaryButton>
+                                </div>
+                                {merchantFetchError && (
+                                    <p className="mt-2 text-sm text-red-600">{merchantFetchError}</p>
+                                )}
+                                <p className="mt-2 text-xs text-gray-500">
+                                    Enter the Gateway ID provided by Voltms to fetch merchant information.
+                                </p>
+                            </div>
 
                             <form onSubmit={handleSubmit} className="mt-6 space-y-6">
                                 <div>

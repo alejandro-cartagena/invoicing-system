@@ -121,4 +121,59 @@ class UserProfileController extends Controller
         return redirect()->route('admin.users.index')
             ->with('message', 'User updated successfully');
     }
+
+    public function fetchMerchantInfo($gatewayId)
+    {
+        try {
+            // For now, just log the request and return a success response
+            \Log::info('Fetching merchant info for Gateway ID: ' . $gatewayId);
+            
+            // In a real implementation, you would make a request to the NMI API
+            // using the partner API key stored in your .env file
+            
+            // For testing, return a mock response
+            return response()->json([
+                'success' => true,
+                'message' => 'Merchant information fetched successfully',
+                'gateway_id' => $gatewayId,
+                'merchant' => [
+                    'company' => 'Test Company',
+                    'address1' => '123 Test St',
+                    'phone' => '5551234567',
+                    'firstName' => 'John',
+                    'lastName' => 'Doe',
+                    'email' => 'test@example.com',
+                    // Add other fields as needed
+                ]
+            ]);
+            
+            // When you're ready to implement the actual API call, it would look something like this:
+            /*
+            $apiKey = env('NMI_PARTNER_API_KEY');
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json',
+                'Authorization' => $apiKey
+            ])->get("https://secure.nmi.com/api/v4/merchants/{$gatewayId}");
+            
+            if ($response->successful()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Merchant information fetched successfully',
+                    'merchant' => $response->json()
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to fetch merchant information: ' . $response->body()
+                ], $response->status());
+            }
+            */
+        } catch (\Exception $e) {
+            \Log::error('Error fetching merchant info: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while fetching merchant information: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
