@@ -51,6 +51,15 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/fetch-merchant-info/{gateway_id}', [UserProfileController::class, 'fetchMerchantInfo'])
         ->middleware(['auth', 'admin'])
         ->name('admin.fetch-merchant-info');
+
+    // Add this new route for generating API keys
+    Route::post('/admin/users/{user}/generate-api-keys', [UserProfileController::class, 'generateApiKeys'])
+        ->name('admin.users.generate-api-keys');
+
+    // Add this new route for generating merchant API keys directly
+    Route::post('/admin/generate-merchant-api-keys/{gateway_id}', [UserProfileController::class, 'generateMerchantApiKeysOnly'])
+        ->middleware(['auth', 'admin'])
+        ->name('admin.generate-merchant-api-keys');
 });
 
 

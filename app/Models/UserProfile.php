@@ -12,7 +12,9 @@ class UserProfile extends Model
         'phone_number',
         'merchant_id',
         'first_name',
-        'last_name'
+        'last_name',
+        'public_key',
+        'private_key'
     ];
 
     public function user()
