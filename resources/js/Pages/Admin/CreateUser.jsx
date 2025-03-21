@@ -60,12 +60,27 @@ export default function Create() {
         setFetchingMerchant(true);
         setMerchantFetchError('');
         setMerchantData(null); // Clear any previous merchant data
+        setApiKeys(null); // Clear any previously generated API keys
         
         try {
             // Make a request to your backend endpoint that will call the NMI API
             const response = await axios.get(route('admin.fetch-merchant-info', { gateway_id: data.gateway_id }));
             
             if (response.data.success && response.data.merchant) {
+                // Check if a user with this merchant_id already exists
+                try {
+                    const checkExistingResponse = await axios.get(route('admin.check-merchant-exists', { merchant_id: data.gateway_id }));
+                    
+                    if (checkExistingResponse.data.exists) {
+                        setMerchantFetchError(`A user with Gateway ID "${data.gateway_id}" already exists in the system. Please use a different Gateway ID.`);
+                        setFetchingMerchant(false);
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Error checking existing merchant:', error);
+                    // Continue with merchant data fetch even if check fails
+                }
+                
                 setMerchantData(response.data);
                 
                 // NMI API response format might be different, adjust field mapping as needed
@@ -79,6 +94,9 @@ export default function Create() {
                     last_name: merchant.lastName || merchant.last_name || '',
                     email: merchant.email || '',
                     merchant_id: data.gateway_id, // Use gateway_id as merchant_id
+                    // Clear password fields when changing merchants
+                    password: '',
+                    password_confirmation: ''
                 });
             } else {
                 setMerchantFetchError(response.data.message || 'Could not fetch merchant information');
@@ -118,12 +136,17 @@ export default function Create() {
                     privateKey: response.data.private_key || ''
                 });
                 
-                // Optionally add the keys to the form data
+                // Add the keys to the form data
                 setData({
                     ...data,
                     public_key: response.data.public_key || '',
                     private_key: response.data.private_key || ''
                 });
+                
+                // Display message if keys were retrieved rather than generated
+                if (response.data.message === 'Retrieved existing API keys') {
+                    console.log('Using existing API keys from NMI system');
+                }
             } else {
                 setApiKeyError(response.data.message || 'Failed to generate API keys');
             }
@@ -131,7 +154,7 @@ export default function Create() {
             console.error('Error generating API keys:', error);
             console.error('Error response:', error.response?.data);
             setApiKeyError(
-                error.response?.data?.message || 
+                error.response?.data?.message || error.response?.data?.error || 
                 'An error occurred while generating API keys'
             );
         } finally {
@@ -234,11 +257,15 @@ export default function Create() {
                                         <TextInput
                                             id="email"
                                             type="email"
-                                            className="mt-1 block w-full"
+                                            className="mt-1 block w-full bg-gray-100"
                                             value={data.email}
                                             onChange={(e) => setData('email', e.target.value)}
                                             required
+                                            readOnly
                                         />
+                                        <p className="mt-1 text-xs text-gray-500">
+                                            This field is automatically filled from merchant data.
+                                        </p>
                                         <InputError message={errors.email} className="mt-2" />
                                     </div>
 
@@ -272,10 +299,11 @@ export default function Create() {
                                         <TextInput
                                             id="business_name"
                                             type="text"
-                                            className="mt-1 block w-full"
+                                            className="mt-1 block w-full bg-gray-100"
                                             value={data.business_name}
                                             onChange={(e) => setData('business_name', e.target.value)}
                                             required
+                                            readOnly
                                         />
                                         <InputError message={errors.business_name} className="mt-2" />
                                     </div>
@@ -285,10 +313,11 @@ export default function Create() {
                                         <TextInput
                                             id="address"
                                             type="text"
-                                            className="mt-1 block w-full"
+                                            className="mt-1 block w-full bg-gray-100"
                                             value={data.address}
                                             onChange={(e) => setData('address', e.target.value)}
                                             required
+                                            readOnly
                                         />
                                         <InputError message={errors.address} className="mt-2" />
                                     </div>
@@ -298,7 +327,7 @@ export default function Create() {
                                         <TextInput
                                             id="phone_number"
                                             type="tel"
-                                            className="mt-1 block w-full"
+                                            className="mt-1 block w-full bg-gray-100"
                                             value={data.phone_number}
                                             onChange={(e) => {
                                                 const value = e.target.value.replace(/[^\d]/g, '');
@@ -309,6 +338,7 @@ export default function Create() {
                                             maxLength={10}
                                             pattern="[0-9]*"
                                             required
+                                            readOnly
                                         />
                                         <InputError message={errors.phone_number} className="mt-2" />
                                     </div>
@@ -334,10 +364,11 @@ export default function Create() {
                                         <TextInput
                                             id="first_name"
                                             type="text"
-                                            className="mt-1 block w-full"
+                                            className="mt-1 block w-full bg-gray-100"
                                             value={data.first_name}
                                             onChange={(e) => setData('first_name', e.target.value)}
                                             required
+                                            readOnly
                                         />
                                         <InputError message={errors.first_name} className="mt-2" />
                                     </div>
@@ -347,10 +378,11 @@ export default function Create() {
                                         <TextInput
                                             id="last_name"
                                             type="text"
-                                            className="mt-1 block w-full"
+                                            className="mt-1 block w-full bg-gray-100"
                                             value={data.last_name}
                                             onChange={(e) => setData('last_name', e.target.value)}
                                             required
+                                            readOnly
                                         />
                                         <InputError message={errors.last_name} className="mt-2" />
                                     </div>

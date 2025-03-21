@@ -52,6 +52,11 @@ Route::middleware(['auth', 'admin'])->group(function () {
         ->middleware(['auth', 'admin'])
         ->name('admin.fetch-merchant-info');
 
+    // Add this route to check if a merchant ID already exists
+    Route::get('/admin/check-merchant-exists/{merchant_id}', [UserProfileController::class, 'checkMerchantExists'])
+        ->middleware(['auth', 'admin'])
+        ->name('admin.check-merchant-exists');
+
     // Add this new route for generating API keys
     Route::post('/admin/users/{user}/generate-api-keys', [UserProfileController::class, 'generateApiKeys'])
         ->name('admin.users.generate-api-keys');

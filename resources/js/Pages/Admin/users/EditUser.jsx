@@ -1,4 +1,6 @@
 import { useForm, router } from '@inertiajs/react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import AdminAuthenticatedLayout from '@/Layouts/AdminAuthenticatedLayout';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
@@ -14,7 +16,31 @@ export default function EditUser({ user }) {
         merchant_id: user.merchant_id,
         first_name: user.first_name,
         last_name: user.last_name,
+        public_key: user.public_key,
+        private_key: user.private_key
     });
+
+    // Add state for API key generation
+    const [generatingKeys, setGeneratingKeys] = useState(false);
+    const [apiKeys, setApiKeys] = useState(null);
+    const [apiKeyError, setApiKeyError] = useState('');
+    const [hasExistingKeys, setHasExistingKeys] = useState(false);
+
+    // Check if user already has API keys
+    useEffect(() => {
+        // Check if the user prop contains public_key and private_key
+        if (user && user.public_key && user.private_key) {
+            setHasExistingKeys(true);
+            setApiKeys({
+                publicKey: user.public_key,
+                privateKey: user.private_key
+            });
+        } else {
+            setHasExistingKeys(false);
+            setApiKeys(null);
+        }
+    }, [user]);
+
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -32,6 +58,120 @@ export default function EditUser({ user }) {
         router.get(route('admin.users.index'));
     };
 
+    // Function to generate API keys
+    const generateApiKeys = async () => {
+        setGeneratingKeys(true);
+        setApiKeyError('');
+        console.log('Starting API key generation process');
+
+        try {
+            // Use the merchant_id as the gateway_id
+            const gatewayId = data.merchant_id;
+            console.log('Using gateway ID:', gatewayId);
+            
+            // Generate keys using the dedicated endpoint that checks for existing keys
+            // and only creates new ones if necessary
+            try {
+                console.log('Calling primary endpoint: admin.users.generate-api-keys');
+                const userKeysResponse = await axios.post(route('admin.users.generate-api-keys', { user: user.id }));
+                console.log('Response from primary endpoint:', userKeysResponse.data);
+                
+                if (userKeysResponse.data && userKeysResponse.data.success) {
+                    console.log('Successfully obtained keys from primary endpoint');
+                    // Keys were either retrieved or generated - update UI
+                    setApiKeys({
+                        publicKey: userKeysResponse.data.public_key,
+                        privateKey: userKeysResponse.data.private_key
+                    });
+                    setHasExistingKeys(true);
+                    
+                    // Update form data in case keys were just created
+                    setData(prevData => ({
+                        ...prevData,
+                        public_key: userKeysResponse.data.public_key,
+                        private_key: userKeysResponse.data.private_key
+                    }));
+                    
+                    return;
+                }
+            } catch (userKeysError) {
+                console.error('Error from admin.users.generate-api-keys endpoint:', userKeysError);
+                
+                // If keys already exist, update UI accordingly
+                if (userKeysError.response?.data?.error === 'API keys already exist for this user') {
+                    console.log('Keys already exist for this user');
+                    setHasExistingKeys(true);
+                    
+                    // If keys were returned in the error response, show them
+                    if (userKeysError.response.data.public_key && userKeysError.response.data.private_key) {
+                        console.log('Using existing keys returned in the response');
+                        setApiKeys({
+                            publicKey: userKeysError.response.data.public_key,
+                            privateKey: userKeysError.response.data.private_key
+                        });
+                    }
+                    return;
+                }
+                
+                // For other errors, set error message and try fallback method
+                setApiKeyError(userKeysError.response?.data?.error || 'Failed to generate API keys');
+            }
+            
+            // Only reach this point if the primary method failed for a reason other than "keys already exist"
+            console.log('Primary endpoint failed, trying fallback method');
+            
+            // Fallback method: Generate keys via the merchant keys endpoint
+            console.log('Calling fallback endpoint: admin.generate-merchant-api-keys');
+            const response = await axios.post(route('admin.generate-merchant-api-keys', { 
+                gateway_id: gatewayId 
+            }));
+
+            console.log('Response from fallback endpoint:', response.data);
+            
+            if (response.data.success) {
+                const publicKey = response.data.public_key || '';
+                const privateKey = response.data.private_key || '';
+                
+                console.log('Keys obtained from fallback endpoint, updating form data');
+                
+                // Update the form data with the new keys
+                setData({
+                    ...data,
+                    public_key: publicKey,
+                    private_key: privateKey
+                });
+                
+                // Save the updated user data to the database
+                console.log('Saving keys to database');
+                patch(route('admin.users.update', user.id), {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        console.log('Successfully saved keys to database');
+                        // Set the keys in the state for display
+                        setApiKeys({
+                            publicKey: publicKey,
+                            privateKey: privateKey
+                        });
+                        setHasExistingKeys(true);
+                    }
+                });
+                
+            } else {
+                console.error('Fallback endpoint failed:', response.data.message);
+                setApiKeyError(response.data.message || 'Failed to generate API keys');
+            }
+        } catch (error) {
+            console.error('Error generating API keys:', error);
+            console.error('Error response:', error.response?.data);
+            setApiKeyError(
+                error.response?.data?.message || error.response?.data?.error || 
+                'An error occurred while generating API keys'
+            );
+        } finally {
+            setGeneratingKeys(false);
+        }
+    };
+
     return (
         <AdminAuthenticatedLayout>
             <div className="py-12">
@@ -47,6 +187,59 @@ export default function EditUser({ user }) {
                             <h2 className="text-lg font-medium text-gray-900">
                                 Edit User
                             </h2>
+
+                            {/* API Key generation section */}
+                            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <h3 className="text-md font-medium text-gray-800">
+                                            API Keys
+                                        </h3>
+                                        <p className="text-sm text-gray-600 mt-1">
+                                            Generate API keys for this merchant to use with payment processing.
+                                        </p>
+                                        {hasExistingKeys && !apiKeys && (
+                                            <p className="text-sm text-green-600 mt-1">
+                                                This user already has API keys generated.
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <PrimaryButton
+                                            type="button"
+                                            onClick={generateApiKeys}
+                                            disabled={generatingKeys || hasExistingKeys}
+                                            className={hasExistingKeys ? "bg-gray-400 cursor-not-allowed" : ""}
+                                        >
+                                            {generatingKeys ? 'Generating...' : hasExistingKeys ? 'Keys Generated' : 'Generate API Keys'}
+                                        </PrimaryButton>
+                                    </div>
+                                </div>
+                                
+                                {apiKeyError && (
+                                    <p className="mt-2 text-sm text-red-600">{apiKeyError}</p>
+                                )}
+                                
+                                {/* Display API keys if they exist */}
+                                {apiKeys && (
+                                    <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                        <h4 className="font-medium text-blue-800">API Keys:</h4>
+                                        <div className="mt-2">
+                                            <p className="text-sm mt-1">
+                                                <strong>Private Key:</strong> <code className="bg-blue-100 px-1">{apiKeys.privateKey}</code>
+                                            </p>
+                                            <p className="text-sm">
+                                                <strong>Public Key:</strong> <code className="bg-blue-100 px-1">{apiKeys.publicKey}</code>
+                                            </p>
+                                            <p className="text-xs text-blue-600 mt-2">
+                                                {hasExistingKeys ? 
+                                                    "These keys are saved with the user's profile." :
+                                                    "These keys have been generated but not saved to the user profile. Copy them now if needed."}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
 
                             <form onSubmit={handleSubmit} className="mt-6 space-y-6">
                                 <div>

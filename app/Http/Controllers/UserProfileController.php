@@ -68,54 +68,109 @@ class UserProfileController extends Controller
     public function generateMerchantApiKeys($gatewayId)
     {
         try {
-            // Create private key for transactions
-            $privateKeyResponse = $this->nmiService->createPrivateApiKey($gatewayId, 'Private Key for Transactions');
+            // First, check if the merchant already has API keys
+            $existingKeys = $this->nmiService->checkExistingApiKeys($gatewayId);
             
-            // Create public key for tokenization
-            $publicKeyResponse = $this->nmiService->createPublicApiKey($gatewayId, 'Public Key for Tokenization');
+            // Make sure keys are properly initialized to avoid undefined array key issues
+            $publicKey = isset($existingKeys['public_key']) ? $existingKeys['public_key'] : null;
+            $privateKey = isset($existingKeys['private_key']) ? $existingKeys['private_key'] : null;
+            $keysExist = isset($existingKeys['keys_exist']) ? $existingKeys['keys_exist'] : false;
             
-            if ($privateKeyResponse && $publicKeyResponse) {
-                // NMI API returns keys in the 'keyText' field, not 'key'
-                if (isset($privateKeyResponse['keyText']) && isset($publicKeyResponse['keyText'])) {
-                    \Log::info('Successfully generated API keys for merchant', [
-                        'gateway_id' => $gatewayId,
-                        'private_key_id' => $privateKeyResponse['id'] ?? 'unknown',
-                        'public_key_id' => $publicKeyResponse['id'] ?? 'unknown'
+            // If keys already exist, return them instead of creating new ones
+            if ($keysExist) {
+                \Log::info('Using existing API keys for merchant', [
+                    'gateway_id' => $gatewayId
+                ]);
+                
+                return [
+                    'success' => true,
+                    'private_key' => $privateKey,
+                    'public_key' => $publicKey,
+                    'message' => 'Retrieved existing API keys'
+                ];
+            }
+            
+            \Log::info('Starting sequential key generation for merchant', [
+                'gateway_id' => $gatewayId,
+                'has_existing_public_key' => !empty($publicKey),
+                'has_existing_private_key' => !empty($privateKey)
+            ]);
+            
+            // IMPORTANT: Create keys one at a time with a check in between to avoid duplicates
+            
+            // Step 1: Create private key if needed
+            if (!$privateKey) {
+                \Log::info('Creating private key for merchant', ['gateway_id' => $gatewayId]);
+                // Create private key for transactions
+                $privateKeyResponse = $this->nmiService->createPrivateApiKey($gatewayId, 'Private Key for Transactions');
+                if ($privateKeyResponse && isset($privateKeyResponse['keyText'])) {
+                    $privateKey = $privateKeyResponse['keyText'];
+                    \Log::info('Private key created successfully', [
+                        'key_id' => $privateKeyResponse['id'] ?? 'unknown'
                     ]);
-                    
-                    return [
-                        'success' => true,
-                        'private_key' => $privateKeyResponse['keyText'],
-                        'public_key' => $publicKeyResponse['keyText']
-                    ];
                 } else {
-                    \Log::warning('API keys were generated but keyText field is missing', [
-                        'private_key_has_keyText' => isset($privateKeyResponse['keyText']),
-                        'public_key_has_keyText' => isset($publicKeyResponse['keyText']),
-                        'private_key_fields' => array_keys($privateKeyResponse),
-                        'public_key_fields' => array_keys($publicKeyResponse)
+                    \Log::warning('Failed to create private key', [
+                        'response' => $privateKeyResponse
                     ]);
-                    
-                    return [
-                        'success' => false,
-                        'message' => 'API keys were generated but the keyText field is missing from the response'
-                    ];
                 }
+                
+                // Check again for keys after creating private key to avoid race conditions
+                if (!empty($privateKey)) {
+                    $updatedKeys = $this->nmiService->checkExistingApiKeys($gatewayId);
+                    // If public key appeared in the meantime, use it
+                    if (isset($updatedKeys['public_key']) && !empty($updatedKeys['public_key'])) {
+                        $publicKey = $updatedKeys['public_key'];
+                        \Log::info('Found public key after creating private key', [
+                            'gateway_id' => $gatewayId
+                        ]);
+                    }
+                }
+            }
+            
+            // Step 2: Create public key if still needed
+            if (!$publicKey) {
+                \Log::info('Creating public key for merchant', ['gateway_id' => $gatewayId]);
+                // Create public key for tokenization
+                $publicKeyResponse = $this->nmiService->createPublicApiKey($gatewayId, 'Public Key for Tokenization');
+                if ($publicKeyResponse && isset($publicKeyResponse['keyText'])) {
+                    $publicKey = $publicKeyResponse['keyText'];
+                    \Log::info('Public key created successfully', [
+                        'key_id' => $publicKeyResponse['id'] ?? 'unknown'
+                    ]);
+                } else {
+                    \Log::warning('Failed to create public key', [
+                        'response' => $publicKeyResponse
+                    ]);
+                }
+            }
+            
+            // Final result
+            if ($privateKey && $publicKey) {
+                \Log::info('Successfully retrieved/generated API keys for merchant', [
+                    'gateway_id' => $gatewayId,
+                    'both_keys_obtained' => true
+                ]);
+                
+                return [
+                    'success' => true,
+                    'private_key' => $privateKey,
+                    'public_key' => $publicKey
+                ];
             } else {
                 // Log what failed
-                \Log::warning('Failed to generate one or both API keys', [
+                \Log::warning('Failed to get or generate one or both API keys', [
                     'gateway_id' => $gatewayId,
-                    'private_key_created' => !empty($privateKeyResponse),
-                    'public_key_created' => !empty($publicKeyResponse)
+                    'private_key_created' => !empty($privateKey),
+                    'public_key_created' => !empty($publicKey)
                 ]);
                 
                 // If we got at least one key, return what we have
-                if ($privateKeyResponse || $publicKeyResponse) {
+                if ($privateKey || $publicKey) {
                     return [
                         'success' => true,
-                        'private_key' => $privateKeyResponse['keyText'] ?? null,
-                        'public_key' => $publicKeyResponse['keyText'] ?? null,
-                        'message' => 'Only partial keys were generated'
+                        'private_key' => $privateKey ?: '',
+                        'public_key' => $publicKey ?: '',
+                        'message' => 'Only partial keys were available/generated'
                     ];
                 }
                 
@@ -147,7 +202,7 @@ class UserProfileController extends Controller
                 return [
                     'id' => $user->id,
                     'email' => $user->email,
-                    'businessName' => $user->profile->business_name,
+                    'businessName' => $user->profile ? $user->profile->business_name : 'No profile',
                     'dateCreated' => $user->created_at->format('Y-m-d'),
                 // Add any other fields you need
                 ];
@@ -183,6 +238,8 @@ class UserProfileController extends Controller
             'merchant_id' => $user->profile->merchant_id,
             'first_name' => $user->profile->first_name,
             'last_name' => $user->profile->last_name,
+            'public_key' => $user->profile->public_key,
+            'private_key' => $user->profile->private_key
         ];
 
         return Inertia::render('Admin/users/EditUser', [
@@ -200,6 +257,8 @@ class UserProfileController extends Controller
             'merchant_id' => ['required', 'string', 'max:255'],
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
+            'public_key' => ['required', 'string', 'max:255'],
+            'private_key' => ['required', 'string', 'max:255'],
         ]);
 
         $user->update([
@@ -214,6 +273,8 @@ class UserProfileController extends Controller
             'merchant_id' => $request->merchant_id,
             'first_name' => $request->first_name,
             'last_name' => $request->last_name,
+            'public_key' => $request->public_key,
+            'private_key' => $request->private_key,
         ]);
 
         return redirect()->route('admin.users.index')
@@ -266,31 +327,40 @@ class UserProfileController extends Controller
                 \Log::warning('Merchant not found for gateway ID: ' . $gatewayId);
                 return response()->json([
                     'success' => false,
-                    'message' => 'Invalid Gateway ID or merchant not found'
+                    'message' => 'Invalid Gateway ID or merchant not found',
+                    'public_key' => '',
+                    'private_key' => ''
                 ], 404);
             }
             
-            // Generate API keys
+            // Generate API keys using the updated method that checks for existing keys
             $apiKeys = $this->generateMerchantApiKeys($gatewayId);
             
+            $publicKey = isset($apiKeys['public_key']) ? $apiKeys['public_key'] : '';
+            $privateKey = isset($apiKeys['private_key']) ? $apiKeys['private_key'] : '';
+            $isSuccess = isset($apiKeys['success']) ? $apiKeys['success'] : false;
+            $message = isset($apiKeys['message']) ? $apiKeys['message'] : 'API keys generated successfully';
+            
             \Log::info('API key generation result for gateway ID: ' . $gatewayId, [
-                'success' => $apiKeys['success'] ?? false,
-                'has_public_key' => !empty($apiKeys['public_key']),
-                'has_private_key' => !empty($apiKeys['private_key']),
-                'message' => $apiKeys['message'] ?? null
+                'success' => $isSuccess,
+                'has_public_key' => !empty($publicKey),
+                'has_private_key' => !empty($privateKey),
+                'message' => $message
             ]);
             
-            if ($apiKeys['success']) {
+            if ($isSuccess) {
                 return response()->json([
                     'success' => true,
-                    'message' => 'API keys generated successfully',
-                    'public_key' => $apiKeys['public_key'] ?? '',
-                    'private_key' => $apiKeys['private_key'] ?? ''
+                    'message' => $message,
+                    'public_key' => $publicKey,
+                    'private_key' => $privateKey
                 ]);
             } else {
                 return response()->json([
                     'success' => false,
-                    'message' => $apiKeys['message'] ?? 'Failed to generate API keys with no specific error'
+                    'message' => $message,
+                    'public_key' => $publicKey,
+                    'private_key' => $privateKey
                 ], 400);
             }
         } catch (\Exception $e) {
@@ -302,7 +372,9 @@ class UserProfileController extends Controller
             
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred while generating API keys: ' . $e->getMessage()
+                'message' => 'An error occurred while generating API keys: ' . $e->getMessage(),
+                'public_key' => '',
+                'private_key' => ''
             ], 500);
         }
     }
@@ -311,7 +383,7 @@ class UserProfileController extends Controller
      * Generate API keys for an existing user
      * 
      * @param User $user
-     * @return \Illuminate\Http\RedirectResponse
+     * @return \Illuminate\Http\JsonResponse
      */
     public function generateApiKeys(User $user)
     {
@@ -320,36 +392,104 @@ class UserProfileController extends Controller
             $gatewayId = $user->profile->merchant_id;
             
             if (!$gatewayId) {
-                return redirect()->back()
-                    ->with('error', 'User does not have a valid merchant ID');
+                return response()->json([
+                    'success' => false,
+                    'error' => 'User does not have a valid merchant ID',
+                    'public_key' => '',
+                    'private_key' => ''
+                ], 400);
             }
             
-            // Check if keys already exist
+            // Check if keys already exist in the database
             if ($user->profile->public_key && $user->profile->private_key) {
-                return redirect()->back()
-                    ->with('error', 'API keys already exist for this user');
+                return response()->json([
+                    'success' => false,
+                    'error' => 'API keys already exist for this user',
+                    'public_key' => $user->profile->public_key,
+                    'private_key' => $user->profile->private_key
+                ], 400);
             }
             
             // Generate API keys
             $apiKeys = $this->generateMerchantApiKeys($gatewayId);
             
             if ($apiKeys['success']) {
+                $publicKey = isset($apiKeys['public_key']) ? $apiKeys['public_key'] : '';
+                $privateKey = isset($apiKeys['private_key']) ? $apiKeys['private_key'] : '';
+                
+                // Make sure we have both keys to save
+                if (empty($publicKey) || empty($privateKey)) {
+                    \Log::error('Missing keys in successful API key generation', [
+                        'has_public_key' => !empty($publicKey),
+                        'has_private_key' => !empty($privateKey)
+                    ]);
+                    
+                    return response()->json([
+                        'success' => false,
+                        'error' => 'API keys were not properly generated. Missing ' . 
+                                   (empty($publicKey) ? 'public key' : '') . 
+                                   (empty($publicKey) && empty($privateKey) ? ' and ' : '') . 
+                                   (empty($privateKey) ? 'private key' : ''),
+                        'public_key' => $publicKey,
+                        'private_key' => $privateKey
+                    ], 400);
+                }
+                
                 // Update the user profile with the new keys
                 $user->profile->update([
-                    'public_key' => $apiKeys['public_key'],
-                    'private_key' => $apiKeys['private_key']
+                    'public_key' => $publicKey,
+                    'private_key' => $privateKey
                 ]);
                 
-                return redirect()->back()
-                    ->with('message', 'API keys generated successfully');
+                return response()->json([
+                    'success' => true,
+                    'message' => 'API keys generated successfully',
+                    'public_key' => $publicKey,
+                    'private_key' => $privateKey
+                ]);
             } else {
-                return redirect()->back()
-                    ->with('error', $apiKeys['message']);
+                return response()->json([
+                    'success' => false,
+                    'error' => $apiKeys['message'] ?? 'Failed to generate API keys with no specific error',
+                    'public_key' => '',
+                    'private_key' => ''
+                ], 400);
             }
         } catch (\Exception $e) {
             \Log::error('Error generating API keys: ' . $e->getMessage());
-            return redirect()->back()
-                ->with('error', 'An error occurred while generating API keys: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'error' => 'An error occurred while generating API keys: ' . $e->getMessage(),
+                'public_key' => '',
+                'private_key' => ''
+            ], 500);
+        }
+    }
+
+    /**
+     * Check if a merchant ID already exists in the database
+     * 
+     * @param string $merchantId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function checkMerchantExists($merchantId)
+    {
+        try {
+            \Log::info('Checking if merchant ID exists: ' . $merchantId);
+            
+            // Check if any user profile exists with this merchant ID
+            $exists = UserProfile::where('merchant_id', $merchantId)->exists();
+            
+            return response()->json([
+                'exists' => $exists,
+                'message' => $exists ? 'A user with this merchant ID already exists' : 'Merchant ID is available'
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error checking merchant existence: ' . $e->getMessage());
+            return response()->json([
+                'exists' => false,
+                'message' => 'An error occurred while checking merchant existence: ' . $e->getMessage()
+            ], 500);
         }
     }
 }
