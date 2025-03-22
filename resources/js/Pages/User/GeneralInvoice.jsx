@@ -182,28 +182,28 @@ const GeneralInvoice = () => {
     return (
         <UserAuthenticatedLayout
             header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                <h2 className="text-center md:text-left text-xl font-semibold leading-tight text-gray-800">
                     {isEditing ? 'Edit Invoice' : 'Create General Invoice'}
                 </h2>
             }
         >
-            <div className="max-w-2xl mx-auto py-10">
+            <div className="max-w-2xl mx-auto md:py-10">
                 
                 {/* Email input section */}
-                <div className="mb-6 p-6 bg-white rounded shadow-md">
-                    <div className="flex items-center gap-4">
+                <div className="hidden md:block mb-6 p-6 bg-white rounded shadow-md">
+                    <div className="flex flex-col md:flex-row items-center gap-4">
                         <input
                             type="email"
                             value={recipientEmail}
                             onChange={(e) => setRecipientEmail(e.target.value)}
                             placeholder="Recipient's email"
-                            className="flex-1 border-gray-300 rounded-md shadow-sm focus:border-gray-600 focus:ring focus:ring-gray-200 focus:ring-opacity-50"
+                            className="w-full flex-1 border-gray-300 rounded-md shadow-sm focus:border-gray-600 focus:ring focus:ring-gray-200 focus:ring-opacity-50"
                             disabled={sending}
                         />
                         <button
                             onClick={handleSendInvoice}
                             disabled={sending}
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-md text-base hover:bg-indigo-700 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:opacity-50"
+                            className="w-full md:w-auto px-4 py-2 bg-indigo-600 text-white rounded-md text-base hover:bg-indigo-700 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:opacity-50"
                         >
                             {sending ? (
                                 <>
@@ -217,7 +217,7 @@ const GeneralInvoice = () => {
                             )}
                         </button>
                     </div>
-                    <p className="text-xs text-gray-500 mt-2">
+                    <p className="text-center md:text-left text-xs text-gray-500 mt-2">
                         This will create an invoice in your NMI merchant portal and send an email with PDF to the recipient.
                     </p>
                 </div>
@@ -230,7 +230,7 @@ const GeneralInvoice = () => {
                 </div>
 
                 {/* Templates buttons - visible on both mobile and desktop */}
-                <div className="md:hidden flex justify-center gap-4 mb-4">
+                <div className="md:hidden flex justify-center flex-wrap gap-4 mb-4">
                     <button 
                         onClick={handleDownloadPdf}
                         className="px-3 py-2 bg-gray-500 text-white rounded-md text-sm hover:bg-gray-600 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gray-600 focus:ring-offset-2 active:bg-gray-700"
@@ -260,6 +260,39 @@ const GeneralInvoice = () => {
                     data={invoiceData} 
                     onChange={handleInvoiceUpdate} 
                 />
+
+                {/* Email input section */}
+                <div className="block md:hidden mb-6 p-6 my-5 bg-white rounded shadow-md">
+                    <div className="flex flex-col md:flex-row items-center gap-4">
+                        <input
+                            type="email"
+                            value={recipientEmail}
+                            onChange={(e) => setRecipientEmail(e.target.value)}
+                            placeholder="Recipient's email"
+                            className="w-full flex-1 border-gray-300 rounded-md shadow-sm focus:border-gray-600 focus:ring focus:ring-gray-200 focus:ring-opacity-50"
+                            disabled={sending}
+                        />
+                        <button
+                            onClick={handleSendInvoice}
+                            disabled={sending}
+                            className="w-full md:w-auto px-4 py-2 bg-indigo-600 text-white rounded-md text-base hover:bg-indigo-700 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:opacity-50"
+                        >
+                            {sending ? (
+                                <>
+                                    <LoaderIcon className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                                    Sending...
+                                </>
+                            ) : (
+                                <>
+                                    {isEditing ? 'Update & Send' : 'Send Invoice'}
+                                </>
+                            )}
+                        </button>
+                    </div>
+                    <p className="text-center md:text-left text-xs text-gray-500 mt-2">
+                        This will create an invoice in your NMI merchant portal and send an email with PDF to the recipient.
+                    </p>
+                </div>
             </div>
         </UserAuthenticatedLayout>
     );

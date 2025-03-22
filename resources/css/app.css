@@ -72,12 +72,18 @@
   }
 
   .image__upload {
-    @apply cursor-pointer text-xs text-gray-400 bg-gray-100 border-2 border-dashed border-gray-300 block w-[100px] h-5 p-0 outline-none transition-all duration-200;
+    @apply cursor-pointer text-xs text-gray-400 bg-gray-100 border-2 border-dashed border-gray-300 block w-[100px] h-20 p-0 outline-none transition-all duration-200;
   }
 
   .image__upload:focus,
   .image__upload:hover {
     @apply h-[100px] text-sm;
+  }
+
+  @media (max-width: 768px) {
+    .image__upload {
+      @apply h-[100px] text-sm;
+    }
   }
 
   .image__img {
