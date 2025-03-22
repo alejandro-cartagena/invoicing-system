@@ -6,6 +6,7 @@ import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import PrimaryButton from '@/Components/PrimaryButton';
+import { Head } from '@inertiajs/react';
 
 export default function EditUser({ user }) {
     const { data, setData, patch, processing, errors } = useForm({
@@ -44,14 +45,7 @@ export default function EditUser({ user }) {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        patch(route('admin.users.update', user.id), {
-            onError: (errors) => {
-                console.log('Submission errors:', errors);
-            },
-            onSuccess: () => {
-                console.log('Success!');
-            },
-        });
+        // Form submission disabled as fields are read-only
     };
 
     const handleBack = () => {
@@ -174,9 +168,10 @@ export default function EditUser({ user }) {
 
     return (
         <AdminAuthenticatedLayout>
+            <Head title="User Details" />
             <div className="py-12">
                 <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                    <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                    <div className="bg-white overflow-hidden shadow-lg sm:rounded-lg">
                         <div className="p-6">
                             <button
                                 onClick={handleBack}
@@ -185,8 +180,11 @@ export default function EditUser({ user }) {
                                 &#8592; Back to Users
                             </button>
                             <h2 className="text-lg font-medium text-gray-900">
-                                Edit User
+                                User Details
                             </h2>
+                            <p className="text-sm text-gray-600 mt-1 mb-4">
+                                View user information and manage API keys. Fields are read-only.
+                            </p>
 
                             {/* API Key generation section */}
                             <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -247,10 +245,11 @@ export default function EditUser({ user }) {
                                     <TextInput
                                         id="email"
                                         type="email"
-                                        className="mt-1 block w-full"
+                                        className="mt-1 block w-full bg-gray-100 cursor-not-allowed"
                                         value={data.email}
                                         onChange={(e) => setData('email', e.target.value)}
                                         required
+                                        readOnly
                                     />
                                     <InputError message={errors.email} className="mt-2" />
                                 </div>
@@ -260,10 +259,11 @@ export default function EditUser({ user }) {
                                     <TextInput
                                         id="business_name"
                                         type="text"
-                                        className="mt-1 block w-full"
+                                        className="mt-1 block w-full bg-gray-100 cursor-not-allowed"
                                         value={data.business_name}
                                         onChange={(e) => setData('business_name', e.target.value)}
                                         required
+                                        readOnly
                                     />
                                     <InputError message={errors.business_name} className="mt-2" />
                                 </div>
@@ -273,10 +273,11 @@ export default function EditUser({ user }) {
                                     <TextInput
                                         id="address"
                                         type="text"
-                                        className="mt-1 block w-full"
+                                        className="mt-1 block w-full bg-gray-100 cursor-not-allowed"
                                         value={data.address}
                                         onChange={(e) => setData('address', e.target.value)}
                                         required
+                                        readOnly
                                     />
                                     <InputError message={errors.address} className="mt-2" />
                                 </div>
@@ -286,7 +287,7 @@ export default function EditUser({ user }) {
                                     <TextInput
                                         id="phone_number"
                                         type="tel"
-                                        className="mt-1 block w-full"
+                                        className="mt-1 block w-full bg-gray-100 cursor-not-allowed"
                                         value={data.phone_number}
                                         onChange={(e) => {
                                             const value = e.target.value.replace(/[^\d]/g, '');
@@ -297,6 +298,7 @@ export default function EditUser({ user }) {
                                         maxLength={10}
                                         pattern="[0-9]*"
                                         required
+                                        readOnly
                                     />
                                     <InputError message={errors.phone_number} className="mt-2" />
                                 </div>
@@ -306,10 +308,11 @@ export default function EditUser({ user }) {
                                     <TextInput
                                         id="merchant_id"
                                         type="text"
-                                        className="mt-1 block w-full"
+                                        className="mt-1 block w-full bg-gray-100 cursor-not-allowed"
                                         value={data.merchant_id}
                                         onChange={(e) => setData('merchant_id', e.target.value)}
                                         required
+                                        readOnly
                                     />
                                     <InputError message={errors.merchant_id} className="mt-2" />
                                 </div>
@@ -319,10 +322,11 @@ export default function EditUser({ user }) {
                                     <TextInput
                                         id="first_name"
                                         type="text"
-                                        className="mt-1 block w-full"
+                                        className="mt-1 block w-full bg-gray-100 cursor-not-allowed"
                                         value={data.first_name}
                                         onChange={(e) => setData('first_name', e.target.value)}
                                         required
+                                        readOnly
                                     />
                                     <InputError message={errors.first_name} className="mt-2" />
                                 </div>
@@ -332,19 +336,15 @@ export default function EditUser({ user }) {
                                     <TextInput
                                         id="last_name"
                                         type="text"
-                                        className="mt-1 block w-full"
+                                        className="mt-1 block w-full bg-gray-100 cursor-not-allowed"
                                         value={data.last_name}
                                         onChange={(e) => setData('last_name', e.target.value)}
                                         required
+                                        readOnly
                                     />
                                     <InputError message={errors.last_name} className="mt-2" />
                                 </div>
 
-                                <div className="flex items-center gap-4">
-                                    <PrimaryButton disabled={processing}>
-                                        Update User
-                                    </PrimaryButton>
-                                </div>
                             </form>
                         </div>
                     </div>

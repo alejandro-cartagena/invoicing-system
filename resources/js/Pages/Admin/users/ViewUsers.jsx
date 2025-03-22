@@ -15,7 +15,8 @@ const ViewUsers = ({ users }) => {
     // Filter users based on search
     const filteredUsers = users.filter(user => 
         user.businessName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase())
+        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (user.merchantId && user.merchantId.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     // Calculate pagination
@@ -110,6 +111,9 @@ const ViewUsers = ({ users }) => {
                                             Email
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Merchant ID
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Date Created
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -125,6 +129,9 @@ const ViewUsers = ({ users }) => {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 {user.email}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                {user.merchantId || 'Not assigned'}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 {new Date(user.dateCreated).toLocaleDateString()}

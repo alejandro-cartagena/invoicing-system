@@ -24,9 +24,6 @@ export default function Create() {
     const [fetchingMerchant, setFetchingMerchant] = useState(false);
     const [merchantFetchError, setMerchantFetchError] = useState('');
     const [merchantData, setMerchantData] = useState(null);
-    const [generatingKeys, setGeneratingKeys] = useState(false);
-    const [apiKeys, setApiKeys] = useState(null);
-    const [apiKeyError, setApiKeyError] = useState('');
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -60,7 +57,6 @@ export default function Create() {
         setFetchingMerchant(true);
         setMerchantFetchError('');
         setMerchantData(null); // Clear any previous merchant data
-        setApiKeys(null); // Clear any previously generated API keys
         
         try {
             // Make a request to your backend endpoint that will call the NMI API
@@ -112,55 +108,6 @@ export default function Create() {
         }
     };
 
-    // Function to generate API keys
-    const generateApiKeys = async () => {
-        if (!merchantData) {
-            setApiKeyError('Please fetch a valid merchant first');
-            return;
-        }
-
-        setGeneratingKeys(true);
-        setApiKeyError('');
-
-        try {
-            console.log('Calling API to generate keys for gateway ID:', data.gateway_id);
-            const response = await axios.post(route('admin.generate-merchant-api-keys', { 
-                gateway_id: data.gateway_id 
-            }));
-            
-            console.log('API key generation response:', response.data);
-
-            if (response.data.success) {
-                setApiKeys({
-                    publicKey: response.data.public_key || '',
-                    privateKey: response.data.private_key || ''
-                });
-                
-                // Add the keys to the form data
-                setData({
-                    ...data,
-                    public_key: response.data.public_key || '',
-                    private_key: response.data.private_key || ''
-                });
-                
-                // Display message if keys were retrieved rather than generated
-                if (response.data.message === 'Retrieved existing API keys') {
-                    console.log('Using existing API keys from NMI system');
-                }
-            } else {
-                setApiKeyError(response.data.message || 'Failed to generate API keys');
-            }
-        } catch (error) {
-            console.error('Error generating API keys:', error);
-            console.error('Error response:', error.response?.data);
-            setApiKeyError(
-                error.response?.data?.message || error.response?.data?.error || 
-                'An error occurred while generating API keys'
-            );
-        } finally {
-            setGeneratingKeys(false);
-        }
-    };
 
     return (
         <AdminAuthenticatedLayout>
@@ -215,38 +162,9 @@ export default function Create() {
                                                 You can now complete the user registration below.
                                             </p>
                                         </div>
-                                        <div>
-                                            <PrimaryButton
-                                                type="button"
-                                                onClick={generateApiKeys}
-                                                disabled={generatingKeys}
-                                                className="ml-4"
-                                            >
-                                                {generatingKeys ? 'Generating...' : 'Generate API Keys'}
-                                            </PrimaryButton>
-                                        </div>
                                     </div>
                                     
-                                    {apiKeyError && (
-                                        <p className="mt-2 text-sm text-red-600">{apiKeyError}</p>
-                                    )}
                                     
-                                    {apiKeys && (
-                                        <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                                            <h4 className="font-medium text-blue-800">API Keys Generated:</h4>
-                                            <div className="mt-2">
-                                                <p className="text-sm mt-1">
-                                                    <strong>Private Key:</strong> <code className="bg-blue-100 px-1">{apiKeys.privateKey}</code>
-                                                </p>
-                                                <p className="text-sm">
-                                                    <strong>Public Key:</strong> <code className="bg-blue-100 px-1">{apiKeys.publicKey}</code>
-                                                </p>
-                                                <p className="text-xs text-blue-600 mt-2">
-                                                    These keys will be saved with the user. Make sure to copy them now if you need them elsewhere.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             )}
                             
@@ -387,21 +305,6 @@ export default function Create() {
                                         <InputError message={errors.last_name} className="mt-2" />
                                     </div>
 
-                                    {/* Add hidden fields for the API keys */}
-                                    {apiKeys && (
-                                        <>
-                                            <input 
-                                                type="hidden" 
-                                                name="public_key" 
-                                                value={apiKeys.publicKey || ''} 
-                                            />
-                                            <input 
-                                                type="hidden" 
-                                                name="private_key" 
-                                                value={apiKeys.privateKey || ''} 
-                                            />
-                                        </>
-                                    )}
                                     
                                     <div className="flex items-center gap-4">
                                         <PrimaryButton disabled={processing}>

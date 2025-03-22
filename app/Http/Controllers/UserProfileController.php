@@ -204,6 +204,7 @@ class UserProfileController extends Controller
                     'email' => $user->email,
                     'businessName' => $user->profile ? $user->profile->business_name : 'No profile',
                     'dateCreated' => $user->created_at->format('Y-m-d'),
+                    'merchantId' => $user->profile ? $user->profile->merchant_id : null,
                 // Add any other fields you need
                 ];
             });
