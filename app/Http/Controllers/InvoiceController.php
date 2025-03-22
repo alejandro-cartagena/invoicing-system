@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Mail\SendInvoiceMail;
 use App\Models\Invoice;
+use App\Models\User;
+use App\Models\UserProfile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
@@ -669,6 +671,250 @@ class InvoiceController extends Controller
                 'invoiceId' => $invoice->id,
                 'isEditing' => true,
             ]);
+        }
+    }
+
+    /**
+     * Send invoice to NMI merchant portal
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function sendInvoiceToNmi(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'invoiceData' => 'required|array',
+                'recipientEmail' => 'required|email',
+                'pdfBase64' => 'required|string',
+                'invoiceType' => 'required|in:general,real_estate',
+            ]);
+
+            // Get the authenticated user
+            $user = Auth::user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User not authenticated'
+                ], 401);
+            }
+            
+            // Get the user's profile
+            $userProfile = UserProfile::where('user_id', $user->id)->first();
+            if (!$userProfile) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User profile not found'
+                ], 404);
+            }
+
+            // Check if the user has a private key
+            if (empty($userProfile->private_key)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No API private key found for your account. Please contact your administrator.'
+                ], 400);
+            }
+
+            // Process the PDF data
+            $pdfContent = $validated['pdfBase64'];
+            if (strpos($pdfContent, 'data:application/pdf;base64,') === 0) {
+                $pdfContent = substr($pdfContent, 28);
+            }
+            
+            // Decode the base64 content
+            $decodedPdf = base64_decode($pdfContent);
+            
+            // Verify it's a valid PDF (check for PDF signature)
+            if (substr($decodedPdf, 0, 4) !== '%PDF') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid PDF content'
+                ], 400);
+            }
+
+            // Extract invoice data
+            $invoiceData = $validated['invoiceData'];
+            
+            // Calculate subtotal from product lines
+            $subtotal = 0;
+            $nmiData = [];
+            if (isset($invoiceData['productLines']) && is_array($invoiceData['productLines'])) {
+                foreach ($invoiceData['productLines'] as $index => $line) {
+                    $quantity = floatval($line['quantity'] ?? 0);
+                    $rate = floatval($line['rate'] ?? 0);
+                    $lineTotal = $quantity * $rate;
+                    $subtotal += $lineTotal;
+                    
+                    // Adding line items to the request
+                    $nmiData['item_description_' . ($index + 1)] = $line['description'] ?? '';
+                    $nmiData['item_unit_cost_' . ($index + 1)] = number_format($rate, 2, '.', '');
+                    $nmiData['item_quantity_' . ($index + 1)] = $quantity;
+                    $nmiData['item_total_amount_' . ($index + 1)] = number_format($lineTotal, 2, '.', '');
+                }
+            }
+            
+            // Extract tax rate from tax label (e.g., "Tax (10%)" -> 10)
+            $taxRate = 0;
+            $taxAmount = 0;
+            if (isset($invoiceData['taxLabel'])) {
+                preg_match('/(\d+)%/', $invoiceData['taxLabel'], $matches);
+                if (isset($matches[1])) {
+                    $taxRate = floatval($matches[1]);
+                    $taxAmount = $subtotal * ($taxRate / 100);
+                }
+            }
+            
+            $total = $subtotal + $taxAmount;
+            
+            // Parse dates
+            $invoiceDate = isset($invoiceData['invoiceDate']) && !empty($invoiceData['invoiceDate']) 
+                ? date('Y-m-d', strtotime($invoiceData['invoiceDate'])) 
+                : date('Y-m-d');
+                
+            $dueDate = isset($invoiceData['invoiceDueDate']) && !empty($invoiceData['invoiceDueDate']) 
+                ? date('Y-m-d', strtotime($invoiceData['invoiceDueDate'])) 
+                : date('Y-m-d', strtotime('+30 days'));
+            
+            // Generate a unique payment token
+            $paymentToken = Str::random(64);
+            
+            // Create invoice data array for our database
+            $invoiceCreateData = [
+                'user_id' => $user->id,
+                'invoice_type' => $validated['invoiceType'],
+                'invoice_number' => $invoiceData['invoiceTitle'] ?? ('INV-' . time()),
+                'client_name' => $invoiceData['clientName'] ?? 'Client',
+                'client_email' => $validated['recipientEmail'],
+                'subtotal' => $subtotal,
+                'tax_rate' => $taxRate,
+                'tax_amount' => $taxAmount,
+                'total' => $total,
+                'invoice_date' => $invoiceDate,
+                'due_date' => $dueDate,
+                'status' => 'sent',
+                'invoice_data' => $invoiceData,
+                'payment_token' => $paymentToken,
+            ];
+            
+            // Prepare NMI API request data
+            $nmiData = array_merge($nmiData, [
+                'security_key' => $userProfile->private_key,
+                'invoicing' => 'add_invoice',
+                'amount' => number_format($total, 2, '.', ''),
+                'email' => $validated['recipientEmail'],
+                // Optional fields that we can populate from invoice data
+                'payment_terms' => 'upon_receipt',
+                'payment_methods_allowed' => 'cc', // Credit card only
+                'order_description' => $invoiceData['notes'] ?? 'Invoice ' . ($invoiceData['invoiceTitle'] ?? ''),
+                'orderid' => $invoiceData['invoiceTitle'] ?? ('INV-' . time()),
+                'customer_id' => $invoiceData['clientName'] ?? '',
+                'tax' => number_format($taxAmount, 2, '.', ''),
+                'currency' => 'USD', // Default to USD
+            ]);
+            
+            // Add customer information if available
+            if (isset($invoiceData['clientName'])) {
+                $nameParts = explode(' ', $invoiceData['clientName'], 2);
+                $nmiData['first_name'] = $nameParts[0] ?? '';
+                $nmiData['last_name'] = $nameParts[1] ?? '';
+            }
+            
+            // Add company information if available
+            if (isset($invoiceData['companyName'])) {
+                $nmiData['company'] = $invoiceData['companyName'];
+            }
+            
+            // Add billing address if available
+            if (isset($invoiceData['billingAddress'])) {
+                $nmiData['address1'] = $invoiceData['billingAddress'];
+            }
+            
+            // Log the request data (redacting the security key)
+            $logData = $nmiData;
+            $logData['security_key'] = '[REDACTED]';
+            \Log::info('Sending invoice to NMI merchant portal', $logData);
+            
+            // Send the request to NMI
+            $ch = curl_init('https://secure.nmi.com/api/transact.php');
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($nmiData));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            
+            // Disable SSL verification for local development
+            if (app()->environment('local')) {
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            } else {
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+            }
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            
+            curl_close($ch);
+            
+            // Log the response
+            \Log::info('NMI Invoice API Response', [
+                'http_code' => $httpCode,
+                'response' => $response,
+                'curl_error' => $curlError
+            ]);
+            
+            // Check for cURL errors
+            if ($curlError) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error connecting to payment gateway: ' . $curlError
+                ], 500);
+            }
+            
+            // Parse the response
+            parse_str($response, $responseData);
+            
+            // Check if the invoice was created successfully
+            if (isset($responseData['response']) && $responseData['response'] == 1) {
+                // Create a record in our database
+                $invoice = Invoice::create($invoiceCreateData);
+                
+                // Send the email with the PDF attachment
+                Mail::to($validated['recipientEmail'])
+                    ->send(new SendInvoiceMail(
+                        $invoiceData,
+                        $user,
+                        $decodedPdf,
+                        $invoice->payment_token,
+                        false,
+                        $validated['invoiceType']
+                    ));
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Invoice created in merchant portal and email sent successfully',
+                    'invoice_id' => $invoice->id,
+                    'nmi_response' => $responseData
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => $responseData['responsetext'] ?? 'Failed to create invoice in merchant portal',
+                    'nmi_response' => $responseData
+                ], 400);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Failed to send invoice to NMI: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send invoice to NMI: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

@@ -79,8 +79,10 @@ Route::post('/invoice/send-email', [InvoiceController::class, 'sendEmail'])
     ->middleware(['auth'])
     ->name('user.invoice.send-email');
 
-
-
+// Route for sending invoice to NMI merchant portal
+Route::post('/invoice/send-to-nmi', [InvoiceController::class, 'sendInvoiceToNmi'])
+    ->middleware(['auth', 'verified'])
+    ->name('invoice.send-to-nmi');
 
 // Payment routes (these will be accessed via email links)
 Route::get('/general-invoice/pay/{token}/credit-card', [InvoiceController::class, 'showCreditCardPayment'])
