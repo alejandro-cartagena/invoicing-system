@@ -182,7 +182,7 @@ const GeneralInvoice = () => {
     return (
         <UserAuthenticatedLayout
             header={
-                <h2 className="text-center md:text-left text-xl font-semibold leading-tight text-gray-800">
+                <h2 className="text-center text-xl font-semibold leading-tight text-gray-800">
                     {isEditing ? 'Edit Invoice' : 'Create General Invoice'}
                 </h2>
             }

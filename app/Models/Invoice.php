@@ -34,6 +34,7 @@ class Invoice extends Model
         // Payment specific fields
         'payment_date',
         'transaction_id',
+        'nmi_invoice_id',
     ];
 
     protected $casts = [

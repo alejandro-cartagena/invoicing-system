@@ -877,7 +877,12 @@ class InvoiceController extends Controller
             
             // Check if the invoice was created successfully
             if (isset($responseData['response']) && $responseData['response'] == 1) {
+                // Extract invoice_id from the NMI response if available
+                $nmiInvoiceId = $responseData['invoice_id'] ?? null;
+                
                 // Create a record in our database
+                $invoiceCreateData['nmi_invoice_id'] = $nmiInvoiceId; // Store the NMI invoice ID
+                
                 $invoice = Invoice::create($invoiceCreateData);
                 
                 // Send the email with the PDF attachment
@@ -895,6 +900,7 @@ class InvoiceController extends Controller
                     'success' => true,
                     'message' => 'Invoice created in merchant portal and email sent successfully',
                     'invoice_id' => $invoice->id,
+                    'nmi_invoice_id' => $nmiInvoiceId, // Include the NMI invoice ID in the response
                     'nmi_response' => $responseData
                 ]);
             } else {
