@@ -6,6 +6,7 @@ import EditableTextarea from './EditableTextarea'
 import EditableCalendarInput from './EditableCalendarInput'
 import EditableFileImage from './EditableFileImage'
 import countryList from '../../data/countryList'
+import statesList from '../../data/statesList'
 import Document from './Document'
 import Page from './Page'
 import View from './View'
@@ -85,6 +86,17 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
         newInvoice[name] = value
       } else if (name !== 'logoWidth' && typeof value === 'string') {
         newInvoice[name] = value
+        
+        // Special handling for firstName and lastName to update clientName
+        if (name === 'firstName' || name === 'lastName') {
+          const firstName = name === 'firstName' ? value : newInvoice.firstName || '';
+          const lastName = name === 'lastName' ? value : newInvoice.lastName || '';
+          // Only update clientName if it was empty or matched the previous first+last name combination
+          const previousFullName = `${newInvoice.firstName || ''} ${newInvoice.lastName || ''}`.trim();
+          if (!newInvoice.clientName || newInvoice.clientName === previousFullName) {
+            newInvoice.clientName = `${firstName} ${lastName}`.trim();
+          }
+        }
       }
 
       setInvoice(newInvoice)
@@ -192,6 +204,40 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
     }
   }, []);
 
+  // For the PDF display, format the address properly
+  const formatBillingAddress = () => {
+    const parts = [];
+    
+    // Full name or company name
+    if (invoice.clientName) {
+      parts.push(invoice.clientName);
+    } else if (invoice.firstName || invoice.lastName) {
+      parts.push(`${invoice.firstName || ''} ${invoice.lastName || ''}`.trim());
+    }
+    
+    // Address line
+    if (invoice.clientAddress) {
+      parts.push(invoice.clientAddress);
+    }
+    
+    // City, State ZIP
+    const cityStateZip = [];
+    if (invoice.city) cityStateZip.push(invoice.city);
+    if (invoice.state) cityStateZip.push(invoice.state);
+    if (invoice.zip) cityStateZip.push(invoice.zip);
+    
+    if (cityStateZip.length > 0) {
+      parts.push(cityStateZip.join(', '));
+    }
+    
+    // Country
+    if (invoice.country) {
+      parts.push(invoice.country);
+    }
+    
+    return parts;
+  }
+
   return (
     <Document pdfMode={pdfMode}>
       <Page className="relative bg-white p-9 shadow-md" pdfMode={pdfMode}>
@@ -263,32 +309,84 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
             >
               {invoice.billTo || "Bill To"}
             </Text>
+            
+            {/* First Name and Last Name row */}
+            <View className="flex flex-row gap-2" pdfMode={pdfMode}>
+              <View className="w-1/2" pdfMode={pdfMode}>
+                <EditableInput
+                  className="border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400"
+                  placeholder="First Name"
+                  value={invoice.firstName || ''}
+                  onChange={(value) => handleChange('firstName', value)}
+                  pdfMode={pdfMode}
+                />
+              </View>
+              <View className="w-1/2" pdfMode={pdfMode}>
+                <EditableInput
+                  className="border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400"
+                  placeholder="Last Name"
+                  value={invoice.lastName || ''}
+                  onChange={(value) => handleChange('lastName', value)}
+                  pdfMode={pdfMode}
+                />
+              </View>
+            </View>
+            
+            {/* Client's business/company name (optional) */}
             <EditableInput
               className="border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400"
-              placeholder="Your Client's Name"
+              placeholder="Company Name (optional)"
               value={invoice.clientName}
               onChange={(value) => handleChange('clientName', value)}
               pdfMode={pdfMode}
             />
+            
+            {/* Address */}
             <EditableInput
               className="border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400"
-              placeholder="Client's Address"
+              placeholder="Address Line 1"
               value={invoice.clientAddress}
               onChange={(value) => handleChange('clientAddress', value)}
               pdfMode={pdfMode}
             />
-            <EditableInput
-              className="border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400"
-              placeholder="City, State Zip"
-              value={invoice.clientAddress2}
-              onChange={(value) => handleChange('clientAddress2', value)}
-              pdfMode={pdfMode}
-            />
+            
+            {/* City, State, Zip row */}
+            <View className="flex flex-row gap-2" pdfMode={pdfMode}>
+              <View className="w-1/3" pdfMode={pdfMode}>
+                <EditableInput
+                  className="border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400"
+                  placeholder="City"
+                  value={invoice.city || ''}
+                  onChange={(value) => handleChange('city', value)}
+                  pdfMode={pdfMode}
+                />
+              </View>
+              <View className="w-1/3" pdfMode={pdfMode}>
+                <EditableSelect
+                  className="border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400"
+                  options={statesList}
+                  value={invoice.state || 'AL'}
+                  onChange={(value) => handleChange('state', value)}
+                  pdfMode={pdfMode}
+                />
+              </View>
+              <View className="w-1/3" pdfMode={pdfMode}>
+                <EditableInput
+                  className="border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400"
+                  placeholder="Zip Code"
+                  value={invoice.zip || ''}
+                  onChange={(value) => handleChange('zip', value)}
+                  pdfMode={pdfMode}
+                />
+              </View>
+            </View>
+            
+            {/* Country */}
             <EditableSelect
               className="border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400"
               options={countryList}
-              value={invoice.clientCountry}
-              onChange={(value) => handleChange('clientCountry', value)}
+              value={invoice.country || invoice.clientCountry || ''}
+              onChange={(value) => handleChange('country', value)}
               pdfMode={pdfMode}
             />
           </View>

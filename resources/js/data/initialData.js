@@ -45,4 +45,10 @@ export const initialInvoice = {
   notes: 'It was great doing business with you.',
   termLabel: 'Terms & Conditions',
   term: 'Please make the payment by the due date.',
+  firstName: '',
+  lastName: '',
+  city: '',
+  state: '',
+  zip: '',
+  country: 'United States',
 }

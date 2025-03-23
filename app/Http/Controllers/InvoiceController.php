@@ -779,13 +779,96 @@ class InvoiceController extends Controller
             // Generate a unique payment token
             $paymentToken = Str::random(64);
             
+            // Extract client name parts for first_name and last_name
+            $clientName = $invoiceData['clientName'] ?? '';
+            $firstName = $invoiceData['firstName'] ?? '';
+            $lastName = $invoiceData['lastName'] ?? '';
+
+            // Log the raw values to help with debugging
+            \Log::info('Raw name values from invoice data:', [
+                'clientName' => $clientName,
+                'firstName' => $firstName,
+                'lastName' => $lastName
+            ]);
+
+            // If we don't have firstName/lastName but have clientName, 
+            // try to split clientName into firstName and lastName
+            if ((empty($firstName) || empty($lastName)) && !empty($clientName)) {
+                $nameParts = explode(' ', $clientName, 2);
+                $firstName = $firstName ?: ($nameParts[0] ?? '');
+                $lastName = $lastName ?: ($nameParts[1] ?? '');
+                
+                \Log::info('Parsed name from clientName:', [
+                    'firstName' => $firstName,
+                    'lastName' => $lastName
+                ]);
+            }
+
+            // Extract address components
+            $country = $invoiceData['country'] ?? $invoiceData['clientCountry'] ?? '';
+            $city = $invoiceData['city'] ?? '';
+            $state = $invoiceData['state'] ?? '';
+            $zip = $invoiceData['zip'] ?? '';
+
+            // Try to extract city, state, zip from clientAddress2 if they're empty
+            if (empty($city) || empty($state) || empty($zip)) {
+                $cityStateZip = $invoiceData['clientAddress2'] ?? '';
+                if (!empty($cityStateZip)) {
+                    // Try to parse "City, State ZIP" format
+                    $parts = explode(',', $cityStateZip);
+                    
+                    // If we have at least city
+                    if (!empty($parts[0]) && empty($city)) {
+                        $city = trim($parts[0]);
+                    }
+                    
+                    // If we have state/zip part
+                    if (!empty($parts[1])) {
+                        $stateZipPart = trim($parts[1]);
+                        
+                        // Try to separate state and zip
+                        preg_match('/([A-Z]{2})\s+(\d+)/', $stateZipPart, $matches);
+                        
+                        if (!empty($matches[1]) && empty($state)) {
+                            $state = $matches[1];
+                        }
+                        
+                        if (!empty($matches[2]) && empty($zip)) {
+                            $zip = $matches[2];
+                        } else {
+                            // Just take numbers as zip if we couldn't match the pattern
+                            $zipMatch = preg_replace('/[^0-9]/', '', $stateZipPart);
+                            if (!empty($zipMatch) && empty($zip)) {
+                                $zip = $zipMatch;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Log the address components
+            \Log::info('Address components:', [
+                'country' => $country,
+                'city' => $city,
+                'state' => $state,
+                'zip' => $zip,
+                'clientAddress' => $invoiceData['clientAddress'] ?? '',
+                'clientAddress2' => $invoiceData['clientAddress2'] ?? ''
+            ]);
+            
             // Create invoice data array for our database
             $invoiceCreateData = [
                 'user_id' => $user->id,
                 'invoice_type' => $validated['invoiceType'],
                 'invoice_number' => $invoiceData['invoiceTitle'] ?? ('INV-' . time()),
-                'client_name' => $invoiceData['clientName'] ?? 'Client',
+                'client_name' => $clientName,
                 'client_email' => $validated['recipientEmail'],
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'country' => $country,
+                'city' => $city,
+                'state' => $state,
+                'zip' => $zip,
                 'subtotal' => $subtotal,
                 'tax_rate' => $taxRate,
                 'tax_amount' => $taxAmount,
@@ -796,6 +879,12 @@ class InvoiceController extends Controller
                 'invoice_data' => $invoiceData,
                 'payment_token' => $paymentToken,
             ];
+            
+            // Log the create data to verify fields are being set
+            \Log::info('Invoice create data:', array_merge(
+                array_diff_key($invoiceCreateData, ['invoice_data' => null]),
+                ['invoice_data_keys' => is_array($invoiceData) ? array_keys($invoiceData) : 'not an array']
+            ));
             
             // Prepare NMI API request data
             $nmiData = array_merge($nmiData, [
@@ -808,26 +897,36 @@ class InvoiceController extends Controller
                 'payment_methods_allowed' => 'cc', // Credit card only
                 'order_description' => $invoiceData['notes'] ?? 'Invoice ' . ($invoiceData['invoiceTitle'] ?? ''),
                 'orderid' => $invoiceData['invoiceTitle'] ?? ('INV-' . time()),
-                'customer_id' => $invoiceData['clientName'] ?? '',
                 'tax' => number_format($taxAmount, 2, '.', ''),
                 'currency' => 'USD', // Default to USD
             ]);
             
-            // Add customer information if available
-            if (isset($invoiceData['clientName'])) {
-                $nameParts = explode(' ', $invoiceData['clientName'], 2);
-                $nmiData['first_name'] = $nameParts[0] ?? '';
-                $nmiData['last_name'] = $nameParts[1] ?? '';
+            // Add customer name information - only add if not empty
+            if (!empty($firstName)) {
+                $nmiData['first_name'] = $firstName;
             }
-            
-            // Add company information if available
-            if (isset($invoiceData['companyName'])) {
-                $nmiData['company'] = $invoiceData['companyName'];
+            if (!empty($lastName)) {
+                $nmiData['last_name'] = $lastName;
             }
-            
-            // Add billing address if available
-            if (isset($invoiceData['billingAddress'])) {
-                $nmiData['address1'] = $invoiceData['billingAddress'];
+            if (!empty($clientName)) {
+                $nmiData['company'] = $clientName;
+            }
+
+            // Add address information if available
+            if (!empty($invoiceData['clientAddress'])) {
+                $nmiData['address1'] = $invoiceData['clientAddress'];
+            }
+            if (!empty($city)) {
+                $nmiData['city'] = $city;
+            }
+            if (!empty($state)) {
+                $nmiData['state'] = $state;
+            }
+            if (!empty($zip)) {
+                $nmiData['zip'] = $zip;
+            }
+            if (!empty($country)) {
+                $nmiData['country'] = $country;
             }
             
             // Log the request data (redacting the security key)
@@ -880,9 +979,12 @@ class InvoiceController extends Controller
                 // Extract invoice_id from the NMI response if available
                 $nmiInvoiceId = $responseData['invoice_id'] ?? null;
                 
-                // Create a record in our database
-                $invoiceCreateData['nmi_invoice_id'] = $nmiInvoiceId; // Store the NMI invoice ID
+                // Store the NMI invoice ID
+                if ($nmiInvoiceId) {
+                    $invoiceCreateData['nmi_invoice_id'] = $nmiInvoiceId;
+                }
                 
+                // Create a record in our database
                 $invoice = Invoice::create($invoiceCreateData);
                 
                 // Send the email with the PDF attachment
@@ -900,7 +1002,7 @@ class InvoiceController extends Controller
                     'success' => true,
                     'message' => 'Invoice created in merchant portal and email sent successfully',
                     'invoice_id' => $invoice->id,
-                    'nmi_invoice_id' => $nmiInvoiceId, // Include the NMI invoice ID in the response
+                    'nmi_invoice_id' => $nmiInvoiceId,
                     'nmi_response' => $responseData
                 ]);
             } else {
