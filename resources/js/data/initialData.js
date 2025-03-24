@@ -26,8 +26,8 @@ export const initialInvoice = {
   invoiceDueDate: '',
   productLineDescription: 'Item Description',
   productLineQuantity: 'Qty',
-  productLineQuantityRate: 'Rate',
-  productLineQuantityAmount: 'Amount',
+  productLineQuantityCost: 'Cost',
+  productLineQuantityTotal: 'Total',
   productLines: [
     {
       description: 'Brochure Design',

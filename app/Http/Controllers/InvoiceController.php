@@ -94,15 +94,25 @@ class InvoiceController extends Controller
                 }
             }
             
-            // Extract tax rate from tax label (e.g., "Tax (10%)" -> 10)
+            // Extract tax rate from tax rate field or tax label
             $taxRate = 0;
             $taxAmount = 0;
-            if (isset($invoiceData['taxLabel'])) {
+            
+            // First try to get tax rate directly from taxRate field
+            if (isset($invoiceData['taxRate']) && is_numeric($invoiceData['taxRate'])) {
+                $taxRate = floatval($invoiceData['taxRate']);
+            }
+            // If taxRate is not available, try to extract from taxLabel
+            else if (isset($invoiceData['taxLabel'])) {
                 preg_match('/(\d+)%/', $invoiceData['taxLabel'], $matches);
                 if (isset($matches[1])) {
                     $taxRate = floatval($matches[1]);
-                    $taxAmount = $subTotal * ($taxRate / 100);
                 }
+            }
+            
+            // Calculate tax amount if we have a valid tax rate
+            if ($taxRate > 0) {
+                $taxAmount = $subTotal * ($taxRate / 100);
             }
             
             $total = $subTotal + $taxAmount;
@@ -565,15 +575,25 @@ class InvoiceController extends Controller
                 }
             }
             
-            // Extract tax rate from tax label (e.g., "Tax (10%)" -> 10)
+            // Extract tax rate from tax rate field or tax label
             $taxRate = 0;
             $taxAmount = 0;
-            if (isset($invoiceData['taxLabel'])) {
+            
+            // First try to get tax rate directly from taxRate field
+            if (isset($invoiceData['taxRate']) && is_numeric($invoiceData['taxRate'])) {
+                $taxRate = floatval($invoiceData['taxRate']);
+            }
+            // If taxRate is not available, try to extract from taxLabel
+            else if (isset($invoiceData['taxLabel'])) {
                 preg_match('/(\d+)%/', $invoiceData['taxLabel'], $matches);
                 if (isset($matches[1])) {
                     $taxRate = floatval($matches[1]);
-                    $taxAmount = $subTotal * ($taxRate / 100);
                 }
+            }
+            
+            // Calculate tax amount if we have a valid tax rate
+            if ($taxRate > 0) {
+                $taxAmount = $subTotal * ($taxRate / 100);
             }
             
             $total = $subTotal + $taxAmount;
@@ -746,23 +766,50 @@ class InvoiceController extends Controller
                     $lineTotal = $quantity * $rate;
                     $subtotal += $lineTotal;
                     
-                    // Adding line items to the request
-                    $nmiData['item_description_' . ($index + 1)] = $line['description'] ?? '';
-                    $nmiData['item_unit_cost_' . ($index + 1)] = number_format($rate, 2, '.', '');
-                    $nmiData['item_quantity_' . ($index + 1)] = $quantity;
-                    $nmiData['item_total_amount_' . ($index + 1)] = number_format($lineTotal, 2, '.', '');
+                    $itemIndex = $index + 1;
+                    
+                    // Adding line items to the request using both formats to ensure compatibility
+                    // Format with underscores (as per docs)
+                    $nmiData['item_description_' . $itemIndex] = $line['description'] ?? '';
+                    $nmiData['item_unit_cost_' . $itemIndex] = number_format($rate, 4, '.', ''); // Up to 4 decimal places
+                    $nmiData['item_quantity_' . $itemIndex] = (int)$quantity; // Force integer type
+                    $nmiData['item_total_amount_' . $itemIndex] = number_format($lineTotal, 2, '.', '');
+                    
+                    // Alternative format without underscores (sometimes used by NMI)
+                    $nmiData['itemdescription_' . $itemIndex] = $line['description'] ?? '';
+                    $nmiData['itemunitcost_' . $itemIndex] = number_format($rate, 4, '.', ''); // Up to 4 decimal places
+                    $nmiData['itemquantity_' . $itemIndex] = (int)$quantity; // Force integer type
+                    $nmiData['itemtotalamount_' . $itemIndex] = number_format($lineTotal, 2, '.', '');
                 }
+                
+                // Log the line item details for debugging
+                \Log::info('Line item details for NMI:', [
+                    'total_items' => count($invoiceData['productLines']),
+                    'line_items' => array_filter($nmiData, function($key) {
+                        return strpos($key, 'item_') === 0;
+                    }, ARRAY_FILTER_USE_KEY)
+                ]);
             }
             
-            // Extract tax rate from tax label (e.g., "Tax (10%)" -> 10)
+            // Extract tax rate from tax rate field or tax label
             $taxRate = 0;
             $taxAmount = 0;
-            if (isset($invoiceData['taxLabel'])) {
+            
+            // First try to get tax rate directly from taxRate field
+            if (isset($invoiceData['taxRate']) && is_numeric($invoiceData['taxRate'])) {
+                $taxRate = floatval($invoiceData['taxRate']);
+            }
+            // If taxRate is not available, try to extract from taxLabel
+            else if (isset($invoiceData['taxLabel'])) {
                 preg_match('/(\d+)%/', $invoiceData['taxLabel'], $matches);
                 if (isset($matches[1])) {
                     $taxRate = floatval($matches[1]);
-                    $taxAmount = $subtotal * ($taxRate / 100);
                 }
+            }
+            
+            // Calculate tax amount if we have a valid tax rate
+            if ($taxRate > 0) {
+                $taxAmount = $subtotal * ($taxRate / 100);
             }
             
             $total = $subtotal + $taxAmount;

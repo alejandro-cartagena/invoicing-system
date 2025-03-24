@@ -485,16 +485,16 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
           <View className="w-[17%] px-2 py-1" pdfMode={pdfMode}>
             <EditableInput
               className="text-white bg-[#555] font-bold text-right"
-              value={invoice.productLineQuantityRate}
-              onChange={(value) => handleChange('productLineQuantityRate', value)}
+              value={invoice.productLineQuantityCost}
+              onChange={(value) => handleChange('productLineQuantityCost', value)}
               pdfMode={pdfMode}
             />
           </View>
           <View className="w-[18%] px-2 py-1" pdfMode={pdfMode}>
             <EditableInput
               className="text-white bg-[#555] font-bold text-right"
-              value={invoice.productLineQuantityAmount}
-              onChange={(value) => handleChange('productLineQuantityAmount', value)}
+              value={invoice.productLineQuantityTotal}
+              onChange={(value) => handleChange('productLineQuantityTotal', value)}
               pdfMode={pdfMode}
             />
           </View>

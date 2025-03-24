@@ -160,12 +160,19 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
   useEffect(() => {
     const newSubTotal = calculateSubTotal();
     setSubTotal(newSubTotal);
+    
+    // Recalculate tax when subtotal changes
+    const taxRate = invoice.taxRate ? parseFloat(invoice.taxRate) : 0;
+    const newTaxAmount = newSubTotal * (taxRate / 100);
+    setSaleTax(newTaxAmount);
   }, [invoice.productLines]);
 
   useEffect(() => {
-    const newSaleTax = calculateTax(subTotal);
-    setSaleTax(newSaleTax);
-  }, [subTotal, invoice.taxLabel]);
+    // Update tax when tax rate changes
+    const taxRate = invoice.taxRate ? parseFloat(invoice.taxRate) : 0;
+    const newTaxAmount = subTotal * (taxRate / 100);
+    setSaleTax(newTaxAmount);
+  }, [invoice.taxRate, subTotal]);
 
   // When in PDF mode, calculate values directly instead of relying on state
   const pdfSubTotal = pdfMode ? calculateSubTotal() : subTotal
@@ -484,7 +491,7 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
                 className="text-white bg-[#555] font-bold text-right"
                 pdfMode={pdfMode}
               >
-                {invoice.productLineQuantityRate || "Rate"}
+                {invoice.productLineQuantityCost || "Cost"}
               </Text>
             </View>
             <View className="w-[18%] px-2 py-1" pdfMode={pdfMode}>
@@ -492,7 +499,7 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
                 className="text-white bg-[#555] font-bold text-right"
                 pdfMode={pdfMode}
               >
-                {invoice.productLineQuantityAmount || "Amount"}
+                {invoice.productLineQuantityTotal || "Total"}
               </Text>
             </View>
           </View>
@@ -580,10 +587,19 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
                   </Text>
                   <EditableInput
                     className="w-12 text-right border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400"
-                    value={invoice.taxRate || (invoice.taxLabel ? invoice.taxLabel.match(/(\d+)/) ? invoice.taxLabel.match(/(\d+)/)[1] : "0" : "0")}
+                    value={invoice.taxRate || ""}
                     onChange={(value) => {
                       // Only allow numbers and decimal point
                       const numericValue = value.replace(/[^0-9.]/g, '');
+                      
+                      // Handle empty value
+                      if (!numericValue) {
+                        handleChange('taxLabel', 'Tax (0%)');
+                        handleChange('taxRate', '0');
+                        setSaleTax(0);
+                        return;
+                      }
+                      
                       // Update tax label with the new percentage
                       handleChange('taxLabel', `Tax (${numericValue}%)`);
                       // Also store the raw percentage value
