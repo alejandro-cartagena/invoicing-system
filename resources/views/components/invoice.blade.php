@@ -130,7 +130,7 @@
 
         <div class="totals">
             <p><strong>{{ $data['subTotalLabel'] ?? 'Subtotal' }}:</strong> {{ $data['currency'] ?? '$' }}{{ number_format($data['_calculatedSubTotal'] ?? 0, 2) }}</p>
-            <p><strong>{{ $data['taxLabel'] ?? 'Tax' }}:</strong> {{ $data['currency'] ?? '$' }}{{ number_format($data['_calculatedTax'] ?? 0, 2) }}</p>
+            <p><strong>Tax ({{ number_format($data['taxRate'] ?? 0, 1) }}%):</strong> {{ $data['currency'] ?? '$' }}{{ number_format($data['_calculatedTax'] ?? 0, 2) }}</p>
             <p><strong>{{ $data['totalLabel'] ?? 'Total' }}:</strong> {{ $data['currency'] ?? '$' }}{{ number_format($data['_calculatedTotal'] ?? 0, 2) }}</p>
         </div>
 

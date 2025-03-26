@@ -117,6 +117,12 @@ class InvoiceController extends Controller
             
             $total = $subTotal + $taxAmount;
             
+            // Add calculated values to invoice data for PDF generation
+            $invoiceData['_calculatedSubTotal'] = $subTotal;
+            $invoiceData['_calculatedTax'] = $taxAmount;
+            $invoiceData['_calculatedTotal'] = $total;
+            $invoiceData['taxRate'] = $taxRate; // Add the actual tax rate
+            
             // Parse dates
             $invoiceDate = isset($invoiceData['invoiceDate']) && !empty($invoiceData['invoiceDate']) 
                 ? date('Y-m-d', strtotime($invoiceData['invoiceDate'])) 

@@ -31,14 +31,6 @@ class SendInvoiceMail extends Mailable
      */
     public function __construct($invoiceData, User $user, $pdfContent, $paymentToken, $isUpdate = false, $invoiceType = 'general')
     {
-        // Add the invoice type to the invoice data
-        $invoiceData['invoice_type'] = $invoiceType;
-        
-        // Ensure the user profile is loaded
-        if (!$user->relationLoaded('profile')) {
-            $user->load('profile');
-        }
-        
         $this->invoiceData = $invoiceData;
         $this->user = $user;
         $this->pdfContent = $pdfContent;

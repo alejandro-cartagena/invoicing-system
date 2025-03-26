@@ -55,11 +55,8 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
   const calculateTax = (subTotal) => {
     let taxRate = 0;
     
-    if (invoice && invoice.taxLabel) {
-      const match = invoice.taxLabel.match(/(\d+)%/);
-      if (match && match[1]) {
-        taxRate = parseFloat(match[1]);
-      }
+    if (invoice && invoice.taxRate && !isNaN(parseFloat(invoice.taxRate))) {
+      taxRate = parseFloat(invoice.taxRate);
     }
     
     return !isNaN(subTotal) && !isNaN(taxRate) ? (subTotal * taxRate / 100) : 0;
@@ -662,7 +659,7 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
                   <EditableInput
                     className={getClasses(
                       "w-12 text-right mx-1 text-gray-800 font-semibold text-md", // PDF classes
-                      "w-12 text-right mx-1", // Responsive classes
+                      "w-12 text-right mx-1 border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400", // Responsive classes
                       pdfMode
                     )} 
                     pdfMode={pdfMode}

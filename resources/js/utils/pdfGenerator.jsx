@@ -24,8 +24,8 @@ export const generatePDF = async (data) => {
         // Add calculated values to the data
         completeData._calculatedSubTotal = subTotal;
         
-        const taxMatch = completeData.taxLabel ? completeData.taxLabel.match(/(\d+)%/) : null;
-        const taxRate = taxMatch ? parseFloat(taxMatch[1]) : 0;
+        // Use taxRate directly if available, otherwise try to extract from taxLabel
+        const taxRate = completeData.taxRate ? parseFloat(completeData.taxRate) : 0;
         const saleTax = subTotal * (taxRate / 100);
         
         completeData._calculatedTax = saleTax;

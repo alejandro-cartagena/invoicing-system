@@ -90,9 +90,12 @@
                         ->filter(fn($item) => isset($item['description']) && $item['description'])
                         ->sum(fn($item) => ($item['quantity'] ?? 0) * ($item['rate'] ?? 0));
                     
-                    $taxRate = isset($invoiceData['taxLabel']) 
-                        ? (int) filter_var($invoiceData['taxLabel'], FILTER_SANITIZE_NUMBER_INT) 
-                        : 0;
+                    // Use taxRate directly if available, otherwise try to extract from taxLabel
+                    $taxRate = isset($invoiceData['taxRate']) && is_numeric($invoiceData['taxRate'])
+                        ? floatval($invoiceData['taxRate'])
+                        : (isset($invoiceData['taxLabel']) 
+                            ? (float) filter_var($invoiceData['taxLabel'], FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION) 
+                            : 0);
                     
                     $tax = $subTotal * ($taxRate / 100);
                     $total = $subTotal + $tax;
@@ -100,7 +103,7 @@
 
                 <p><strong>Sub Total:</strong> {{ $invoiceData['currency'] ?? '$' }}{{ number_format($subTotal, 2) }}</p>
                 @if($taxRate > 0)
-                    <p><strong>{{ $invoiceData['taxLabel'] ?? 'Tax' }}:</strong> {{ $invoiceData['currency'] ?? '$' }}{{ number_format($tax, 2) }}</p>
+                    <p><strong>Tax ({{ number_format($taxRate, 1) }}%):</strong> {{ $invoiceData['currency'] ?? '$' }}{{ number_format($tax, 2) }}</p>
                 @endif
                 <p><strong>Total:</strong> {{ $invoiceData['currency'] ?? '$' }}{{ number_format($total, 2) }}</p>
             @endif
