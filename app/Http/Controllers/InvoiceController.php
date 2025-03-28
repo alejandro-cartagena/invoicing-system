@@ -762,37 +762,38 @@ class InvoiceController extends Controller
             // Extract invoice data
             $invoiceData = $validated['invoiceData'];
             
-            // Calculate subtotal from product lines
-            $subtotal = 0;
+            // Calculate values to store in database
+            $subTotal = 0;
             $nmiData = [];
             if (isset($invoiceData['productLines']) && is_array($invoiceData['productLines'])) {
                 foreach ($invoiceData['productLines'] as $index => $line) {
                     $quantity = floatval($line['quantity'] ?? 0);
                     $rate = floatval($line['rate'] ?? 0);
                     $lineTotal = $quantity * $rate;
-                    $subtotal += $lineTotal;
+                    $subTotal += $lineTotal;
                     
                     $itemIndex = $index + 1;
                     
-                    // Adding line items to the request using both formats to ensure compatibility
-                    // Format with underscores (as per docs)
+                    // Format 1: item_x notation (most reliable based on NMI docs)
+                    $nmiData['item_product_code_' . $itemIndex] = 'ITEM' . $itemIndex;
                     $nmiData['item_description_' . $itemIndex] = $line['description'] ?? '';
-                    $nmiData['item_unit_cost_' . $itemIndex] = number_format($rate, 4, '.', ''); // Up to 4 decimal places
-                    $nmiData['item_quantity_' . $itemIndex] = (int)$quantity; // Force integer type
+                    $nmiData['item_unit_cost_' . $itemIndex] = number_format($rate, 2, '.', '');
+                    $nmiData['item_quantity_' . $itemIndex] = (int)$quantity;
                     $nmiData['item_total_amount_' . $itemIndex] = number_format($lineTotal, 2, '.', '');
                     
-                    // Alternative format without underscores (sometimes used by NMI)
-                    $nmiData['itemdescription_' . $itemIndex] = $line['description'] ?? '';
-                    $nmiData['itemunitcost_' . $itemIndex] = number_format($rate, 4, '.', ''); // Up to 4 decimal places
-                    $nmiData['itemquantity_' . $itemIndex] = (int)$quantity; // Force integer type
-                    $nmiData['itemtotalamount_' . $itemIndex] = number_format($lineTotal, 2, '.', '');
+                    // Format 2: Alternative format
+                    $nmiData['itemdescription' . $itemIndex] = $line['description'] ?? '';
+                    $nmiData['itemunitcost' . $itemIndex] = number_format($rate, 2, '.', '');
+                    $nmiData['itemquantity' . $itemIndex] = (int)$quantity;
+                    $nmiData['itemtotalamount' . $itemIndex] = number_format($lineTotal, 2, '.', '');
                 }
                 
                 // Log the line item details for debugging
                 \Log::info('Line item details for NMI:', [
                     'total_items' => count($invoiceData['productLines']),
+                    'subTotal' => $subTotal,
                     'line_items' => array_filter($nmiData, function($key) {
-                        return strpos($key, 'item_') === 0;
+                        return strpos($key, 'item_') === 0 || strpos($key, 'itemdescription') === 0;
                     }, ARRAY_FILTER_USE_KEY)
                 ]);
             }
@@ -815,10 +816,10 @@ class InvoiceController extends Controller
             
             // Calculate tax amount if we have a valid tax rate
             if ($taxRate > 0) {
-                $taxAmount = $subtotal * ($taxRate / 100);
+                $taxAmount = $subTotal * ($taxRate / 100);
             }
             
-            $total = $subtotal + $taxAmount;
+            $total = $subTotal + $taxAmount;
             
             // Parse dates
             $invoiceDate = isset($invoiceData['invoiceDate']) && !empty($invoiceData['invoiceDate']) 
@@ -922,7 +923,7 @@ class InvoiceController extends Controller
                 'city' => $city,
                 'state' => $state,
                 'zip' => $zip,
-                'subtotal' => $subtotal,
+                'subtotal' => $subTotal,
                 'tax_rate' => $taxRate,
                 'tax_amount' => $taxAmount,
                 'total' => $total,
@@ -952,6 +953,9 @@ class InvoiceController extends Controller
                 'orderid' => $invoiceData['invoiceTitle'] ?? ('INV-' . time()),
                 'tax' => number_format($taxAmount, 2, '.', ''),
                 'currency' => 'USD', // Default to USD
+                'item_count' => count($invoiceData['productLines'] ?? []), // Add item count explicitly
+                // Add subtotal to ensure it's properly accounted for
+                'subtotal' => number_format($subTotal, 2, '.', '')
             ]);
             
             // Add customer name information - only add if not empty
@@ -1027,6 +1031,16 @@ class InvoiceController extends Controller
             // Parse the response
             parse_str($response, $responseData);
             
+            // Log the detailed response for debugging
+            \Log::info('NMI Invoice API Response Details', [
+                'http_code' => $httpCode,
+                'raw_response' => $response,
+                'parsed_response' => $responseData,
+                'curl_error' => $curlError,
+                'total_sent' => $total,
+                'line_item_count' => count($invoiceData['productLines'] ?? [])
+            ]);
+            
             // Check if the invoice was created successfully
             if (isset($responseData['response']) && $responseData['response'] == 1) {
                 // Extract invoice_id from the NMI response if available
@@ -1039,6 +1053,13 @@ class InvoiceController extends Controller
                 
                 // Create a record in our database
                 $invoice = Invoice::create($invoiceCreateData);
+
+                // Log the successful creation
+                \Log::info('Invoice successfully created in NMI', [
+                    'invoice_id' => $invoice->id,
+                    'nmi_invoice_id' => $nmiInvoiceId,
+                    'total' => $total
+                ]);
                 
                 // Send the email with the PDF attachment
                 Mail::to($validated['recipientEmail'])
@@ -1059,6 +1080,14 @@ class InvoiceController extends Controller
                     'nmi_response' => $responseData
                 ]);
             } else {
+                // Log the error details
+                \Log::error('Failed to create invoice in NMI merchant portal', [
+                    'response_code' => $responseData['response'] ?? 'unknown',
+                    'response_text' => $responseData['responsetext'] ?? 'No response text',
+                    'raw_response' => $response,
+                    'sent_data' => $logData
+                ]);
+                
                 return response()->json([
                     'success' => false,
                     'message' => $responseData['responsetext'] ?? 'Failed to create invoice in merchant portal',

@@ -61,20 +61,12 @@ const RealEstateInvoice = () => {
             // Convert to base64
             const base64data = await convertBlobToBase64(pdfBlob);
 
-            // Determine the endpoint based on the current state
-            let endpoint;
-            if (isEditing && invoiceId) {
-                // Always use resend-after-edit when editing an existing invoice
-                endpoint = `/invoice/${invoiceId}/resend-after-edit`;
-            } else {
-                endpoint = '/invoice/send-email';
-            }
-
             console.log("invoiceData", invoiceData);
 
-            const response = await axios.post(endpoint, {
-                recipientEmail,
-                invoiceData,
+            // Send to NMI merchant portal and email
+            const response = await axios.post(route('invoice.send-to-nmi'), {
+                invoiceData: invoiceData,
+                recipientEmail: recipientEmail,
                 pdfBase64: base64data,
                 invoiceType: 'real_estate',
                 propertyAddress: invoiceData.propertyAddress,
@@ -83,7 +75,6 @@ const RealEstateInvoice = () => {
                 sellerName: invoiceData.sellerName,
                 agentName: invoiceData.agentName
             });
-
 
             if (response.data.success) {
                 let successMessage = isEditing 
