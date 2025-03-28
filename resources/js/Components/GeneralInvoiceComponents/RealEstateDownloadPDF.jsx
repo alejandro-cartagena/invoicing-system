@@ -17,6 +17,8 @@ const RealEstateDownload = ({ data, setData }) => {
     saveTemplate(data)
   }
 
+  console.log("Data:", data);
+
   return (
     <div className={'download-pdf '}>
       <PDFDownloadLink

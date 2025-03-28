@@ -12,7 +12,7 @@ import Page from './Page'
 import View from './View'
 import Text from './Text'
 import { Font } from '@react-pdf/renderer'
-import Download from './DownloadPDF'
+import RealEstateDownload from './RealEstateDownloadPDF'
 import { format } from 'date-fns/format'
 
 Font.register({
@@ -30,7 +30,7 @@ const getClasses = (pdfClasses, responsiveClasses, pdfMode) => {
   return pdfMode ? pdfClasses : responsiveClasses;
 };
 
-const InvoicePage = ({ data, pdfMode, onChange }) => {
+const RealEstateInvoicePage = ({ data, pdfMode, onChange }) => {
   const [invoice, setInvoice] = useState(data ? { ...data } : {
     ...initialInvoice,
     propertyAddress: '',
@@ -219,11 +219,11 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
     }
   }, []);
 
-  
+
   return (
     <Document pdfMode={pdfMode}>
       <Page className="relative bg-white p-9 shadow-md" pdfMode={pdfMode}>
-        {!pdfMode && <Download data={invoice} setData={(d) => setInvoice(d)} />}
+        {!pdfMode && <RealEstateDownload data={invoice} setData={(d) => setInvoice(d)} />}
 
         <View
           className={getClasses(
@@ -492,230 +492,185 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
           </View>
         </View>
 
-        <View className="mt-[20px] mb-[20px]" pdfMode={pdfMode}>
-            <Text className="font-semibold dark text-xl mb-[10px]" pdfMode={pdfMode}>
+
+        <View className={getClasses(
+              "flex-col mt-20", // PDF classes - added justify-between and specific margin
+              "flex flex-col mt-20", // Responsive classes
+              pdfMode
+            )} 
+            pdfMode={pdfMode}
+        >
+            <Text className="w-full font-semibold dark text-xl mb-[10px]" pdfMode={pdfMode}>
                 Real Estate Information
             </Text>
+
+            <View
+              className={getClasses(
+                "w-full", // PDF classes
+                "w-full flex flex-col gap-2", // Responsive classes
+                pdfMode
+              )} 
+              pdfMode={pdfMode}
+            >
+
+              {/* PROPERTY ADDRESS */}
+              <View 
+                className={getClasses(
+                  "flex", // PDF classes
+                  "flex flex-col md:flex-row gap-2", // Responsive classes
+                  pdfMode
+                )} 
+                pdfMode={pdfMode}
+              >
+                <Text 
+                className={getClasses(
+                  "w-[48%] font-semibold dark text-base", // PDF classes
+                  "w-full md:w-[40%] font-semibold dark text-base", // Responsive classes
+                  pdfMode
+                )} 
+                pdfMode={pdfMode}
+                >Property Address</Text>
+                <EditableInput
+                    className={getClasses(
+                      "w-[48%] border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400", // PDF classes
+                      "w-full border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400", // Responsive classes
+                      pdfMode
+                    )} 
+                    placeholder="Enter property address"
+                    value={invoice.propertyAddress}
+                    onChange={(value) => handleChange('propertyAddress', value)}
+                    pdfMode={pdfMode}
+                  />
+              </View>
+      
+
+              {/* TITLE NUMBER */}
+              <View 
+                className={getClasses(
+                  "flex", // PDF classes
+                  "flex flex-col md:flex-row gap-2", // Responsive classes
+                  pdfMode
+                )} 
+                pdfMode={pdfMode}
+              >
+                <Text 
+                className={getClasses(
+                  "w-[48%] font-semibold dark text-base", // PDF classes
+                  "w-full md:w-[40%] font-semibold dark text-base", // Responsive classes
+                  pdfMode
+                )} 
+                pdfMode={pdfMode}
+                >Title Number</Text>
+                <EditableInput
+                    className={getClasses(
+                      "w-[48%] border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400", // PDF classes
+                      "w-full border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400", // Responsive classes
+                      pdfMode
+                    )} 
+                    placeholder="Enter title number"
+                    value={invoice.titleNumber}
+                    onChange={(value) => handleChange('titleNumber', value)}
+                    pdfMode={pdfMode}
+                  />
+              </View>
+
+
+              {/* BUYER NAME */}
+              <View 
+                className={getClasses(
+                  "flex", // PDF classes
+                  "flex flex-col md:flex-row gap-2", // Responsive classes
+                  pdfMode
+                )} 
+                pdfMode={pdfMode}
+              >
+                <Text 
+                className={getClasses(
+                  "w-[48%] font-semibold dark text-base", // PDF classes
+                  "w-full md:w-[40%] font-semibold dark text-base", // Responsive classes
+                  pdfMode
+                )} 
+                pdfMode={pdfMode}
+                >Buyer Name</Text>
+                <EditableInput
+                    className={getClasses(
+                      "w-[48%] border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400", // PDF classes
+                      "w-full border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400", // Responsive classes
+                      pdfMode
+                    )} 
+                    placeholder="Enter buyer's name"
+                    value={invoice.buyerName}
+                  onChange={(value) => handleChange('buyerName', value)}
+                    pdfMode={pdfMode}
+                  />
+              </View>
+
+
+              {/* SELLER NAME */}
+              <View 
+                className={getClasses(
+                  "flex", // PDF classes
+                  "flex flex-col md:flex-row gap-2", // Responsive classes
+                  pdfMode
+                )} 
+                pdfMode={pdfMode}
+              >
+                <Text 
+                className={getClasses(
+                  "w-[48%] font-semibold dark text-base", // PDF classes
+                  "w-full md:w-[40%] font-semibold dark text-base", // Responsive classes
+                  pdfMode
+                )} 
+                pdfMode={pdfMode}
+                >Seller Name</Text>
+                <EditableInput
+                    className={getClasses(
+                      "w-[48%] border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400", // PDF classes
+                      "w-full border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400", // Responsive classes
+                      pdfMode
+                    )} 
+                    placeholder="Enter seller's name"
+                    value={invoice.sellerName}
+                    onChange={(value) => handleChange('sellerName', value)}
+                    pdfMode={pdfMode}
+                  />
+              </View>
+  
+
+              {/* REAL ESTATE AGENT */}
+              <View 
+                className={getClasses(
+                  "flex", // PDF classes
+                  "flex flex-col md:flex-row gap-2", // Responsive classes
+                  pdfMode
+                )} 
+                pdfMode={pdfMode}
+              >
+                <Text 
+                className={getClasses(
+                  "w-[48%] font-semibold dark text-base", // PDF classes
+                  "w-full md:w-[40%] font-semibold dark text-base", // Responsive classes
+                  pdfMode
+                )} 
+                pdfMode={pdfMode}
+                >Real Estate Agent</Text>
+                <EditableInput
+                    className={getClasses(
+                      "w-[48%] border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400", // PDF classes
+                      "w-full border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400", // Responsive classes
+                      pdfMode
+                    )} 
+                    placeholder="Enter agent's name"
+                  value={invoice.agentName}
+                  onChange={(value) => handleChange('agentName', value)}
+                    pdfMode={pdfMode}
+                  />
+              </View>
+
+            </View>
             
             {/* Property Address */}
-            <View className="mb-[10px]" pdfMode={pdfMode}>
-                <View 
-                  className={getClasses(
-                    "flex", // PDF classes
-                    "flex flex-col md:flex-row", // Responsive classes
-                    pdfMode
-                  )} 
-                  pdfMode={pdfMode}
-                >
-                    <View 
-                    className={getClasses(
-                      "w-[30%]", // PDF classes
-                      "w-full md:w-[30%]", // Responsive classes
-                      pdfMode
-                    )} 
-                    pdfMode={pdfMode}
-                    >
-                        <EditableInput
-                            className="font-semibold"
-                            value="Property Address:"
-                            pdfMode={pdfMode}
-                            readOnly={true}
-                        />
-                    </View>
-                    <View
-                    className={getClasses(
-                      "w-[70%]", // PDF classes
-                      "w-full md:w-[70%]", // Responsive classes
-                      pdfMode
-                    )} 
-                    pdfMode={pdfMode}
-                    >
-                        <EditableInput
-                            className="border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400"
-                            placeholder="Enter property address"
-                            value={invoice.propertyAddress}
-                            onChange={(value) => handleChange('propertyAddress', value)}
-                            pdfMode={pdfMode}
-                        />
-                    </View>
-                </View>
-            </View>
-
-            {/* Title Number */}
-            <View className="mb-[10px]" pdfMode={pdfMode}>
-                <View
-                  className={getClasses(
-                    "flex", // PDF classes
-                    "flex flex-col md:flex-row", // Responsive classes
-                    pdfMode
-                  )} 
-                  pdfMode={pdfMode}
-                >
-                    <View
-                    className={getClasses(
-                      "w-[30%]", // PDF classes
-                      "w-full md:w-[30%]", // Responsive classes
-                      pdfMode
-                    )} 
-                    pdfMode={pdfMode}
-                    >
-                        <EditableInput
-                            className="font-semibold"
-                            value="Title Number:"
-                            pdfMode={pdfMode}
-                            readOnly={true}
-                        />
-                    </View>
-                    <View
-                    className={getClasses(
-                      "w-[70%]", // PDF classes
-                      "w-full md:w-[70%]", // Responsive classes
-                      pdfMode
-                    )} 
-                    pdfMode={pdfMode}
-                    >
-                        <EditableInput
-                            className="border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400"
-                            placeholder="Enter title number"
-                            value={invoice.titleNumber}
-                            onChange={(value) => handleChange('titleNumber', value)}
-                            pdfMode={pdfMode}
-                        />
-                    </View>
-                </View>
-            </View>
-
-            {/* Buyer Name */}
-            <View className="mb-[10px]" pdfMode={pdfMode}>
-                <View
-                  className={getClasses(
-                    "flex", // PDF classes
-                    "flex flex-col md:flex-row", // Responsive classes
-                    pdfMode
-                  )} 
-                  pdfMode={pdfMode}
-                >
-                    <View
-                    className={getClasses(
-                      "w-[30%]", // PDF classes
-                      "w-full md:w-[30%]", // Responsive classes
-                      pdfMode
-                    )} 
-                    pdfMode={pdfMode}
-                    >
-                        <EditableInput
-                            className="font-semibold"
-                            value="Buyer Name:"
-                            pdfMode={pdfMode}
-                            readOnly={true}
-                        />
-                    </View>
-                    <View
-                    className={getClasses(
-                      "w-[70%]", // PDF classes
-                      "w-full md:w-[70%]", // Responsive classes
-                      pdfMode
-                    )} 
-                    pdfMode={pdfMode}
-                    >
-                        <EditableInput
-                            className="border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400"
-                            placeholder="Enter buyer's name"
-                            value={invoice.buyerName}
-                            onChange={(value) => handleChange('buyerName', value)}
-                            pdfMode={pdfMode}
-                        />
-                    </View>
-                </View>
-            </View>
-
-            {/* Seller Name */}
-            <View className="mb-[10px]" pdfMode={pdfMode}>
-                <View
-                  className={getClasses(
-                    "flex", // PDF classes
-                    "flex flex-col md:flex-row", // Responsive classes
-                    pdfMode
-                  )} 
-                  pdfMode={pdfMode}
-                >
-                    <View
-                    className={getClasses(
-                      "w-[30%]", // PDF classes
-                      "w-full md:w-[30%]", // Responsive classes
-                      pdfMode
-                    )} 
-                    pdfMode={pdfMode}
-                    >
-                        <EditableInput
-                            className="font-semibold"
-                            value="Seller Name:"
-                            pdfMode={pdfMode}
-                            readOnly={true}
-                        />
-                    </View>
-                    <View
-                    className={getClasses(
-                      "w-[70%]", // PDF classes
-                      "w-full md:w-[70%]", // Responsive classes
-                      pdfMode
-                    )} 
-                    pdfMode={pdfMode}
-                    >
-                        <EditableInput
-                            className="border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400"
-                            placeholder="Enter seller's name"
-                            value={invoice.sellerName}
-                            onChange={(value) => handleChange('sellerName', value)}
-                            pdfMode={pdfMode}
-                        />
-                    </View>
-                </View>
-            </View>
-
-            {/* Real Estate Agent */}
-            <View className="mb-[10px]" pdfMode={pdfMode}>
-                <View
-                  className={getClasses(
-                    "flex", // PDF classes
-                    "flex flex-col md:flex-row", // Responsive classes
-                    pdfMode
-                  )} 
-                  pdfMode={pdfMode}
-                >
-                    <View
-                    className={getClasses(
-                      "w-[30%]", // PDF classes
-                      "w-full md:w-[30%]", // Responsive classes
-                      pdfMode
-                    )} 
-                    pdfMode={pdfMode}
-                    >
-                        <EditableInput
-                            className="font-semibold"
-                            value="Real Estate Agent:"
-                            pdfMode={pdfMode}
-                            readOnly={true}
-                        />
-                    </View>
-                    <View
-                    className={getClasses(
-                      "w-[70%]", // PDF classes
-                      "w-full md:w-[70%]", // Responsive classes
-                      pdfMode
-                    )} 
-                    pdfMode={pdfMode}
-                    >
-                        <EditableInput
-                            className="border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400"
-                            placeholder="Enter agent's name"
-                            value={invoice.agentName}
-                            onChange={(value) => handleChange('agentName', value)}
-                            pdfMode={pdfMode}
-                        />
-                    </View>
-                </View>
-            </View>
+            
         </View>
 
         <div className='md:overflow-x-visible md:whitespace-normal overflow-x-auto whitespace-nowrap'>
@@ -938,5 +893,5 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
   )
 }
 
-export default InvoicePage
+export default RealEstateInvoicePage
 

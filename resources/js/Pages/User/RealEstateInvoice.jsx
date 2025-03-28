@@ -14,7 +14,7 @@ import { generateRealEstatePDF } from '@/utils/pdfGenerator.jsx';
 const MAX_IMAGE_SIZE_MB = 1; // Maximum image size in MB
 const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024; // Convert to bytes
 
-const GeneralInvoice = () => {
+const RealEstateInvoice = () => {
     // Get props from the page
     const { invoiceData: initialInvoiceData, recipientEmail: initialEmail, invoiceId, isEditing: initialIsEditing, isResending: initialIsResending } = usePage().props;
     
@@ -69,6 +69,8 @@ const GeneralInvoice = () => {
             } else {
                 endpoint = '/invoice/send-email';
             }
+
+            console.log("invoiceData", invoiceData);
 
             const response = await axios.post(endpoint, {
                 recipientEmail,
@@ -227,4 +229,4 @@ const GeneralInvoice = () => {
     );
 }
 
-export default GeneralInvoice;
+export default RealEstateInvoice;

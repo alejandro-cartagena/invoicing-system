@@ -67,6 +67,8 @@ const GeneralInvoice = () => {
             const base64data = await convertBlobToBase64(pdfBlob);
             
             console.log('Generated PDF for invoice');
+
+            console.log("invoiceData", invoiceData);
             
             // Send to NMI merchant portal and email
             console.log('Sending invoice to merchant portal (NMI) and email');
@@ -168,6 +170,8 @@ const GeneralInvoice = () => {
             link.click();
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
+
+            console.log("PDF Blob:", pdfBlob);
             
             toast.dismiss();
             toast.success('PDF downloaded successfully');
