@@ -605,22 +605,8 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
           })}
         </div>
 
-        <View 
-          className={getClasses(
-            "flex", 
-            "flex flex-col md:flex-row", 
-            pdfMode
-          )} 
-          pdfMode={pdfMode}
-        >
-          <View 
-            className={getClasses(
-              "w-full mt-[10px]", 
-              "w-full md:w-[50%] mt-[10px]", 
-              pdfMode
-            )} 
-            pdfMode={pdfMode}
-          >
+        <View className="flex" pdfMode={pdfMode}>
+          <View className="w-[50%] mt-[10px]" pdfMode={pdfMode}>
             {!pdfMode && (
               <button className="link" onClick={handleAdd}>
                 <span className="icon icon-add bg-green-500 mr-[10px]"></span>
@@ -628,17 +614,10 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
               </button>
             )}
           </View>
-          <View 
-            className={getClasses(
-              "w-full mt-[20px]", 
-              "w-full md:w-[50%] mt-[20px]", 
-              pdfMode
-            )} 
-            pdfMode={pdfMode}
-          >
+          <View className="w-[50%] mt-[20px]" pdfMode={pdfMode}>
             <View className="flex" pdfMode={pdfMode}>
               <View className="w-[50%] p-[5px]" pdfMode={pdfMode}>
-                <Text className="text-base" pdfMode={pdfMode}>
+                <Text className="text-base dark" pdfMode={pdfMode}>
                   {invoice.subTotalLabel}
                 </Text>
               </View>
@@ -651,76 +630,46 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
               </View>
             </View>
             <View className="flex" pdfMode={pdfMode}>
-              <View 
-                className={getClasses(
-                  "w-[70%] p-[5px] flex", // Add flex to PDF mode
-                  "w-[70%] p-[5px]",
-                  pdfMode
-                )} 
-                pdfMode={pdfMode}
-              >
-                <View 
-                  className={getClasses(
-                    "flex flex-row items-center", // Use flex-row for PDF mode
-                    "flex items-center",
-                    pdfMode
-                  )} 
-                  pdfMode={pdfMode}
-                >
-                  <Text className="text-base" pdfMode={pdfMode}>
-                    Sales Tax
-                  </Text>
-                  <EditableInput
+              <View className="w-[50%] p-[5px]" pdfMode={pdfMode}>
+                <Text className="text-base dark" pdfMode={pdfMode}>
+                  {"Sales Tax (" + invoice.taxRate + "%)"}
+                </Text>
+                <EditableInput
                     className={getClasses(
-                      "w-12 text-right mx-1 text-gray-800 font-semibold text-md", // PDF classes
-                      "w-12 text-right mx-1 border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400", // Responsive classes
+                      "w-12 text-right mx-1 text-gray-800 font-semibold text-md",
+                      "w-12 text-right mx-1 border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400",
                       pdfMode
-                    )} 
-                    pdfMode={pdfMode}
+                    )}
+                    hidden={pdfMode}
                     value={invoice.taxRate || ""}
                     onChange={(value) => {
-                      // Only allow numbers and decimal point
-                      const numericValue = value.replace(/[^0-9.]/g, '');
-                      
-                      // Handle empty value
-                      if (!numericValue) {
-                        handleChange('taxLabel', 'Tax (0%)');
-                        handleChange('taxRate', '0');
-                        setSaleTax(0);
-                        return;
-                      }
-                      
-                      // Update tax label with the new percentage
-                      handleChange('taxLabel', `Tax (${numericValue}%)`);
-                      // Also store the raw percentage value
-                      handleChange('taxRate', numericValue);
-                      
-                      // Force recalculation of tax immediately
-                      const newTaxAmount = calculateSubTotal() * (parseFloat(numericValue) / 100);
-                      setSaleTax(newTaxAmount);
+                        // Only allow numbers and decimal point
+                        const numericValue = value.replace(/[^0-9.]/g, '');
+                        
+                        // Remove leading zeros unless it's just "0"
+                        const cleanValue = numericValue.replace(/^0+(?=\d)/, '');
+                        
+                        // Handle empty value
+                        if (!cleanValue) {
+                            handleChange('taxLabel', 'Tax (0%)');
+                            handleChange('taxRate', '0');
+                            setSaleTax(0);
+                            return;
+                        }
+                        
+                        // Update tax label with the new percentage
+                        handleChange('taxLabel', `Tax (${cleanValue}%)`);
+                        // Also store the raw percentage value
+                        handleChange('taxRate', cleanValue);
+                        
+                        // Force recalculation of tax immediately
+                        const newTaxAmount = calculateSubTotal() * (parseFloat(cleanValue) / 100);
+                        setSaleTax(newTaxAmount);
                     }}
                   />
-                  <Text 
-                    className={getClasses(
-                      "text-gray-800 font-semibold text-md", // PDF classes
-                      "", // Responsive classes
-                      pdfMode
-                    )} 
-                    pdfMode={pdfMode}
-                  >
-                    %
-                </Text>
               </View>
-            </View>
-              <View className="w-[30%] p-[5px]" pdfMode={pdfMode}>
-                <Text 
-                  className={getClasses(
-                    "text-left font-semibold dark", // PDF classes
-                    "text-right font-semibold dark", // Responsive classes
-                    pdfMode
-                  )} 
-                  pdfMode={pdfMode}
-                >
+              <View className="w-[50%] p-[5px]" pdfMode={pdfMode}>
+                <Text className="text-right font-semibold dark" pdfMode={pdfMode}>
                   {pdfMode && data && data._calculatedTax !== undefined 
                     ? data._calculatedTax.toFixed(2) 
                     : pdfSaleTax.toFixed(2)}
@@ -729,12 +678,12 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
             </View>
             <View className="flex bg-[#e3e3e3] p-[5px]" pdfMode={pdfMode}>
               <View className="w-[50%] p-[5px]" pdfMode={pdfMode}>
-                <Text
+                <EditableInput
                   className="text-gray-800 font-semibold bg-[#e3e3e3]"
+                  value={invoice.totalLabel}
+                  onChange={(value) => handleChange('totalLabel', value)}
                   pdfMode={pdfMode}
-                >
-                  {invoice.totalLabel || "Total"}
-                </Text>
+                />
               </View>
               <View className="w-[50%] p-[5px] flex" pdfMode={pdfMode}>
                 <EditableInput
