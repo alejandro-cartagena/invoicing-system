@@ -1107,4 +1107,647 @@ class InvoiceController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Update invoice in NMI merchant portal by closing the old invoice and creating a new one
+     * 
+     * @param Request $request
+     * @param Invoice $invoice
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function updateInvoiceInNmi(Request $request, Invoice $invoice)
+    {
+        try {
+            $validated = $request->validate([
+                'invoiceData' => 'required|array',
+                'recipientEmail' => 'required|email',
+                'pdfBase64' => 'required|string',
+                'invoiceType' => 'required|in:general,real_estate',
+            ]);
+
+            // Get the authenticated user
+            $user = Auth::user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User not authenticated'
+                ], 401);
+            }
+            
+            // Check if the invoice belongs to the user
+            if ($invoice->user_id !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have permission to update this invoice'
+                ], 403);
+            }
+            
+            // Check if NMI invoice ID exists
+            if (empty($invoice->nmi_invoice_id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No NMI invoice ID found for this invoice'
+                ], 400);
+            }
+            
+            // Get the user's profile
+            $userProfile = UserProfile::where('user_id', $user->id)->first();
+            if (!$userProfile) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User profile not found'
+                ], 404);
+            }
+
+            // Check if the user has a private key
+            if (empty($userProfile->private_key)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No API private key found for your account. Please contact your administrator.'
+                ], 400);
+            }
+
+            // Process the PDF data
+            $pdfContent = $validated['pdfBase64'];
+            if (strpos($pdfContent, 'data:application/pdf;base64,') === 0) {
+                $pdfContent = substr($pdfContent, 28);
+            }
+            
+            // Decode the base64 content
+            $decodedPdf = base64_decode($pdfContent);
+            
+            // Verify it's a valid PDF
+            if (substr($decodedPdf, 0, 4) !== '%PDF') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid PDF content'
+                ], 400);
+            }
+
+            // STEP 1: Close the existing invoice in NMI
+            $closeInvoiceData = [
+                'security_key' => $userProfile->private_key,
+                'invoicing' => 'close_invoice',
+                'invoice_id' => $invoice->nmi_invoice_id
+            ];
+            
+            // Log the close request data (redacting the security key)
+            $closeLogData = $closeInvoiceData;
+            $closeLogData['security_key'] = '[REDACTED]';
+            \Log::info('Closing existing invoice in NMI', $closeLogData);
+            
+            // Send the close request to NMI
+            $ch = curl_init('https://secure.nmi.com/api/transact.php');
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($closeInvoiceData));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                "accept: application/x-www-form-urlencoded",
+                "content-type: application/x-www-form-urlencoded"
+            ]);
+            
+            // SSL verification settings
+            if (app()->environment('local')) {
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            } else {
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+            }
+            
+            $closeResponse = curl_exec($ch);
+            $closeHttpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $closeError = curl_error($ch);
+            
+            curl_close($ch);
+            
+            // Log the response
+            \Log::info('NMI Close Invoice Response', [
+                'http_code' => $closeHttpCode,
+                'response' => $closeResponse,
+                'curl_error' => $closeError
+            ]);
+            
+            // Parse the close response
+            parse_str($closeResponse, $closeResponseData);
+            
+            // Check if closing was successful or handle errors
+            if ($closeError) {
+                \Log::warning('Error closing invoice in NMI', [
+                    'curl_error' => $closeError
+                ]);
+            } else if (!isset($closeResponseData['response']) || $closeResponseData['response'] != 1) {
+                \Log::warning('Failed to close invoice in NMI, but continuing with creation', [
+                    'response_data' => $closeResponseData
+                ]);
+            } else {
+                \Log::info('Successfully closed invoice in NMI', [
+                    'invoice_id' => $invoice->nmi_invoice_id
+                ]);
+            }
+            
+            // STEP 2: Create a new invoice in NMI
+            
+            // Extract invoice data
+            $invoiceData = $validated['invoiceData'];
+            
+            // Calculate values to store in database
+            $subTotal = 0;
+            $nmiData = [];
+            if (isset($invoiceData['productLines']) && is_array($invoiceData['productLines'])) {
+                foreach ($invoiceData['productLines'] as $index => $line) {
+                    $quantity = floatval($line['quantity'] ?? 0);
+                    $rate = floatval($line['rate'] ?? 0);
+                    $lineTotal = $quantity * $rate;
+                    $subTotal += $lineTotal;
+                    
+                    $itemIndex = $index + 1;
+                    
+                    // Format 1: item_x notation (most reliable based on NMI docs)
+                    $nmiData['item_product_code_' . $itemIndex] = 'ITEM' . $itemIndex;
+                    $nmiData['item_description_' . $itemIndex] = $line['description'] ?? '';
+                    $nmiData['item_unit_cost_' . $itemIndex] = number_format($rate, 2, '.', '');
+                    $nmiData['item_quantity_' . $itemIndex] = (int)$quantity;
+                    $nmiData['item_total_amount_' . $itemIndex] = number_format($lineTotal, 2, '.', '');
+                    
+                    // Format 2: Alternative format
+                    $nmiData['itemdescription' . $itemIndex] = $line['description'] ?? '';
+                    $nmiData['itemunitcost' . $itemIndex] = number_format($rate, 2, '.', '');
+                    $nmiData['itemquantity' . $itemIndex] = (int)$quantity;
+                    $nmiData['itemtotalamount' . $itemIndex] = number_format($lineTotal, 2, '.', '');
+                }
+            }
+            
+            // Extract tax rate from tax rate field or tax label
+            $taxRate = 0;
+            $taxAmount = 0;
+            
+            // First try to get tax rate directly from taxRate field
+            if (isset($invoiceData['taxRate']) && is_numeric($invoiceData['taxRate'])) {
+                $taxRate = floatval($invoiceData['taxRate']);
+            }
+            // If taxRate is not available, try to extract from taxLabel
+            else if (isset($invoiceData['taxLabel'])) {
+                preg_match('/(\d+)%/', $invoiceData['taxLabel'], $matches);
+                if (isset($matches[1])) {
+                    $taxRate = floatval($matches[1]);
+                }
+            }
+            
+            // Calculate tax amount if we have a valid tax rate
+            if ($taxRate > 0) {
+                $taxAmount = $subTotal * ($taxRate / 100);
+            }
+            
+            $total = $subTotal + $taxAmount;
+            
+            // Parse dates
+            $invoiceDate = isset($invoiceData['invoiceDate']) && !empty($invoiceData['invoiceDate']) 
+                ? date('Y-m-d', strtotime($invoiceData['invoiceDate'])) 
+                : date('Y-m-d');
+                
+            $dueDate = isset($invoiceData['invoiceDueDate']) && !empty($invoiceData['invoiceDueDate']) 
+                ? date('Y-m-d', strtotime($invoiceData['invoiceDueDate'])) 
+                : date('Y-m-d', strtotime('+30 days'));
+            
+            // Extract client name parts for first_name and last_name
+            $clientName = $invoiceData['clientName'] ?? '';
+            $firstName = $invoiceData['firstName'] ?? '';
+            $lastName = $invoiceData['lastName'] ?? '';
+
+            // If we don't have firstName/lastName but have clientName, 
+            // try to split clientName into firstName and lastName
+            if ((empty($firstName) || empty($lastName)) && !empty($clientName)) {
+                $nameParts = explode(' ', $clientName, 2);
+                $firstName = $firstName ?: ($nameParts[0] ?? '');
+                $lastName = $lastName ?: ($nameParts[1] ?? '');
+            }
+
+            // Extract address components
+            $country = $invoiceData['country'] ?? $invoiceData['clientCountry'] ?? '';
+            $city = $invoiceData['city'] ?? '';
+            $state = $invoiceData['state'] ?? '';
+            $zip = $invoiceData['zip'] ?? '';
+
+            // Try to extract city, state, zip from clientAddress2 if they're empty
+            if (empty($city) || empty($state) || empty($zip)) {
+                $cityStateZip = $invoiceData['clientAddress2'] ?? '';
+                if (!empty($cityStateZip)) {
+                    // Try to parse "City, State ZIP" format
+                    $parts = explode(',', $cityStateZip);
+                    
+                    // If we have at least city
+                    if (!empty($parts[0]) && empty($city)) {
+                        $city = trim($parts[0]);
+                    }
+                    
+                    // If we have state/zip part
+                    if (!empty($parts[1])) {
+                        $stateZipPart = trim($parts[1]);
+                        
+                        // Try to separate state and zip
+                        preg_match('/([A-Z]{2})\s+(\d+)/', $stateZipPart, $matches);
+                        
+                        if (!empty($matches[1]) && empty($state)) {
+                            $state = $matches[1];
+                        }
+                        
+                        if (!empty($matches[2]) && empty($zip)) {
+                            $zip = $matches[2];
+                        } else {
+                            // Just take numbers as zip if we couldn't match the pattern
+                            $zipMatch = preg_replace('/[^0-9]/', '', $stateZipPart);
+                            if (!empty($zipMatch) && empty($zip)) {
+                                $zip = $zipMatch;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Create a new invoice in NMI using add_invoice
+            $createInvoiceData = array_merge($nmiData, [
+                'security_key' => $userProfile->private_key,
+                'invoicing' => 'add_invoice',
+                'amount' => number_format($total, 2, '.', ''),
+                'email' => $validated['recipientEmail'],
+                'payment_terms' => 'upon_receipt',
+                'payment_methods_allowed' => 'cc', // Credit card only
+                'order_description' => $invoiceData['notes'] ?? 'Invoice ' . ($invoiceData['invoiceTitle'] ?? ''),
+                'orderid' => $invoiceData['invoiceTitle'] ?? $invoice->invoice_number,
+                'tax' => number_format($taxAmount, 2, '.', ''),
+                'currency' => 'USD', // Default to USD
+                'item_count' => count($invoiceData['productLines'] ?? []), // Add item count explicitly
+                'subtotal' => number_format($subTotal, 2, '.', '')
+            ]);
+            
+            // Add customer name information - only add if not empty
+            if (!empty($firstName)) {
+                $createInvoiceData['first_name'] = $firstName;
+            }
+            if (!empty($lastName)) {
+                $createInvoiceData['last_name'] = $lastName;
+            }
+            if (!empty($clientName)) {
+                $createInvoiceData['company'] = $clientName;
+            }
+
+            // Add address information if available
+            if (!empty($invoiceData['clientAddress'])) {
+                $createInvoiceData['address1'] = $invoiceData['clientAddress'];
+            }
+            if (!empty($city)) {
+                $createInvoiceData['city'] = $city;
+            }
+            if (!empty($state)) {
+                $createInvoiceData['state'] = $state;
+            }
+            if (!empty($zip)) {
+                $createInvoiceData['zip'] = $zip;
+            }
+            if (!empty($country)) {
+                $createInvoiceData['country'] = $country;
+            }
+            
+            // Log the request data (redacting the security key)
+            $createLogData = $createInvoiceData;
+            $createLogData['security_key'] = '[REDACTED]';
+            \Log::info('Creating new invoice in NMI merchant portal', $createLogData);
+            
+            // Send the request to NMI
+            $ch = curl_init('https://secure.nmi.com/api/transact.php');
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($createInvoiceData));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                "accept: application/x-www-form-urlencoded",
+                "content-type: application/x-www-form-urlencoded"
+            ]);
+            
+            // Disable SSL verification for local development
+            if (app()->environment('local')) {
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            } else {
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+            }
+            
+            $createResponse = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            
+            curl_close($ch);
+            
+            // Log the response
+            \Log::info('NMI Create Invoice API Response', [
+                'http_code' => $httpCode,
+                'response' => $createResponse,
+                'curl_error' => $curlError
+            ]);
+            
+            // Check for cURL errors
+            if ($curlError) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error connecting to payment gateway: ' . $curlError
+                ], 500);
+            }
+            
+            // Parse the response
+            parse_str($createResponse, $createResponseData);
+            
+            // Log the detailed response for debugging
+            \Log::info('NMI Create Invoice API Response Details', [
+                'http_code' => $httpCode,
+                'raw_response' => $createResponse,
+                'parsed_response' => $createResponseData,
+                'curl_error' => $curlError,
+                'total_sent' => $total,
+                'line_item_count' => count($invoiceData['productLines'] ?? [])
+            ]);
+            
+            // Check if the invoice was created successfully
+            if (isset($createResponseData['response']) && $createResponseData['response'] == 1) {
+                // Extract invoice_id from the NMI response if available
+                $newNmiInvoiceId = $createResponseData['invoice_id'] ?? null;
+                
+                if (!$newNmiInvoiceId) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Failed to get new invoice ID from NMI response',
+                        'nmi_response' => $createResponseData
+                    ], 500);
+                }
+                
+                // STEP 3: Update the existing invoice record in our database with the new NMI invoice ID
+                $invoice->update([
+                    'client_email' => $validated['recipientEmail'],
+                    'subtotal' => $subTotal,
+                    'tax_rate' => $taxRate,
+                    'tax_amount' => $taxAmount,
+                    'total' => $total,
+                    'invoice_date' => $invoiceDate,
+                    'due_date' => $dueDate,
+                    'invoice_data' => $invoiceData,
+                    'nmi_invoice_id' => $newNmiInvoiceId,
+                    // Also update address info
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'client_name' => $clientName,
+                    'country' => $country,
+                    'city' => $city,
+                    'state' => $state,
+                    'zip' => $zip,
+                ]);
+                
+                \Log::info('Updated existing invoice record with new NMI invoice ID', [
+                    'invoice_id' => $invoice->id,
+                    'old_nmi_invoice_id' => $invoice->nmi_invoice_id,
+                    'new_nmi_invoice_id' => $newNmiInvoiceId
+                ]);
+                
+                // STEP 4: Optionally, send a new invoice notification
+                $sendInvoiceData = [
+                    'security_key' => $userProfile->private_key,
+                    'invoicing' => 'send_invoice',
+                    'invoice_id' => $newNmiInvoiceId
+                ];
+                
+                // Log the send invoice request (redacting the security key)
+                $sendLogData = $sendInvoiceData;
+                $sendLogData['security_key'] = '[REDACTED]';
+                \Log::info('Sending updated invoice from NMI', $sendLogData);
+                
+                // Send the request to NMI to send the invoice
+                $ch = curl_init('https://secure.nmi.com/api/transact.php');
+                curl_setopt($ch, CURLOPT_POST, 1);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($sendInvoiceData));
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    "accept: application/x-www-form-urlencoded",
+                    "content-type: application/x-www-form-urlencoded"
+                ]);
+                
+                // SSL verification settings
+                if (app()->environment('local')) {
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+                } else {
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+                }
+                
+                $sendResponse = curl_exec($ch);
+                curl_close($ch);
+                
+                // Log the send invoice response
+                \Log::info('NMI Send Invoice Response', [
+                    'response' => $sendResponse
+                ]);
+                
+                // Send the email with the updated PDF attachment through our system as well
+                Mail::to($validated['recipientEmail'])
+                    ->send(new SendInvoiceMail(
+                        $invoiceData,
+                        $user,
+                        $decodedPdf,
+                        $invoice->payment_token,
+                        true,
+                        $validated['invoiceType']
+                    ));
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Invoice updated in merchant portal and email sent successfully',
+                    'invoice_id' => $invoice->id,
+                    'old_nmi_invoice_id' => $invoice->nmi_invoice_id,
+                    'new_nmi_invoice_id' => $newNmiInvoiceId,
+                    'nmi_response' => $createResponseData
+                ]);
+            } else {
+                // Log the error details
+                \Log::error('Failed to create new invoice in NMI merchant portal', [
+                    'response_code' => $createResponseData['response'] ?? 'unknown',
+                    'response_text' => $createResponseData['responsetext'] ?? 'No response text',
+                    'raw_response' => $createResponse,
+                    'sent_data' => $createLogData
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => $createResponseData['responsetext'] ?? 'Failed to create invoice in merchant portal',
+                    'nmi_response' => $createResponseData
+                ], 400);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Failed to update invoice in NMI: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update invoice in NMI: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Close an invoice instead of deleting it
+     *
+     * @param Invoice $invoice
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function closeInvoice(Invoice $invoice)
+    {
+        try {
+            // Check if the invoice belongs to the authenticated user
+            if ($invoice->user_id !== Auth::id()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized action.'
+                ], 403);
+            }
+            
+            // Check if invoice is already closed
+            if ($invoice->status === 'closed') {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Invoice is already closed.',
+                    'invoice' => $invoice
+                ]);
+            }
+            
+            // Get the user's profile
+            $userProfile = UserProfile::where('user_id', Auth::id())->first();
+            if (!$userProfile) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User profile not found'
+                ], 404);
+            }
+
+            // Check if the user has a private key
+            if (empty($userProfile->private_key)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No API private key found for your account. Please contact your administrator.'
+                ], 400);
+            }
+            
+            // Close the invoice in NMI if it has an NMI invoice ID
+            if (!empty($invoice->nmi_invoice_id)) {
+                $closeInvoiceData = [
+                    'security_key' => $userProfile->private_key,
+                    'invoicing' => 'close_invoice',
+                    'invoice_id' => $invoice->nmi_invoice_id
+                ];
+                
+                // Log the close request data (redacting the security key)
+                $closeLogData = $closeInvoiceData;
+                $closeLogData['security_key'] = '[REDACTED]';
+                \Log::info('Closing invoice in NMI', $closeLogData);
+                
+                // Send the close request to NMI
+                $ch = curl_init('https://secure.nmi.com/api/transact.php');
+                curl_setopt($ch, CURLOPT_POST, 1);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($closeInvoiceData));
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    "accept: application/x-www-form-urlencoded",
+                    "content-type: application/x-www-form-urlencoded"
+                ]);
+                
+                // SSL verification settings
+                if (app()->environment('local')) {
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+                } else {
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+                }
+                
+                $response = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $error = curl_error($ch);
+                
+                curl_close($ch);
+                
+                // Log the response
+                \Log::info('NMI Close Invoice Response', [
+                    'http_code' => $httpCode,
+                    'response' => $response,
+                    'curl_error' => $error
+                ]);
+                
+                // Parse the response
+                parse_str($response, $responseData);
+                
+                // Check if closing was successful
+                if (!isset($responseData['response']) || $responseData['response'] != 1) {
+                    \Log::warning('Failed to close invoice in NMI', [
+                        'response_data' => $responseData
+                    ]);
+                    
+                    // Return error if the NMI operation failed
+                    return response()->json([
+                        'success' => false,
+                        'message' => $responseData['responsetext'] ?? 'Failed to close invoice in NMI',
+                        'nmi_response' => $responseData
+                    ], 400);
+                }
+                
+                \Log::info('Successfully closed invoice in NMI', [
+                    'invoice_id' => $invoice->id,
+                    'nmi_invoice_id' => $invoice->nmi_invoice_id
+                ]);
+            }
+            
+            // Update invoice status to closed in our database
+            $invoice->status = 'closed';
+            $invoice->closed_at = now();
+            $invoice->save();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Invoice closed successfully',
+                'invoice' => $invoice
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to close invoice: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to close invoice: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Show an invoice in read-only mode.
+     *
+     * @param Invoice $invoice
+     * @return \Inertia\Response
+     */
+    public function show(Invoice $invoice)
+    {
+        // Check if the invoice belongs to the authenticated user
+        if ($invoice->user_id !== Auth::id()) {
+            abort(403, 'Unauthorized action.');
+        }
+        
+        return Inertia::render('User/ViewInvoice', [
+            'invoice' => $invoice
+        ]);
+    }
 }

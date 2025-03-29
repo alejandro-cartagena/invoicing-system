@@ -10,6 +10,9 @@ import FileSaver from 'file-saver';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { saveTemplate, handleTemplateUpload } from '@/utils/templateHandler';
 import { LoaderIcon, MailIcon, DownloadIcon } from '@/Components/Icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faDownload, faEnvelope, faSave, faUpload } from '@fortawesome/free-solid-svg-icons';
+
 
 const MAX_IMAGE_SIZE_MB = 1; // Maximum image size in MB
 const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024; // Convert to bytes
@@ -70,18 +73,34 @@ const GeneralInvoice = () => {
 
             console.log("invoiceData", invoiceData);
             
-            // Send to NMI merchant portal and email
-            console.log('Sending invoice to merchant portal (NMI) and email');
-            const response = await axios.post(route('invoice.send-to-nmi'), {
-                invoiceData: invoiceData,
-                recipientEmail: recipientEmail,
-                pdfBase64: base64data,
-                invoiceType: 'general'
-            });
+            // Determine which endpoint to use based on whether we're editing or creating
+            let endpoint, responseData;
             
-            console.log('Response from send-to-nmi:', response.data);
+            if (isEditing && invoiceId) {
+                // Use update-in-nmi endpoint when editing
+                console.log('Updating invoice in NMI merchant portal');
+                const response = await axios.post(route('invoice.update-in-nmi', invoiceId), {
+                    invoiceData: invoiceData,
+                    recipientEmail: recipientEmail,
+                    pdfBase64: base64data,
+                    invoiceType: 'general'
+                });
+                responseData = response.data;
+            } else {
+                // Use send-to-nmi endpoint for new invoices
+                console.log('Sending new invoice to NMI merchant portal');
+                const response = await axios.post(route('invoice.send-to-nmi'), {
+                    invoiceData: invoiceData,
+                    recipientEmail: recipientEmail,
+                    pdfBase64: base64data,
+                    invoiceType: 'general'
+                });
+                responseData = response.data;
+            }
             
-            if (response.data.success) {
+            console.log('Response from NMI:', responseData);
+            
+            if (responseData.success) {
                 let successMessage = isEditing 
                     ? 'Invoice updated and sent successfully!' 
                     : 'Invoice sent successfully!';
@@ -93,7 +112,7 @@ const GeneralInvoice = () => {
                     router.get(route('user.invoices'));
                 }, 2000); // Wait 2 seconds before redirecting
             } else {
-                toast.error(response.data.message || 'Failed to send invoice');
+                toast.error(responseData.message || 'Failed to send invoice');
             }
         } catch (error) {
             console.error('Error sending invoice:', error);
@@ -191,7 +210,7 @@ const GeneralInvoice = () => {
                 </h2>
             }
         >
-            <div className="max-w-2xl mx-auto md:py-10">
+            <div className="container md:max-w-4xl mx-auto md:py-10">
                 
                 {/* Email input section */}
                 <div className="hidden md:block mb-6 p-6 bg-white rounded shadow-md">
@@ -207,7 +226,7 @@ const GeneralInvoice = () => {
                         <button
                             onClick={handleSendInvoice}
                             disabled={sending}
-                            className="w-full md:w-auto px-4 py-2 bg-indigo-600 text-white rounded-md text-base hover:bg-indigo-700 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:opacity-50"
+                            className="px-4 py-2 bg-blue-500 text-white rounded-md text-sm md:text-base hover:bg-blue-600 transition-all duration-300 flex items-center"
                         >
                             {sending ? (
                                 <>
@@ -216,6 +235,7 @@ const GeneralInvoice = () => {
                                 </>
                             ) : (
                                 <>
+                                    <FontAwesomeIcon icon={faEnvelope} className="mr-2" />
                                     {isEditing ? 'Update & Send' : 'Send Invoice'}
                                 </>
                             )}
@@ -226,38 +246,40 @@ const GeneralInvoice = () => {
                     </p>
                 </div>
 
-                {/* Mobile-only buttons */}
-                <div className="md:hidden my-4 flex justify-center gap-4">
-                    
-                    
-                    
-                </div>
 
-                {/* Templates buttons - visible on both mobile and desktop */}
-                <div className="md:hidden flex justify-center flex-wrap gap-4 mb-4">
+                {/* Mobile-only buttons */}
+                <div className="md:hidden flex justify-center flex-wrap gap-4 my-8">
                     <button 
                         onClick={handleDownloadPdf}
-                        className="px-3 py-2 bg-gray-500 text-white rounded-md text-sm hover:bg-gray-600 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gray-600 focus:ring-offset-2 active:bg-gray-700"
+                        className="px-4 py-2 bg-green-500 text-white rounded-md text-sm md:text-base hover:bg-green-600 transition-all duration-300 flex items-center"
                         disabled={sending}
                     >
+                        <FontAwesomeIcon icon={faDownload} className="mr-2" />
                         Download PDF
                     </button>
                     <button
                         onClick={handleSaveTemplate}
-                        className="px-3 py-2 bg-gray-500 text-white rounded-md text-sm hover:bg-gray-600 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gray-600 focus:ring-offset-2 active:bg-gray-700"
+                        className="px-4 py-2 bg-indigo-500 text-white rounded-md text-sm md:text-base hover:bg-indigo-600 transition-all duration-300 flex items-center"
+                        disabled={sending}
                     >
+                        <FontAwesomeIcon icon={faSave} className="mr-2" />
                         Save Template
                     </button>
 
-                    <label className="px-3 py-2 bg-gray-500 text-white rounded-md text-sm cursor-pointer hover:bg-gray-600 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gray-600 focus:ring-offset-2 active:bg-gray-700 flex items-center justify-center">
+                    <button
+                        className="px-4 py-2 bg-purple-500 text-white rounded-md text-sm md:text-base hover:bg-purple-600 transition-all duration-300 flex items-center"
+                        onClick={() => document.getElementById('template-upload').click()}
+                    >
+                        <FontAwesomeIcon icon={faUpload} className="mr-2" />
                         Upload Template
                         <input
+                            id="template-upload"
                             type="file"
                             accept=".json,.template"
                             onChange={handleFileUpload}
                             className="sr-only"
                         />
-                    </label>
+                    </button>
                 </div>
 
                 <InvoicePage 
@@ -279,7 +301,7 @@ const GeneralInvoice = () => {
                         <button
                             onClick={handleSendInvoice}
                             disabled={sending}
-                            className="w-full md:w-auto px-4 py-2 bg-indigo-600 text-white rounded-md text-base hover:bg-indigo-700 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:opacity-50"
+                            className="px-4 py-2 bg-blue-500 text-white rounded-md text-sm md:text-base hover:bg-blue-600 transition-all duration-300 flex items-center"
                         >
                             {sending ? (
                                 <>
@@ -288,6 +310,7 @@ const GeneralInvoice = () => {
                                 </>
                             ) : (
                                 <>
+                                    <FontAwesomeIcon icon={faEnvelope} className="mr-2" />
                                     {isEditing ? 'Update & Send' : 'Send Invoice'}
                                 </>
                             )}

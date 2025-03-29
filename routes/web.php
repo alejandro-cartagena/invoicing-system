@@ -131,5 +131,20 @@ Route::get('/real-estate-invoice/edit/{invoice}', [InvoiceController::class, 'ed
     ->middleware(['auth'])
     ->name('user.real-estate-invoice.edit');
 
+// Add this route for updating an invoice in NMI
+Route::post('/invoice/{invoice}/update-in-nmi', [InvoiceController::class, 'updateInvoiceInNmi'])
+    ->middleware(['auth', 'verified'])
+    ->name('invoice.update-in-nmi');
+
+// Add this route for closing invoices
+Route::post('/invoice/{invoice}/close', [InvoiceController::class, 'closeInvoice'])
+    ->middleware(['auth'])
+    ->name('user.invoice.close');
+
+// Add this route for viewing invoice details
+Route::get('/invoice/view/{invoice}', [InvoiceController::class, 'show'])
+    ->middleware(['auth'])
+    ->name('user.invoice.view');
+
 require __DIR__.'/auth.php';
 

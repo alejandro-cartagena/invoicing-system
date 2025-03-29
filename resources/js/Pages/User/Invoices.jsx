@@ -1,69 +1,128 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import UserAuthenticatedLayout from '@/Layouts/UserAuthenticatedLayout';
 import { Head, Link } from '@inertiajs/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTrash, faEdit, faDownload, faEye, faPaperPlane, faSearch, faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import { faTrash, faEdit, faDownload, faEye, faPaperPlane, faSearch, faChevronLeft, faChevronRight, faFilter } from '@fortawesome/free-solid-svg-icons';
 import { router } from '@inertiajs/react';
 import Swal from 'sweetalert2';
 import axios from 'axios';
 import { generatePDF, generateRealEstatePDF } from '@/utils/pdfGenerator';
 import { format, parseISO } from 'date-fns';
 
-const Invoices = ({ invoices }) => {
+const Invoices = ({ invoices: initialInvoices }) => {
+    const [invoices, setInvoices] = useState(initialInvoices);
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const invoicesPerPage = 10;
-
-    // Filter invoices based on search
-    const filteredInvoices = invoices.filter(invoice => 
-        invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        invoice.client_name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    
+    // Status filter state
+    const [statusFilters, setStatusFilters] = useState({
+        sent: true,
+        overdue: true,
+        paid: true,
+        closed: false
+    });
+    
+    // Combined filter function that applies both search and status filters
+    const applyFilters = () => {
+        return invoices.filter(invoice => 
+            // Apply search filter
+            (
+                (invoice.invoice_number && invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (invoice.nmi_invoice_id && invoice.nmi_invoice_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (invoice.client_name && invoice.client_name.toLowerCase().includes(searchTerm.toLowerCase()))
+            ) &&
+            // Apply status filter
+            statusFilters[invoice.status]
+        );
+    };
+    
+    const filteredInvoices = applyFilters();
 
     // Calculate pagination
     const indexOfLastInvoice = currentPage * invoicesPerPage;
     const indexOfFirstInvoice = indexOfLastInvoice - invoicesPerPage;
     const displayedInvoices = filteredInvoices.slice(indexOfFirstInvoice, indexOfLastInvoice);
     const totalPages = Math.ceil(filteredInvoices.length / invoicesPerPage);
+    
+    // Reset to first page when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, statusFilters]);
 
     const handlePageChange = (newPage) => {
         if (newPage > 0 && newPage <= totalPages) {
             setCurrentPage(newPage);
         }
     };
+    
+    // Handle status filter changes
+    const handleStatusFilterChange = (status) => {
+        setStatusFilters(prev => ({
+            ...prev,
+            [status]: !prev[status]
+        }));
+    };
+    
+    // Select/deselect all filters
+    const handleSelectAllFilters = (selected) => {
+        setStatusFilters({
+            sent: selected,
+            overdue: selected,
+            paid: selected,
+            closed: selected
+        });
+    };
 
     const formatDate = (dateStr) => {
         const date = new Date(dateStr);
         return date.toLocaleDateString("en-US", { year: "2-digit", month: "2-digit", day: "2-digit" });
-      };
+    };
 
-    const handleDelete = (invoiceId, invoiceNumber) => {
+    const handleClose = (invoiceId, invoiceNumber) => {
         Swal.fire({
             title: 'Are you sure?',
-            text: `You are about to delete invoice ${invoiceNumber}`,
+            text: `You are about to close invoice ${invoiceNumber}. This cannot be undone.`,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d33',
             cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Yes, delete it!'
+            confirmButtonText: 'Yes, close it!'
         }).then((result) => {
             if (result.isConfirmed) {
-                router.delete(route('user.invoice.destroy', invoiceId), {
-                    onSuccess: () => {
-                        Swal.fire(
-                            'Deleted!',
-                            'Invoice has been deleted.',
-                            'success'
-                        );
-                    },
-                    onError: () => {
+                axios.post(route('user.invoice.close', invoiceId))
+                    .then(response => {
+                        if (response.data.success) {
+                            Swal.fire(
+                                'Closed!',
+                                'Invoice has been closed.',
+                                'success'
+                            );
+                            
+                            // Update the invoices state to reflect the closed invoice
+                            setInvoices(prevInvoices => 
+                                prevInvoices.map(invoice => 
+                                    invoice.id === invoiceId 
+                                        ? { ...invoice, status: 'closed' } 
+                                        : invoice
+                                )
+                            );
+                        } else {
+                            Swal.fire(
+                                'Error!',
+                                response.data.message || 'Failed to close invoice.',
+                                'error'
+                            );
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error closing invoice:', error);
                         Swal.fire(
                             'Error!',
-                            'Failed to delete invoice.',
+                            error.response?.data?.message || 'Failed to close invoice.',
                             'error'
                         );
-                    },
-                });
+                    });
             }
         });
     };
@@ -156,6 +215,20 @@ const Invoices = ({ invoices }) => {
         }
     };
 
+    // Add this function to get a status filter button class
+    const getFilterButtonClass = (status) => {
+        const baseClass = "px-3 py-1 text-xs font-medium rounded-md mr-2 mb-2 cursor-pointer ";
+        const activeClass = {
+            sent: "bg-yellow-100 text-yellow-800 border border-yellow-300",
+            overdue: "bg-orange-100 text-orange-800 border border-orange-300",
+            paid: "bg-green-100 text-green-800 border border-green-300",
+            closed: "bg-red-100 text-red-800 border border-red-300"
+        };
+        const inactiveClass = "bg-gray-100 text-gray-500 border border-gray-200";
+        
+        return baseClass + (statusFilters[status] ? activeClass[status] : inactiveClass);
+    };
+
     return (
         <UserAuthenticatedLayout
             header={
@@ -168,9 +241,9 @@ const Invoices = ({ invoices }) => {
         >
             <Head title="Invoices" />
 
-            <div className="py-12">
+            <div className="container py-12">
                 <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                    {/* Add Search Bar */}
+                    {/* Search and Filter Controls */}
                     <div className="mb-6">
                         <div className="flex flex-col md:flex-row justify-between items-start space-y-4 md:space-y-0 md:items-start">
                             <div className="w-full md:w-auto">
@@ -181,7 +254,6 @@ const Invoices = ({ invoices }) => {
                                         className="w-full md:w-[300px] p-2 pl-10 border rounded"
                                         onChange={(e) => {
                                             setSearchTerm(e.target.value);
-                                            setCurrentPage(1); // Reset to first page on search
                                         }}
                                     />
                                     <FontAwesomeIcon 
@@ -209,9 +281,87 @@ const Invoices = ({ invoices }) => {
                                 </Link>
                             </div>
                         </div>
+                        
+                        {/* Status Filter Controls */}
+                        <div className="mt-4">
+                            <div className="flex items-center mb-2">
+                                <FontAwesomeIcon icon={faFilter} className="mr-2 text-gray-500" />
+                                <span className="text-sm font-medium text-gray-700">Filter by status:</span>
+                                <button
+                                    onClick={() => handleSelectAllFilters(true)}
+                                    className="ml-4 text-xs text-blue-600 hover:text-blue-800"
+                                >
+                                    Select All
+                                </button>
+                                <button
+                                    onClick={() => handleSelectAllFilters(false)}
+                                    className="ml-2 text-xs text-blue-600 hover:text-blue-800"
+                                >
+                                    Clear All
+                                </button>
+                            </div>
+                            <div className="flex flex-wrap">
+                                <div
+                                    className={getFilterButtonClass('sent')}
+                                    onClick={() => handleStatusFilterChange('sent')}
+                                >
+                                    <span className="flex items-center">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={statusFilters.sent} 
+                                            onChange={() => {}} 
+                                            className="mr-2 h-4 w-4" 
+                                        />
+                                        Sent
+                                    </span>
+                                </div>
+                                <div
+                                    className={getFilterButtonClass('overdue')}
+                                    onClick={() => handleStatusFilterChange('overdue')}
+                                >
+                                    <span className="flex items-center">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={statusFilters.overdue} 
+                                            onChange={() => {}} 
+                                            className="mr-2 h-4 w-4" 
+                                        />
+                                        Overdue
+                                    </span>
+                                </div>
+                                <div
+                                    className={getFilterButtonClass('paid')}
+                                    onClick={() => handleStatusFilterChange('paid')}
+                                >
+                                    <span className="flex items-center">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={statusFilters.paid} 
+                                            onChange={() => {}} 
+                                            className="mr-2 h-4 w-4" 
+                                        />
+                                        Paid
+                                    </span>
+                                </div>
+                                <div
+                                    className={getFilterButtonClass('closed')}
+                                    onClick={() => handleStatusFilterChange('closed')}
+                                >
+                                    <span className="flex items-center">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={statusFilters.closed} 
+                                            onChange={() => {}} 
+                                            className="mr-2 h-4 w-4" 
+                                        />
+                                        Closed
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                    <div className="bg-white xl:overflow-x-visible xl:whitespace-normal overflow-x-auto whitespace-nowrap shadow-sm sm:rounded-lg">
                         <div className="p-6 bg-white border-b border-gray-200">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
@@ -246,7 +396,12 @@ const Invoices = ({ invoices }) => {
                                     {displayedInvoices.map((invoice) => (
                                         <tr key={invoice.id}>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                {invoice.invoice_number}
+                                                <Link 
+                                                    href={route('user.invoice.view', invoice.id)}
+                                                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                                                >
+                                                    {invoice.nmi_invoice_id || invoice.invoice_number}
+                                                </Link>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
@@ -269,44 +424,54 @@ const Invoices = ({ invoices }) => {
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                                                     ${invoice.status === 'paid' ? 'bg-green-100 text-green-800' : 
-                                                      invoice.status === 'overdue' ? 'bg-red-100 text-red-800' : 
+                                                      invoice.status === 'overdue' ? 'bg-orange-100 text-orange-800' :
+                                                      invoice.status === 'closed' ? 'bg-red-100 text-red-800' :
                                                       'bg-yellow-100 text-yellow-800'}`}>
                                                     {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex space-x-4">
-                                                    
                                                     <button 
-                                                        onClick={() => handleDelete(invoice.id, invoice.invoice_number)}
-                                                        className="text-red-600 hover:text-red-900 relative group"
-                                                        aria-label="Delete Invoice"
+                                                        onClick={() => invoice.status === 'closed' ? null : handleClose(invoice.id, invoice.invoice_number)}
+                                                        className={`${invoice.status === 'closed' ? 'text-gray-400 cursor-not-allowed' : 'text-red-600 hover:text-red-900'} relative group`}
+                                                        aria-label={invoice.status === 'closed' ? 'Invoice Closed' : 'Close Invoice'}
+                                                        disabled={invoice.status === 'closed'}
                                                     >
                                                         <FontAwesomeIcon icon={faTrash} />
                                                         <span className="invisible group-hover:visible absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                                                            Delete
+                                                            {invoice.status === 'closed' ? 'Invoice Closed' : 'Close Invoice'}
                                                         </span>
                                                     </button>
                                                     
                                                     <button 
-                                                        onClick={() => handleDownload(invoice)}
-                                                        className="text-green-600 hover:text-green-900 relative group"
-                                                        aria-label="Download Invoice"
+                                                        onClick={() => invoice.status === 'closed' ? null : handleDownload(invoice)}
+                                                        className={`${invoice.status === 'closed' ? 'text-gray-400 cursor-not-allowed' : 'text-green-600 hover:text-green-900'} relative group`}
+                                                        aria-label={invoice.status === 'closed' ? 'Cannot Download Closed Invoice' : 'Download Invoice'}
+                                                        disabled={invoice.status === 'closed'}
                                                     >
                                                         <FontAwesomeIcon icon={faDownload} />
                                                         <span className="invisible group-hover:visible absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                                                            Download
+                                                            {invoice.status === 'closed' ? 'Cannot Download Closed Invoice' : 'Download Invoice'}
                                                         </span>
                                                     </button>
                                                     
                                                     <button 
-                                                        onClick={() => router.get(route('user.general-invoice.edit', invoice.id))}
-                                                        className="text-indigo-600 hover:text-indigo-900 relative group"
-                                                        aria-label="Resend Invoice"
+                                                        onClick={() => {
+                                                            if (invoice.status === 'closed') return;
+                                                            
+                                                            const editRoute = invoice.invoice_type === 'real_estate'
+                                                                ? route('user.real-estate-invoice.edit', invoice.id)
+                                                                : route('user.general-invoice.edit', invoice.id);
+                                                            router.get(editRoute);
+                                                        }}
+                                                        className={`${invoice.status === 'closed' ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:text-indigo-900'} relative group`}
+                                                        aria-label={invoice.status === 'closed' ? 'Cannot Edit Closed Invoice' : 'Edit Invoice'}
+                                                        disabled={invoice.status === 'closed'}
                                                     >
                                                         <FontAwesomeIcon icon={faPaperPlane} />
                                                         <span className="invisible group-hover:visible absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                                                            Resend
+                                                            {invoice.status === 'closed' ? 'Cannot Edit Closed Invoice' : 'Edit/Resend'}
                                                         </span>
                                                     </button>
                                                 </div>
@@ -317,8 +482,14 @@ const Invoices = ({ invoices }) => {
                                     {displayedInvoices.length === 0 && (
                                         <tr>
                                             <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
-                                                {searchTerm ? 'No invoices found matching your search.' : 'No invoices found. '}
-                                                {!searchTerm && <Link href={route('user.general-invoice')} className="text-indigo-600 hover:text-indigo-900">Create your first invoice</Link>}
+                                                {(searchTerm || Object.values(statusFilters).some(v => !v)) 
+                                                    ? 'No invoices match your current filters.' 
+                                                    : 'No invoices found.'}
+                                                {!searchTerm && !Object.values(statusFilters).some(v => v) && invoices.length === 0 && 
+                                                    <Link href={route('user.general-invoice')} className="text-indigo-600 hover:text-indigo-900">
+                                                        Create your first invoice
+                                                    </Link>
+                                                }
                                             </td>
                                         </tr>
                                     )}

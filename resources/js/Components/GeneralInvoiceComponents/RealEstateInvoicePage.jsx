@@ -295,7 +295,7 @@ const RealEstateInvoicePage = ({ data, pdfMode, onChange }) => {
             pdfMode={pdfMode}
           >
             <EditableInput
-              className="text-5xl text-right font-semibold"
+              className="text-5xl md:text-right font-semibold"
               placeholder="Invoice"
               value={invoice.title}
               onChange={(value) => handleChange('title', value)}
@@ -422,16 +422,30 @@ const RealEstateInvoicePage = ({ data, pdfMode, onChange }) => {
             )} 
             pdfMode={pdfMode}
           >
-            <View className="flex mb-[5px]" pdfMode={pdfMode}>
+            <View 
+            className={getClasses(
+              "flex mb-[5px]", // PDF classes
+              "flex flex-col md:flex-row mb-[5px]", // Responsive classes
+              pdfMode
+            )} 
+            pdfMode={pdfMode}
+            >
               <View className="w-[40%]" pdfMode={pdfMode}>
                 <Text
-                  className="font-semibold"
+                  className="font-semibold text-base"
                   pdfMode={pdfMode}
                 >
                   {invoice.invoiceTitleLabel || "Invoice #"}
                 </Text>
               </View>
-              <View className="w-[60%]" pdfMode={pdfMode}>
+              <View 
+                className={getClasses(
+                  "w-[60%]", // PDF classes
+                  "w-full md:w-[60%]", // Responsive classes
+                  pdfMode
+                )} 
+                pdfMode={pdfMode}
+              >
                 <EditableInput
                   className="border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400"
                   placeholder="INV-12"
@@ -441,10 +455,16 @@ const RealEstateInvoicePage = ({ data, pdfMode, onChange }) => {
                 />
               </View>
             </View>
-            <View className="flex mb-[5px]" pdfMode={pdfMode}>
+            <View className={getClasses(
+              "flex mb-[5px]", // PDF classes
+              "flex flex-col md:flex-row mb-[5px]", // Responsive classes
+              pdfMode
+            )} 
+            pdfMode={pdfMode}
+            >
               <View className="w-[40%]" pdfMode={pdfMode}>
                 <Text
-                  className="font-semibold"
+                  className="font-semibold text-base"
                   pdfMode={pdfMode}
                 >
                   {invoice.invoiceDateLabel || "Invoice Date"}
@@ -465,10 +485,16 @@ const RealEstateInvoicePage = ({ data, pdfMode, onChange }) => {
                 />
               </View>
             </View>
-            <View className="flex mb-[5px]" pdfMode={pdfMode}>
+            <View className={getClasses(
+              "flex mb-[5px]", // PDF classes
+              "flex flex-col md:flex-row mb-[5px]", // Responsive classes
+              pdfMode
+            )} 
+            pdfMode={pdfMode}
+            >
               <View className="w-[40%]" pdfMode={pdfMode}>
                 <Text
-                  className="font-semibold"
+                  className="font-semibold text-base"
                   pdfMode={pdfMode}
                 >
                   {invoice.invoiceDueDateLabel || "Due Date"}
@@ -495,7 +521,7 @@ const RealEstateInvoicePage = ({ data, pdfMode, onChange }) => {
 
         <View className={getClasses(
               "flex-col mt-20", // PDF classes - added justify-between and specific margin
-              "flex flex-col mt-20", // Responsive classes
+              "flex flex-col mt-10", // Responsive classes
               pdfMode
             )} 
             pdfMode={pdfMode}
@@ -761,8 +787,22 @@ const RealEstateInvoicePage = ({ data, pdfMode, onChange }) => {
         </div>
 
 
-        <View className="flex" pdfMode={pdfMode}>
-          <View className="w-[50%] mt-[10px]" pdfMode={pdfMode}>
+        <View 
+        className={getClasses(
+          "flex", // PDF classes
+          "flex flex-col md:flex-row", // Responsive classes
+          pdfMode
+        )} 
+        pdfMode={pdfMode}
+        >
+          <View 
+          className={getClasses(
+            "w-[50%] mt-[10px]", // PDF classes
+            "w-full md:w-[50%] mt-[10px]", // Responsive classes
+            pdfMode
+          )} 
+          pdfMode={pdfMode}
+          >
             {!pdfMode && (
               <button className="link" onClick={handleAdd}>
                 <span className="icon icon-add bg-green-500 mr-[10px]"></span>
@@ -770,7 +810,14 @@ const RealEstateInvoicePage = ({ data, pdfMode, onChange }) => {
               </button>
             )}
           </View>
-          <View className="w-[50%] mt-[20px]" pdfMode={pdfMode}>
+          <View 
+          className={getClasses(
+            "w-[50%] mt-[20px]", // PDF classes
+            "w-full md:w-[50%] mt-[20px]", // Responsive classes
+            pdfMode
+          )} 
+          pdfMode={pdfMode}
+          >
             <View className="flex" pdfMode={pdfMode}>
               <View className="w-[50%] p-[5px]" pdfMode={pdfMode}>
                 <Text className="text-base dark" pdfMode={pdfMode}>
@@ -833,15 +880,29 @@ const RealEstateInvoicePage = ({ data, pdfMode, onChange }) => {
               </View>
             </View>
             <View className="flex bg-[#e3e3e3] p-[5px]" pdfMode={pdfMode}>
-              <View className="w-[50%] p-[5px]" pdfMode={pdfMode}>
-                <EditableInput
+              <View 
+                className={getClasses(
+                  "w-[50%] p-[5px]", // PDF classes
+                  "w-[30%] md:w-[50%] p-[5px]", // Responsive classes
+                  pdfMode
+                )} 
+                pdfMode={pdfMode}
+              >
+                <Text
                   className="text-gray-800 font-semibold bg-[#e3e3e3]"
-                  value={invoice.totalLabel}
-                  onChange={(value) => handleChange('totalLabel', value)}
                   pdfMode={pdfMode}
-                />
+                >
+                  {invoice.totalLabel || "Total"}
+                </Text>
               </View>
-              <View className="w-[50%] p-[5px] flex" pdfMode={pdfMode}>
+              <View 
+                className={getClasses(
+                  "w-[50%] p-[5px] flex", // PDF classes
+                  "w-[70%] md:w-[50%] p-[5px] flex", // Responsive classes
+                  pdfMode
+                )} 
+                pdfMode={pdfMode}
+              >
                 <EditableInput
                   className="text-gray-800 font-bold text-right ml-[30px] bg-[#e3e3e3]"
                   value={invoice.currency}
