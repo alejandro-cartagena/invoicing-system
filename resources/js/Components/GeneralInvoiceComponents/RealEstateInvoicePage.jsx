@@ -222,9 +222,9 @@ const RealEstateInvoicePage = ({ data, pdfMode, onChange }) => {
 
   return (
     <Document pdfMode={pdfMode}>
+      {/* Sets the buttons for download, upload, and save template */}
+      {!pdfMode && <RealEstateDownload data={invoice} setData={(d) => setInvoice(d)} />}
       <Page className="relative bg-white p-9 shadow-md" pdfMode={pdfMode}>
-        {!pdfMode && <RealEstateDownload data={invoice} setData={(d) => setInvoice(d)} />}
-
         <View
           className={getClasses(
             "flex", // PDF classes 
@@ -702,43 +702,43 @@ const RealEstateInvoicePage = ({ data, pdfMode, onChange }) => {
         <div className='md:overflow-x-visible md:whitespace-normal overflow-x-auto whitespace-nowrap'>
           <View className="mt-[30px] bg-[#555] flex min-w-[500px]" pdfMode={pdfMode}>
             <View className="w-[48%] px-2 py-1" pdfMode={pdfMode}>
-              <EditableInput
+              <Text
                 className="text-white bg-[#555] font-bold"
-                value={invoice.productLineDescription}
-                onChange={(value) => handleChange('productLineDescription', value)}
-                pdfMode={pdfMode}
-              />
+              pdfMode={pdfMode}
+              >
+                {invoice.productLineDescription || "Item Description"}
+              </Text>
             </View>
             <View className="w-[17%] px-2 py-1" pdfMode={pdfMode}>
-              <EditableInput
+              <Text
                 className="text-white bg-[#555] font-bold text-right"
-                value={invoice.productLineQuantity}
-                onChange={(value) => handleChange('productLineQuantity', value)}
-                pdfMode={pdfMode}
-              />
+              pdfMode={pdfMode}
+              >
+                {invoice.productLineQuantity || "Qty"}
+              </Text>
             </View>
             <View className="w-[17%] px-2 py-1" pdfMode={pdfMode}>
-              <EditableInput
+              <Text
                 className="text-white bg-[#555] font-bold text-right"
-                value={invoice.productLineQuantityCost}
-                onChange={(value) => handleChange('productLineQuantityCost', value)}
-                pdfMode={pdfMode}
-              />
+              pdfMode={pdfMode}
+              >
+                {invoice.productLineQuantityCost || "Cost"}
+              </Text>
             </View>
             <View className="w-[18%] px-2 py-1" pdfMode={pdfMode}>
-              <EditableInput
+              <Text
                 className="text-white bg-[#555] font-bold text-right"
-                value={invoice.productLineQuantityTotal}
-                onChange={(value) => handleChange('productLineQuantityTotal', value)}
-                pdfMode={pdfMode}
-              />
+              pdfMode={pdfMode}
+              >
+                {invoice.productLineQuantityTotal || "Total"}
+              </Text>
             </View>
-          </View>
+        </View>
 
-          {invoice.productLines.map((productLine, i) => {
-            return pdfMode && productLine.description === '' ? (
-              <Text key={i}></Text>
-            ) : (
+        {invoice.productLines.map((productLine, i) => {
+          return pdfMode && productLine.description === '' ? (
+            <Text key={i}></Text>
+          ) : (
               <View key={i} className="row flex min-w-[500px]" pdfMode={pdfMode}>
                 <View className="w-[48%] px-2 py-1" pdfMode={pdfMode}>
                   <EditableTextarea
@@ -773,12 +773,12 @@ const RealEstateInvoicePage = ({ data, pdfMode, onChange }) => {
                 </View>
                 {!pdfMode && (
                   <button
-                    className="link row__remove"
+                    className="link row__remove opacity-100 md:opacity-0"
                     aria-label="Remove Row"
                     title="Remove Row"
                     onClick={() => handleRemove(i)}
                   >
-                    <span className="icon icon-remove bg-red-500"></span>
+                      <span className="icon icon-remove bg-red-500"></span>
                   </button>
                 )}
               </View>

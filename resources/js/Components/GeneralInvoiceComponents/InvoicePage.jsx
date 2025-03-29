@@ -16,6 +16,10 @@ import Download from './DownloadPDF'
 import { format } from 'date-fns/format'
 
 
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faDownload, faEnvelope, faSave, faUpload } from '@fortawesome/free-solid-svg-icons';
+
+
 Font.register({
   family: 'Nunito',
   src: 'https://fonts.gstatic.com/s/nunito/v12/XRXV3I6Li01BKofINeaE.ttf',
@@ -216,9 +220,9 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
 
   return (
     <Document pdfMode={pdfMode}>
+      {/* Sets the buttons for download, upload, and save template */}
+      {!pdfMode && <Download data={invoice} setData={(d) => setInvoice(d)} />}
       <Page className="relative bg-white p-9 shadow-md" pdfMode={pdfMode}>
-        {!pdfMode && <Download data={invoice} setData={(d) => setInvoice(d)} />}
-
         <View 
             className={getClasses(
               "flex", // PDF classes 

@@ -148,59 +148,6 @@ const GeneralInvoice = () => {
         }
     };
 
-    const handleSaveTemplate = () => {
-        saveTemplate(invoiceData);
-    };
-
-    const handleFileUpload = (e) => {
-        if (!e.target.files?.length) return;
-        handleTemplateUpload(e.target.files[0], setInvoiceData);
-    };
-
-    const handleDownloadPdf = async () => {
-        if (!invoiceData) {
-            toast.error('Please create an invoice first');
-            return;
-        }
-
-        // Check for large images in the invoice data
-        if (invoiceData.logo) {
-            const logoSize = calculateBase64Size(invoiceData.logo);
-            if (logoSize > MAX_IMAGE_SIZE_BYTES) {
-                toast.error(`Logo image is too large (${(logoSize / (1024 * 1024)).toFixed(2)}MB). Maximum size is ${MAX_IMAGE_SIZE_MB}MB. Please reduce the image size and try again.`);
-                return;
-            }
-        }
-
-        setIsLoading(true);
-        try {
-            // Show loading indicator
-            toast.loading('Generating PDF...');
-            
-            // Use the same PDF generation logic as the email function
-            const pdfBlob = await generatePDF(invoiceData);
-            
-            // Create and click download link
-            const url = window.URL.createObjectURL(pdfBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', 'invoice.pdf');
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
-
-            console.log("PDF Blob:", pdfBlob);
-            
-            toast.dismiss();
-            toast.success('PDF downloaded successfully');
-        } catch (error) {
-            console.error('PDF generation error:', error);
-            toast.error('Failed to generate PDF');
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
     return (
         <UserAuthenticatedLayout
@@ -246,41 +193,6 @@ const GeneralInvoice = () => {
                     </p>
                 </div>
 
-
-                {/* Mobile-only buttons */}
-                <div className="md:hidden flex justify-center flex-wrap gap-4 my-8">
-                    <button 
-                        onClick={handleDownloadPdf}
-                        className="px-4 py-2 bg-green-500 text-white rounded-md text-sm md:text-base hover:bg-green-600 transition-all duration-300 flex items-center"
-                        disabled={sending}
-                    >
-                        <FontAwesomeIcon icon={faDownload} className="mr-2" />
-                        Download PDF
-                    </button>
-                    <button
-                        onClick={handleSaveTemplate}
-                        className="px-4 py-2 bg-indigo-500 text-white rounded-md text-sm md:text-base hover:bg-indigo-600 transition-all duration-300 flex items-center"
-                        disabled={sending}
-                    >
-                        <FontAwesomeIcon icon={faSave} className="mr-2" />
-                        Save Template
-                    </button>
-
-                    <button
-                        className="px-4 py-2 bg-purple-500 text-white rounded-md text-sm md:text-base hover:bg-purple-600 transition-all duration-300 flex items-center"
-                        onClick={() => document.getElementById('template-upload').click()}
-                    >
-                        <FontAwesomeIcon icon={faUpload} className="mr-2" />
-                        Upload Template
-                        <input
-                            id="template-upload"
-                            type="file"
-                            accept=".json,.template"
-                            onChange={handleFileUpload}
-                            className="sr-only"
-                        />
-                    </button>
-                </div>
 
                 <InvoicePage 
                     data={invoiceData} 

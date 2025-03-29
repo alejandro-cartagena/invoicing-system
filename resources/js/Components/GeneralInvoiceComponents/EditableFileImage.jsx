@@ -85,6 +85,23 @@ const EditableFileImage = ({
           reader.onload = (e) => {
             onChangeImage(e.target.result)
             toast.success('Image compressed and uploaded successfully')
+            
+            // Reset editing state
+            setIsEditing(false)
+            
+            // Force blur all elements in the component to remove :focus-within state
+            if (fileInput.current) {
+              fileInput.current.blur();
+              fileInput.current.value = '';
+            }
+            
+            // Force blur on any buttons or elements that might be focused
+            document.querySelectorAll('.image button, .image input').forEach(el => {
+              el.blur();
+            });
+            
+            // Move focus away from the component
+            document.body.focus();
           }
           reader.readAsDataURL(compressedFile)
         } catch (error) {
@@ -96,6 +113,23 @@ const EditableFileImage = ({
         const reader = new FileReader()
         reader.onload = (e) => {
           onChangeImage(e.target.result)
+          
+          // Reset editing state
+          setIsEditing(false)
+          
+          // Force blur all elements in the component to remove :focus-within state
+          if (fileInput.current) {
+            fileInput.current.blur();
+            fileInput.current.value = '';
+          }
+          
+          // Force blur on any buttons or elements that might be focused
+          document.querySelectorAll('.image button, .image input').forEach(el => {
+            el.blur();
+          });
+          
+          // Move focus away from the component
+          document.body.focus();
         }
         reader.readAsDataURL(file)
       }
