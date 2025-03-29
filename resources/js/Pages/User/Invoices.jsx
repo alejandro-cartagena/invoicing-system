@@ -410,7 +410,9 @@ const Invoices = ({ invoices: initialInvoices }) => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                {invoice.client_name}
+                                                {invoice.first_name && invoice.last_name 
+                                                    ? `${invoice.first_name} ${invoice.last_name}`
+                                                    : invoice.company_name || 'N/A'}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 ${parseFloat(invoice.total).toFixed(2)}

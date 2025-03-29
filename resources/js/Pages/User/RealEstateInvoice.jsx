@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import RealEstateInvoicePage from '@/Components/GeneralInvoiceComponents/RealEstateInvoicePage';
 import UserAuthenticatedLayout from '@/Layouts/UserAuthenticatedLayout';
 import { router, usePage } from '@inertiajs/react';
+import { LoaderIcon } from '@/Components/Icons';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
 import { format } from 'date-fns';

@@ -140,7 +140,7 @@ class InvoiceController extends Controller
                 'user_id' => $user->id,
                 'invoice_type' => $validated['invoiceType'],
                 'invoice_number' => $invoiceData['invoiceTitle'] ?? ('INV-' . time()),
-                'client_name' => $invoiceData['clientName'] ?? 'Client',
+                'company_name' => $invoiceData['companyName'] ?? 'Client',
                 'client_email' => $validated['recipientEmail'],
                 'subtotal' => $subTotal,
                 'tax_rate' => $taxRate,
@@ -621,7 +621,7 @@ class InvoiceController extends Controller
                 'user_id' => $user->id,
                 'invoice_type' => $invoice->invoice_type,
                 'invoice_number' => $invoiceData['invoiceTitle'] ?? ('INV-' . time()),
-                'client_name' => $invoiceData['clientName'] ?? 'Client',
+                'company_name' => $invoiceData['companyName'] ?? 'Client',
                 'client_email' => $validated['recipientEmail'],
                 'subtotal' => $subTotal,
                 'tax_rate' => $taxRate,
@@ -834,29 +834,16 @@ class InvoiceController extends Controller
             $paymentToken = Str::random(64);
             
             // Extract client name parts for first_name and last_name
-            $clientName = $invoiceData['clientName'] ?? '';
             $firstName = $invoiceData['firstName'] ?? '';
             $lastName = $invoiceData['lastName'] ?? '';
+            $companyName = $invoiceData['companyName'] ?? '';
 
             // Log the raw values to help with debugging
             \Log::info('Raw name values from invoice data:', [
-                'clientName' => $clientName,
+                'companyName' => $companyName,
                 'firstName' => $firstName,
                 'lastName' => $lastName
             ]);
-
-            // If we don't have firstName/lastName but have clientName, 
-            // try to split clientName into firstName and lastName
-            if ((empty($firstName) || empty($lastName)) && !empty($clientName)) {
-                $nameParts = explode(' ', $clientName, 2);
-                $firstName = $firstName ?: ($nameParts[0] ?? '');
-                $lastName = $lastName ?: ($nameParts[1] ?? '');
-                
-                \Log::info('Parsed name from clientName:', [
-                    'firstName' => $firstName,
-                    'lastName' => $lastName
-                ]);
-            }
 
             // Extract address components
             $country = $invoiceData['country'] ?? $invoiceData['clientCountry'] ?? '';
@@ -915,7 +902,7 @@ class InvoiceController extends Controller
                 'user_id' => $user->id,
                 'invoice_type' => $validated['invoiceType'],
                 'invoice_number' => $invoiceData['invoiceTitle'] ?? ('INV-' . time()),
-                'client_name' => $clientName,
+                'company_name' => $companyName,
                 'client_email' => $validated['recipientEmail'],
                 'first_name' => $firstName,
                 'last_name' => $lastName,
@@ -965,8 +952,8 @@ class InvoiceController extends Controller
             if (!empty($lastName)) {
                 $nmiData['last_name'] = $lastName;
             }
-            if (!empty($clientName)) {
-                $nmiData['company'] = $clientName;
+            if (!empty($companyName)) {
+                $nmiData['company'] = $companyName;
             }
 
             // Add address information if available
@@ -1312,17 +1299,9 @@ class InvoiceController extends Controller
                 : date('Y-m-d', strtotime('+30 days'));
             
             // Extract client name parts for first_name and last_name
-            $clientName = $invoiceData['clientName'] ?? '';
             $firstName = $invoiceData['firstName'] ?? '';
             $lastName = $invoiceData['lastName'] ?? '';
-
-            // If we don't have firstName/lastName but have clientName, 
-            // try to split clientName into firstName and lastName
-            if ((empty($firstName) || empty($lastName)) && !empty($clientName)) {
-                $nameParts = explode(' ', $clientName, 2);
-                $firstName = $firstName ?: ($nameParts[0] ?? '');
-                $lastName = $lastName ?: ($nameParts[1] ?? '');
-            }
+            $companyName = $invoiceData['companyName'] ?? '';
 
             // Extract address components
             $country = $invoiceData['country'] ?? $invoiceData['clientCountry'] ?? '';
@@ -1389,8 +1368,8 @@ class InvoiceController extends Controller
             if (!empty($lastName)) {
                 $createInvoiceData['last_name'] = $lastName;
             }
-            if (!empty($clientName)) {
-                $createInvoiceData['company'] = $clientName;
+            if (!empty($companyName)) {
+                $createInvoiceData['company'] = $companyName;
             }
 
             // Add address information if available
@@ -1496,7 +1475,7 @@ class InvoiceController extends Controller
                     // Also update address info
                     'first_name' => $firstName,
                     'last_name' => $lastName,
-                    'client_name' => $clientName,
+                    'company_name' => $companyName,
                     'country' => $country,
                     'city' => $city,
                     'state' => $state,

@@ -112,7 +112,7 @@ const ViewInvoice = ({ invoice }) => {
                                                     className="max-w-[200px] max-h-[100px] mb-4"
                                                 />
                                             )}
-                                            <div className="text-xl md:text-2xl font-bold mb-1">{invoiceData.companyName || '-'}</div>
+                                            <div className="text-xl md:text-2xl font-bold mb-1">{invoiceData.yourCompanyName || '-'}</div>
                                             <div className="md:text-lg">{invoiceData.name || '-'}</div>
                                             <div className="md:text-lg">{invoiceData.companyAddress || '-'}</div>
                                             <div className="md:text-lg">{invoiceData.companyAddress2 || '-'}</div>
@@ -150,7 +150,8 @@ const ViewInvoice = ({ invoice }) => {
                                     <div className="flex flex-col md:flex-row justify-between mb-10">
                                         <div className="w-full md:w-1/2 mb-6 md:mb-0">
                                             <div className="text-lg md:text-xl font-semibold mb-2">Bill To:</div>
-                                            <div className="md:text-lg mb-1">{invoiceData.clientName}</div>
+                                            <div className="md:text-lg mb-1">{invoiceData.firstName} {invoiceData.lastName}</div>
+                                            <div className="md:text-lg mb-1">{invoiceData.companyName}</div>
                                             <div className="md:text-lg mb-1">{invoiceData.clientAddress}</div>
                                             <div className="md:text-lg mb-1">
                                                 {[

@@ -13,7 +13,7 @@ class Invoice extends Model
         'user_id',
         'invoice_type',
         'invoice_number',
-        'client_name',
+        'company_name',
         'client_email',
         'first_name',
         'last_name',

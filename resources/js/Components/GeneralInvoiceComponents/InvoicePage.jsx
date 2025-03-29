@@ -92,17 +92,6 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
         newInvoice[name] = value
       } else if (name !== 'logoWidth' && typeof value === 'string') {
         newInvoice[name] = value
-        
-        // Special handling for firstName and lastName to update clientName
-        if (name === 'firstName' || name === 'lastName') {
-          const firstName = name === 'firstName' ? value : newInvoice.firstName || '';
-          const lastName = name === 'lastName' ? value : newInvoice.lastName || '';
-          // Only update clientName if it was empty or matched the previous first+last name combination
-          const previousFullName = `${newInvoice.firstName || ''} ${newInvoice.lastName || ''}`.trim();
-          if (!newInvoice.clientName || newInvoice.clientName === previousFullName) {
-            newInvoice.clientName = `${firstName} ${lastName}`.trim();
-          }
-        }
       }
 
       setInvoice(newInvoice)
@@ -251,8 +240,8 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
             <EditableInput
               className="text-xl font-semibold border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400"
               placeholder="Your Company"
-              value={invoice.companyName}
-              onChange={(value) => handleChange('companyName', value)}
+              value={invoice.yourCompanyName}
+              onChange={(value) => handleChange('yourCompanyName', value)}
               pdfMode={pdfMode}
             />
             <EditableInput
@@ -359,8 +348,8 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
             <EditableInput
               className="border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400"
               placeholder="Company Name (optional)"
-              value={invoice.clientName}
-              onChange={(value) => handleChange('clientName', value)}
+              value={invoice.companyName}
+              onChange={(value) => handleChange('companyName', value)}
               pdfMode={pdfMode}
             />
             
