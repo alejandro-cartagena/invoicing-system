@@ -206,8 +206,44 @@ class InvoiceController extends Controller
         }
     }
     
+    /**
+     * Display a listing of the invoices.
+     *
+     * @return \Inertia\Response
+     */
     public function index()
     {
+        // Get current date for overdue check
+        $today = now()->startOfDay();
+        
+        // Get all invoices for the authenticated user
+        $invoices = Invoice::where('user_id', Auth::id())
+            ->orderBy('created_at', 'desc')
+            ->get();
+        
+        // Update status to 'overdue' for invoices past due date that aren't paid or closed
+        foreach ($invoices as $invoice) {
+            $dueDate = \Carbon\Carbon::parse($invoice->due_date)->startOfDay();
+            
+            // Check if invoice is past due and not already paid or closed
+            if ($today->gt($dueDate) && 
+                $invoice->status !== 'paid' && 
+                $invoice->status !== 'closed' &&
+                $invoice->status !== 'overdue') {
+                
+                // Update status to overdue
+                $invoice->status = 'overdue';
+                $invoice->save();
+                
+                \Log::info('Invoice marked as overdue', [
+                    'invoice_id' => $invoice->id,
+                    'due_date' => $invoice->due_date,
+                    'today' => $today->toDateString()
+                ]);
+            }
+        }
+        
+        // Refresh the collection after potential status updates
         $invoices = Invoice::where('user_id', Auth::id())
             ->orderBy('created_at', 'desc')
             ->get()
