@@ -288,6 +288,25 @@ class InvoiceController extends Controller
                 ], 400);
             }
             
+            // Get the user who created the invoice
+            $user = User::findOrFail($invoice->user_id);
+            
+            // Get the user's profile with the private key
+            $userProfile = UserProfile::where('user_id', $user->id)->first();
+            
+            // Check if we have a private key for this user
+            if (!$userProfile || empty($userProfile->private_key)) {
+                \Log::error('Missing private key for user', [
+                    'user_id' => $user->id,
+                    'invoice_id' => $invoice->id
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Payment configuration error. Please contact support.'
+                ], 500);
+            }
+            
             // Log the token for debugging
             \Log::info('Payment token received', [
                 'token' => $validated['token'],
@@ -318,9 +337,9 @@ class InvoiceController extends Controller
                 ]);
             }
             
-            // Prepare the payment data
+            // Prepare the payment data with the user's private key
             $paymentData = [
-                'security_key' => env('DVF_PRIVATE_KEY', 'B6z4wK8d42A82b2vn89WQ578xHCxDQEc'),
+                'security_key' => $userProfile->private_key,
                 'payment_token' => $validated['token'],
                 'type' => 'sale',
                 'amount' => $validated['amount'],
@@ -351,7 +370,8 @@ class InvoiceController extends Controller
             
             \Log::info('Sending payment request to gateway', [
                 'url' => 'https://dvfsolutions.transactiongateway.com/api/transact.php',
-                'data' => array_merge($paymentData, ['security_key' => '[REDACTED]'])
+                'data' => array_merge($paymentData, ['security_key' => '[REDACTED]']),
+                'merchant_id' => $userProfile->merchant_id ?? 'Not available'
             ]);
             
             // Send the payment request to DVF Solutions
@@ -1279,6 +1299,15 @@ class InvoiceController extends Controller
                     $nmiData['itemquantity' . $itemIndex] = (int)$quantity;
                     $nmiData['itemtotalamount' . $itemIndex] = number_format($lineTotal, 2, '.', '');
                 }
+                
+                // Log the line item details for debugging
+                \Log::info('Line item details for NMI:', [
+                    'total_items' => count($invoiceData['productLines']),
+                    'subTotal' => $subTotal,
+                    'line_items' => array_filter($nmiData, function($key) {
+                        return strpos($key, 'item_') === 0 || strpos($key, 'itemdescription') === 0;
+                    }, ARRAY_FILTER_USE_KEY)
+                ]);
             }
             
             // Extract tax rate from tax rate field or tax label

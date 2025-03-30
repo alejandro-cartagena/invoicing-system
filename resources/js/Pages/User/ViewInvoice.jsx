@@ -66,16 +66,15 @@ const ViewInvoice = ({ invoice }) => {
                         </Link>
                         
                         <div className="flex space-x-4">
-                            {invoice.status !== 'closed' && (
+                            <Link 
+                                href={route('user.invoice.download', invoice.id)}
+                                className="px-4 py-2 bg-green-500 text-white rounded-md text-sm md:text-base hover:bg-green-600 transition-all duration-300 flex items-center"
+                            >
+                                <FontAwesomeIcon icon={faDownload} className="mr-2" />
+                                Download PDF
+                            </Link>
+                            {invoice.status !== 'closed' && invoice.status !== 'paid' && (
                                 <>
-                                    <Link 
-                                        href={route('user.invoice.download', invoice.id)}
-                                        className="px-4 py-2 bg-green-500 text-white rounded-md text-sm md:text-base hover:bg-green-600 transition-all duration-300 flex items-center"
-                                    >
-                                        <FontAwesomeIcon icon={faDownload} className="mr-2" />
-                                        Download PDF
-                                    </Link>
-                                    
                                     {invoice.invoice_type === 'real_estate' ? (
                                         <Link 
                                             href={route('user.real-estate-invoice.edit', invoice.id)}

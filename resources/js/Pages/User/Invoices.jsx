@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import UserAuthenticatedLayout from '@/Layouts/UserAuthenticatedLayout';
 import { Head, Link } from '@inertiajs/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTrash, faEdit, faDownload, faEye, faPaperPlane, faSearch, faChevronLeft, faChevronRight, faFilter } from '@fortawesome/free-solid-svg-icons';
+import { faTrash, faX, faEdit, faDownload, faEye, faPaperPlane, faSearch, faChevronLeft, faChevronRight, faFilter } from '@fortawesome/free-solid-svg-icons';
 import { router } from '@inertiajs/react';
 import Swal from 'sweetalert2';
 import axios from 'axios';
@@ -79,10 +79,15 @@ const Invoices = ({ invoices: initialInvoices }) => {
         return date.toLocaleDateString("en-US", { year: "2-digit", month: "2-digit", day: "2-digit" });
     };
 
-    const handleClose = (invoiceId, invoiceNumber) => {
+    const handleClose = (invoiceId, invoiceNumber, nmiInvoiceId) => {
+        // Include NMI invoice ID in the confirmation message if available
+        const invoiceIdentifier = nmiInvoiceId 
+            ? `${nmiInvoiceId}` 
+            : invoiceNumber;
+        
         Swal.fire({
             title: 'Are you sure?',
-            text: `You are about to close invoice ${invoiceNumber}. This cannot be undone.`,
+            text: `You are about to close invoice ${invoiceIdentifier}. This cannot be undone.`,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d33',
@@ -90,6 +95,11 @@ const Invoices = ({ invoices: initialInvoices }) => {
             confirmButtonText: 'Yes, close it!'
         }).then((result) => {
             if (result.isConfirmed) {
+                // Log the NMI invoice ID if available
+                if (nmiInvoiceId) {
+                    console.log(`Closing invoice with NMI ID: ${nmiInvoiceId}`);
+                }
+                
                 axios.post(route('user.invoice.close', invoiceId))
                     .then(response => {
                         if (response.data.success) {
@@ -435,45 +445,44 @@ const Invoices = ({ invoices: initialInvoices }) => {
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex space-x-4">
                                                     <button 
-                                                        onClick={() => invoice.status === 'closed' ? null : handleClose(invoice.id, invoice.invoice_number)}
-                                                        className={`${invoice.status === 'closed' ? 'text-gray-400 cursor-not-allowed' : 'text-red-600 hover:text-red-900'} relative group`}
-                                                        aria-label={invoice.status === 'closed' ? 'Invoice Closed' : 'Close Invoice'}
-                                                        disabled={invoice.status === 'closed'}
+                                                        onClick={() => invoice.status !== 'closed' || invoice.status !== 'paid' ? handleClose(invoice.id, invoice.invoice_number, invoice.nmi_invoice_id) : null}
+                                                        className={`${invoice.status === 'closed' || invoice.status === 'paid' ? 'text-gray-400 cursor-not-allowed' : 'text-red-600 hover:text-red-900'} relative group`}
+                                                        aria-label={invoice.status === 'closed' ? 'Invoice Closed' : invoice.status === 'paid' ? 'Invoice Paid' : 'Close Invoice'}
+                                                        disabled={invoice.status === 'closed' || invoice.status === 'paid'}
                                                     >
-                                                        <FontAwesomeIcon icon={faTrash} />
+                                                        <FontAwesomeIcon icon={faX} />
                                                         <span className="invisible group-hover:visible absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                                                            {invoice.status === 'closed' ? 'Invoice Closed' : 'Close Invoice'}
+                                                            {invoice.status === 'closed' ? 'Invoice Closed' : invoice.status === 'paid' ? 'Invoice Paid' : 'Close Invoice'}
                                                         </span>
                                                     </button>
                                                     
                                                     <button 
-                                                        onClick={() => invoice.status === 'closed' ? null : handleDownload(invoice)}
-                                                        className={`${invoice.status === 'closed' ? 'text-gray-400 cursor-not-allowed' : 'text-green-600 hover:text-green-900'} relative group`}
-                                                        aria-label={invoice.status === 'closed' ? 'Cannot Download Closed Invoice' : 'Download Invoice'}
-                                                        disabled={invoice.status === 'closed'}
+                                                        onClick={() => handleDownload(invoice)}
+                                                        className='text-green-600 hover:text-green-900 relative group'
+                                                        aria-label='Download Invoice'
                                                     >
                                                         <FontAwesomeIcon icon={faDownload} />
-                                                        <span className="invisible group-hover:visible absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                                                            {invoice.status === 'closed' ? 'Cannot Download Closed Invoice' : 'Download Invoice'}
+                                                        <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap hidden group-hover:block">
+                                                            {'Download Invoice'}
                                                         </span>
                                                     </button>
                                                     
                                                     <button 
                                                         onClick={() => {
-                                                            if (invoice.status === 'closed') return;
+                                                            if (invoice.status === 'closed' || invoice.status === 'paid') return;
                                                             
                                                             const editRoute = invoice.invoice_type === 'real_estate'
                                                                 ? route('user.real-estate-invoice.edit', invoice.id)
                                                                 : route('user.general-invoice.edit', invoice.id);
                                                             router.get(editRoute);
                                                         }}
-                                                        className={`${invoice.status === 'closed' ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:text-indigo-900'} relative group`}
-                                                        aria-label={invoice.status === 'closed' ? 'Cannot Edit Closed Invoice' : 'Edit Invoice'}
-                                                        disabled={invoice.status === 'closed'}
+                                                        className={`${invoice.status === 'closed' || invoice.status === 'paid' ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:text-indigo-900'} relative group`}
+                                                        aria-label={invoice.status === 'closed' ? 'Cannot Edit Closed Invoice' : invoice.status === 'paid' ? 'Cannot Edit Paid Invoice' : 'Edit Invoice'}
+                                                        disabled={invoice.status === 'closed' || invoice.status === 'paid'}
                                                     >
                                                         <FontAwesomeIcon icon={faPaperPlane} />
                                                         <span className="invisible group-hover:visible absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                                                            {invoice.status === 'closed' ? 'Cannot Edit Closed Invoice' : 'Edit/Resend'}
+                                                            {invoice.status === 'closed' ? 'Cannot Edit Closed Invoice' : invoice.status === 'paid' ? 'Cannot Edit Paid Invoice' : 'Edit/Resend'}
                                                         </span>
                                                     </button>
                                                 </div>
