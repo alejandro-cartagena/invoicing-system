@@ -494,6 +494,12 @@ class InvoiceController extends Controller
             abort(403, 'Unauthorized action.');
         }
         
+        // Add this check to prevent resending paid or closed invoices
+        if ($invoice->status === 'paid' || $invoice->status === 'closed') {
+            return redirect()->route('user.invoices')
+                ->with('error', 'Paid or closed invoices cannot be resent.');
+        }
+        
         // Get the user
         $user = Auth::user();
         
@@ -554,6 +560,14 @@ class InvoiceController extends Controller
     public function resendAfterEdit(Request $request, Invoice $invoice)
     {
         try {
+            // Check if the invoice is paid or closed
+            if ($invoice->status === 'paid' || $invoice->status === 'closed') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Paid or closed invoices cannot be edited or resent.'
+                ], 403);
+            }
+            
             $validated = $request->validate([
                 'invoiceData' => 'required|array',
                 'pdfBase64' => 'required|string',
@@ -714,6 +728,12 @@ class InvoiceController extends Controller
         // Check if the invoice belongs to the authenticated user
         if ($invoice->user_id !== Auth::id()) {
             abort(403, 'Unauthorized action.');
+        }
+
+        // Add this check to prevent editing paid or closed invoices
+        if ($invoice->status === 'paid' || $invoice->status === 'closed') {
+            return redirect()->route('user.invoice.view', $invoice->id)
+                ->with('error', 'Paid or closed invoices cannot be edited.');
         }
 
         if ($invoice->invoice_type === 'real_estate') {
@@ -1140,6 +1160,14 @@ class InvoiceController extends Controller
     public function updateInvoiceInNmi(Request $request, Invoice $invoice)
     {
         try {
+            // Check if the invoice is paid or closed
+            if ($invoice->status === 'paid' || $invoice->status === 'closed') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Paid or closed invoices cannot be updated.'
+                ], 403);
+            }
+            
             $validated = $request->validate([
                 'invoiceData' => 'required|array',
                 'recipientEmail' => 'required|email',
