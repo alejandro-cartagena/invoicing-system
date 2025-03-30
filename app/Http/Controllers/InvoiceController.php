@@ -237,7 +237,8 @@ class InvoiceController extends Controller
             
         return Inertia::render('Payment/CreditCard', [
             'invoice' => $invoice,
-            'token' => $token
+            'token' => $token,
+            'nmi_invoice_id' => $invoice->nmi_invoice_id
         ]);
     }
 
@@ -270,6 +271,7 @@ class InvoiceController extends Controller
                 'state' => 'required|string|max:255',
                 'zip' => 'required|string|max:20',
                 'phone' => 'required|string|max:20',
+                'nmiInvoiceId' => 'nullable|string',
             ]);
             
             // Log the validated data
@@ -333,6 +335,19 @@ class InvoiceController extends Controller
                 'customer_id' => $invoice->client_email,
                 'currency' => 'USD',
             ];
+            
+            // Add the NMI invoice ID if it exists
+            if (!empty($validated['nmiInvoiceId'])) {
+                $paymentData['invoice_id'] = $validated['nmiInvoiceId'];
+                \Log::info('Including NMI invoice ID in payment request', [
+                    'nmi_invoice_id' => $validated['nmiInvoiceId']
+                ]);
+            } else {
+                \Log::warning('No NMI invoice ID provided for payment', [
+                    'invoice_id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number
+                ]);
+            }
             
             \Log::info('Sending payment request to gateway', [
                 'url' => 'https://dvfsolutions.transactiongateway.com/api/transact.php',
