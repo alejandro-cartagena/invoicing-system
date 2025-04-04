@@ -86,15 +86,34 @@ class SendInvoiceMail extends Mailable
         }
         
         $businessName = $this->user->profile ? $this->user->profile->business_name : $this->user->name;
+
+        // Calculate totals
+        $subTotal = 0;
+        $taxRate = $this->invoiceData['taxRate'] ?? 0;
+        
+        if (isset($this->invoiceData['productLines']) && is_array($this->invoiceData['productLines'])) {
+            foreach ($this->invoiceData['productLines'] as $item) {
+                if (isset($item['quantity']) && isset($item['rate'])) {
+                    $subTotal += ($item['quantity'] * $item['rate']);
+                }
+            }
+        }
+        
+        $tax = $subTotal * ($taxRate / 100);
+        $total = $subTotal + $tax;
         
         return new Content(
-            view: 'emails.invoice',
+            view: 'emails.compiled.invoice',
             with: [
                 'senderName' => $businessName,
                 'invoiceData' => $this->invoiceData,
                 'creditCardPaymentUrl' => $creditCardPaymentUrl,
                 'bitcoinPaymentUrl' => $bitcoinPaymentUrl,
                 'isUpdated' => $this->isUpdate,
+                'subTotal' => $subTotal,
+                'taxRate' => $taxRate,
+                'tax' => $tax,
+                'total' => $total,
             ]
         );
     }
