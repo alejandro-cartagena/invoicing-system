@@ -46,6 +46,14 @@ class SendInvoiceMail extends Mailable
     {
         $businessName = $this->user->profile ? $this->user->profile->business_name : $this->user->name;
         
+        // Add logging
+        \Log::info('Sending invoice email with:', [
+            'from' => 'info@voltms.com',
+            'reply_to' => $this->user->email,
+            'business_name' => $businessName,
+            'user_id' => $this->user->id
+        ]);
+        
         $subject = $this->isUpdate 
             ? 'UPDATED: Invoice from ' . $businessName
             : 'Invoice from ' . $businessName;
@@ -55,6 +63,7 @@ class SendInvoiceMail extends Mailable
         }
 
         return new Envelope(
+            from: new Address('info@voltms.com', 'VoltMS'),
             subject: $subject,
             replyTo: [
                 new Address($this->user->email, $businessName),
