@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    'bead' => [
+        'api_url' => env('BEAD_API_URL'),
+        'auth_url' => env('BEAD_AUTH_URL'),
+        'merchant_id' => env('BEAD_MERCHANT_ID'),
+        'terminal_id' => env('BEAD_TERMINAL_ID'),
+        'username' => env('BEAD_USERNAME'),
+        'password' => env('BEAD_PASSWORD'),
+    ],
+
 ];

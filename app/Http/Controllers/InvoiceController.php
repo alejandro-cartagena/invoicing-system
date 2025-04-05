@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\BeadPaymentService;
 
 class InvoiceController extends Controller
 {
@@ -502,12 +503,100 @@ class InvoiceController extends Controller
 
     public function processBitcoinPayment(Request $request)
     {
-        // This will be implemented when you integrate with the Bitcoin payment gateway
-        // For now, just return a placeholder response
-        return response()->json([
-            'success' => true,
-            'message' => 'Bitcoin payment processing will be implemented soon'
-        ]);
+        try {
+            $validated = $request->validate([
+                'token' => 'required|string',
+                'invoiceId' => 'required|integer',
+                'amount' => 'required|numeric|min:0.01',
+            ]);
+
+            // Find the invoice
+            $invoice = Invoice::findOrFail($validated['invoiceId']);
+
+            // Check if the invoice is already paid
+            if ($invoice->status === 'paid') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This invoice has already been paid.'
+                ], 400);
+            }
+
+            $beadService = new BeadPaymentService();
+            
+            try {
+                Log::info('Creating crypto payment for invoice', [
+                    'invoice_id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'nmi_invoice_id' => $invoice->nmi_invoice_id,
+                    'amount' => $validated['amount']
+                ]);
+
+                // Use nmi_invoice_id as the reference if available, otherwise fall back to invoice_number
+                $reference = !empty($invoice->nmi_invoice_id) ? $invoice->nmi_invoice_id : $invoice->invoice_number;
+                
+                $paymentResponse = $beadService->createCryptoPayment(
+                    $validated['amount'],
+                    'USD',
+                    $reference, // Using nmi_invoice_id as reference
+                    'Invoice payment for ' . $invoice->invoice_number
+                );
+
+                // Log the successful response
+                Log::info('Received payment response from Bead', [
+                    'payment_id' => $paymentResponse['trackingId'] ?? null,
+                    'payment_url' => $paymentResponse['paymentUrls']['url'] ?? null,
+                    'reference_used' => $reference
+                ]);
+
+                // Store the Bead payment ID in the invoice
+                $invoice->update([
+                    'bead_payment_id' => $paymentResponse['trackingId'] ?? null,
+                    'payment_method' => 'crypto',
+                    'status' => 'pending' // Update status to pending
+                ]);
+
+                // Format the response for the frontend
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Crypto payment initiated',
+                    'payment_data' => [
+                        'trackingId' => $paymentResponse['trackingId'] ?? null,
+                        'paymentUrl' => $paymentResponse['paymentUrls']['url'] ?? null
+                    ]
+                ]);
+
+            } catch (Exception $e) {
+                $errorMessage = $e->getMessage();
+                $statusCode = 500;
+                
+                // Check if the error message contains a 403 (Forbidden) reference
+                if (strpos($errorMessage, '403') !== false) {
+                    $errorMessage = "The Bead payment system returned a 403 Forbidden error. This typically means the terminal doesn't have permission to process crypto payments. Please contact support and provide these details: Terminal ID: {$beadService->getTerminalId()}, Invoice: {$invoice->invoice_number}";
+                    $statusCode = 403;
+                }
+                
+                Log::error('Failed to create crypto payment', [
+                    'error' => $errorMessage,
+                    'trace' => $e->getTraceAsString()
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => $errorMessage
+                ], $statusCode);
+            }
+        } catch (\Exception $e) {
+            Log::error('Payment processing error: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while processing your payment: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     public function destroy(Invoice $invoice)
@@ -1836,5 +1925,145 @@ class InvoiceController extends Controller
         return Inertia::render('User/ViewInvoice', [
             'invoice' => $invoice
         ]);
+    }
+
+    /**
+     * Test Bead API Authentication
+     */
+    public function testBeadAuth()
+    {
+        try {
+            $beadService = new BeadPaymentService();
+            $response = $beadService->authenticate();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Successfully authenticated with Bead API',
+                'token_info' => [
+                    'access_token' => substr($response, 0, 50) . '...', // Only show first 50 chars for security
+                    'token_length' => strlen($response)
+                ]
+            ]);
+        } catch (Exception $e) {
+            Log::error('Bead API Authentication error', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to authenticate with Bead API: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Handle Bead payment webhook
+     */
+    public function handleBeadWebhook(Request $request)
+    {
+        try {
+            Log::info('Received Bead webhook', [
+                'payload' => $request->all()
+            ]);
+
+            $paymentId = $request->input('PaymentId');
+            if (!$paymentId) {
+                throw new Exception('Payment ID not found in webhook');
+            }
+
+            // Find the invoice by Bead payment ID
+            $invoice = Invoice::where('bead_payment_id', $paymentId)->first();
+            if (!$invoice) {
+                throw new Exception('Invoice not found for payment ID: ' . $paymentId);
+            }
+
+            // Update invoice status based on payment status
+            $status = $request->input('Status');
+            switch ($status) {
+                case 'Completed':
+                    $invoice->status = 'paid';
+                    $invoice->payment_date = now();
+                    break;
+                case 'Failed':
+                    $invoice->status = 'failed';
+                    break;
+                // Add other status cases as needed
+            }
+
+            $invoice->save();
+
+            return response()->json(['success' => true]);
+        } catch (Exception $e) {
+            Log::error('Failed to process Bead webhook: ' . $e->getMessage());
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    // Add this method after handleBeadWebhook
+    public function verifyBeadPayment(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'trackingId' => 'required|string',
+                'status' => 'nullable|string'
+            ]);
+
+            $trackingId = $validated['trackingId'];
+            
+            // Find the invoice by tracking ID
+            $invoice = Invoice::where('bead_payment_id', $trackingId)->first();
+            
+            if (!$invoice) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invoice not found for this payment'
+                ], 404);
+            }
+            
+            // Check payment status from Bead API
+            $beadService = new BeadPaymentService();
+            $paymentStatus = $beadService->checkPaymentStatus($trackingId);
+            
+            // Update invoice status if payment is completed
+            if (isset($paymentStatus['status']) && $paymentStatus['status'] === 'Completed') {
+                $invoice->status = 'paid';
+                $invoice->payment_date = now();
+                $invoice->save();
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Payment verified successfully',
+                    'payment' => [
+                        'status' => $paymentStatus['status'],
+                        'invoiceId' => $invoice->id,
+                        'invoiceNumber' => $invoice->invoice_number,
+                        'amount' => $invoice->total
+                    ]
+                ]);
+            }
+            
+            // For other statuses, just return the status without updating the invoice
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment status retrieved',
+                'payment' => [
+                    'status' => $paymentStatus['status'] ?? 'Unknown',
+                    'invoiceId' => $invoice->id,
+                    'invoiceNumber' => $invoice->invoice_number,
+                    'amount' => $invoice->total
+                ]
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Payment verification error: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Error verifying payment: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

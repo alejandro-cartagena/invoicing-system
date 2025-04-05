@@ -146,5 +146,39 @@ Route::get('/invoice/view/{invoice}', [InvoiceController::class, 'show'])
     ->middleware(['auth'])
     ->name('user.invoice.view');
 
+// Add this route for testing Bead API authentication
+Route::get('/test-bead-auth', [InvoiceController::class, 'testBeadAuth'])
+    ->middleware(['auth'])
+    ->name('test.bead.auth');
+
+// Add this route for Bead payment webhooks
+Route::post('/bead/webhook', [InvoiceController::class, 'handleBeadWebhook'])
+    ->name('bead.webhook');
+
+// Add this route for testing Bead API
+Route::get('/test-bead-api-status', function () {
+    try {
+        $beadService = new App\Services\BeadPaymentService();
+        $token = $beadService->getAccessToken();
+        
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Successfully authenticated with Bead API',
+            'token_length' => strlen($token),
+            'terminal_id' => $beadService->getTerminalId()
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage()
+        ], 500);
+    }
+})->name('test.bead.api');
+
+// Add this route for Bead payment success
+Route::get('/payment-success', function () {
+    return Inertia::render('Payment/PaymentSuccess');
+})->name('payment.success');
+
 require __DIR__.'/auth.php';
 

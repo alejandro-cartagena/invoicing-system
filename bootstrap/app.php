@@ -14,6 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
         \App\Console\Commands\CompileMjml::class,
     ])
     ->withMiddleware(function (Middleware $middleware) {
+        $middleware->use([
+            \Illuminate\Http\Middleware\HandleCors::class,
+        ]);
+
         $middleware->web(append: [
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
