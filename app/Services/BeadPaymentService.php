@@ -254,36 +254,63 @@ class BeadPaymentService
                 'payload' => $request->all()
             ]);
 
-            $paymentId = $request->input('PaymentId');
-            if (!$paymentId) {
-                throw new Exception('Payment ID not found in webhook');
+            $trackingId = $request->input('trackingId');
+            if (!$trackingId) {
+                throw new Exception('Tracking ID not found in webhook');
             }
 
-            // Find the invoice by Bead payment ID
-            $invoice = Invoice::where('bead_payment_id', $paymentId)->first();
+            // Find the invoice by Bead payment ID (which is the trackingId)
+            $invoice = Invoice::where('bead_payment_id', $trackingId)->first();
             if (!$invoice) {
-                throw new Exception('Invoice not found for payment ID: ' . $paymentId);
+                throw new Exception('Invoice not found for tracking ID: ' . $trackingId);
             }
 
-            // Update invoice status based on payment status
-            $status = $request->input('Status');
-            switch ($status) {
-                case 'Completed':
+            // Update invoice status based on statusCode
+            $statusCode = $request->input('statusCode');
+            switch ($statusCode) {
+                case 2: // Payment Completed
                     $invoice->status = 'paid';
                     $invoice->payment_date = now();
+                    $invoice->transaction_id = $request->input('paymentCode');
                     break;
-                case 'Failed':
-                    $invoice->status = 'failed';
+                case 3: // Payment Underpaid
+                    $invoice->status = 'underpaid';
                     break;
-                // Add other status cases as needed
+                case 4: // Payment Overpaid
+                    $invoice->status = 'paid';
+                    $invoice->payment_date = now();
+                    $invoice->transaction_id = $request->input('paymentCode');
+                    // You might want to note the overpayment
+                    $invoice->notes = 'Payment was overpaid. Customer should reclaim excess funds.';
+                    break;
+                case 7: // Payment Expired
+                    $invoice->status = 'expired';
+                    break;
+                case 8: // Payment Invalid
+                    $invoice->status = 'invalid';
+                    break;
+                case 9: // Payment Cancelled
+                    $invoice->status = 'cancelled';
+                    break;
+                default:
+                    Log::warning('Unknown payment status code received', [
+                        'statusCode' => $statusCode,
+                        'trackingId' => $trackingId
+                    ]);
             }
 
             $invoice->save();
-
+            
+            // Always return 200 OK to acknowledge receipt
             return response()->json(['success' => true]);
         } catch (Exception $e) {
-            Log::error('Failed to process Bead webhook: ' . $e->getMessage());
-            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+            // Log the error but still return 200 to prevent retries
+            Log::error('Failed to process Bead webhook: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            // Return 200 even on error to prevent Bead from retrying
+            return response()->json(['success' => false, 'error' => $e->getMessage()]);
         }
     }
 
@@ -293,5 +320,43 @@ class BeadPaymentService
     public function getTerminalId()
     {
         return $this->terminalId;
+    }
+
+    public function setWebhookUrl($webhookUrl)
+    {
+        if (!$this->accessToken) {
+            $this->authenticate();
+        }
+        
+        try {
+            $response = Http::withToken($this->accessToken)
+                ->withHeaders([
+                    'Content-Type' => 'application/json',
+                    'Accept' => 'application/json'
+                ])
+                ->put($this->apiUrl . '/Terminals/' . $this->terminalId . '/set-webhook-url', [
+                    'webhookUrl' => $webhookUrl
+                ]);
+            
+            if ($response->successful()) {
+                Log::info('Successfully set Bead webhook URL', [
+                    'webhook_url' => $webhookUrl,
+                    'response' => $response->json()
+                ]);
+                return $response->json();
+            }
+            
+            Log::error('Failed to set Bead webhook URL', [
+                'status' => $response->status(),
+                'response' => $response->json()
+            ]);
+            
+            throw new Exception('Failed to set webhook URL: ' . $response->body());
+        } catch (Exception $e) {
+            Log::error('Bead API Webhook Configuration error', [
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
     }
 }
