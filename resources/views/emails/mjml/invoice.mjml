@@ -1,0 +1,132 @@
+<mjml>
+  <mj-head>
+    <mj-title>Invoice from {{ $senderName }}</mj-title>
+    <mj-font name="Helvetica" href="https://fonts.googleapis.com/css?family=Helvetica" />
+    <mj-attributes>
+      <mj-all font-family="Helvetica, Arial, sans-serif" font-size="16px" />
+    </mj-attributes>
+    <mj-style>
+      @media screen and (max-width: 480px) {
+        .desktop-only {
+          display: none !important;
+        }
+        .mobile-only {
+          display: block !important;
+        }
+      }
+      @media screen and (min-width: 481px) {
+        .desktop-only {
+          display: block !important;
+        }
+        .mobile-only {
+          display: none !important;
+        }
+      }
+    </mj-style>
+  </mj-head>
+  <mj-body background-color="#f4f4f4">
+    <mj-section background-color="#ffffff" padding="20px">
+      <mj-column>
+        <mj-text font-size="28px" color="#333" font-weight="bold">
+          Invoice from {{ $senderName }}
+        </mj-text>
+        
+        <mj-text font-size="16px">
+          Hello,
+        </mj-text>
+        
+        <mj-text font-size="16px">
+          Please find attached the invoice from {{ $senderName }}.
+        </mj-text>
+
+        <mj-divider border-color="#eee" />
+
+        <mj-text font-size="18px" font-weight="bold">Invoice Details:</mj-text>
+        <mj-text font-size="16px">
+          Invoice Number: {{ $invoiceData['invoiceTitle'] ?? 'Not specified' }}<br />
+          Date: {{ $invoiceData['invoiceDate'] ?? 'Not specified' }}<br />
+          Due Date: {{ $invoiceData['invoiceDueDate'] ?? 'Not specified' }}
+        </mj-text>
+
+        <mj-divider border-color="#eee" />
+
+        @if(isset($invoiceData['productLines']) && is_array($invoiceData['productLines']))
+        <!-- Desktop Table -->
+        <mj-wrapper css-class="desktop-only" padding="10px">
+          <mj-table css-class="desktop-table" font-size="16px">
+            <tr style="border-bottom:1px solid #ecedee;text-align:left;">
+              <th>Description</th>
+              <th>Quantity</th>
+              <th>Rate</th>
+              <th>Amount</th>
+            </tr>
+            @foreach($invoiceData['productLines'] as $item)
+              @if(isset($item['description']) && $item['description'])
+              <tr>
+                <td style="text-align:left;">{{ $item['description'] }}</td>
+                <td style="text-align:left;">{{ $item['quantity'] ?? '0' }}</td>
+                <td style="text-align:left;">{{ $invoiceData['currency'] ?? '$' }}{{ $item['rate'] ?? '0.00' }}</td>
+                <td style="text-align:left;">{{ $invoiceData['currency'] ?? '$' }}{{ number_format(($item['quantity'] ?? 0) * ($item['rate'] ?? 0), 2) }}</td>
+              </tr>
+              @endif
+            @endforeach
+          </mj-table>
+        </mj-wrapper>
+
+        <!-- Mobile Layout -->
+        <mj-wrapper css-class="mobile-only" padding="10px">
+          @foreach($invoiceData['productLines'] as $item)
+            @if(isset($item['description']) && $item['description'])
+            <mj-text padding-bottom="20px" font-size="16px">
+              <strong>Description:</strong><br />
+              {{ $item['description'] }}<br /><br />
+              
+              <strong>Quantity:</strong><br />
+              {{ $item['quantity'] ?? '0' }}<br /><br />
+              
+              <strong>Rate:</strong><br />
+              {{ $invoiceData['currency'] ?? '$' }}{{ $item['rate'] ?? '0.00' }}<br /><br />
+              
+              <strong>Amount:</strong><br />
+              {{ $invoiceData['currency'] ?? '$' }}{{ number_format(($item['quantity'] ?? 0) * ($item['rate'] ?? 0), 2) }}
+            </mj-text>
+            <mj-divider border-color="#ecedee" css-class="mobile-only" />
+            @endif
+          @endforeach
+        </mj-wrapper>
+
+        <mj-text align="right" padding="10px" font-size="16px">
+          <strong>Sub Total:</strong> {{ $invoiceData['currency'] ?? '$' }}{{ number_format($subTotal, 2) }}
+        </mj-text>
+
+        @if($taxRate > 0)
+        <mj-text align="right" padding="5px" font-size="16px">
+          <strong>Tax ({{ number_format($taxRate, 1) }}%):</strong> {{ $invoiceData['currency'] ?? '$' }}{{ number_format($tax, 2) }}
+        </mj-text>
+        @endif
+
+        <mj-text align="right" padding="10px" font-weight="bold" font-size="18px">
+          <strong>Total:</strong> {{ $invoiceData['currency'] ?? '$' }}{{ number_format($total, 2) }}
+        </mj-text>
+        @endif
+
+        @if(isset($creditCardPaymentUrl) && isset($bitcoinPaymentUrl))
+        <mj-button href="{{ $creditCardPaymentUrl }}" background-color="#4CAF50" color="white" font-size="16px">
+          Pay with Credit Card
+        </mj-button>
+        
+        <mj-button href="{{ $bitcoinPaymentUrl }}" background-color="#f7931a" color="white" font-size="16px">
+          Pay with Bitcoin
+        </mj-button>
+        @endif
+
+        <mj-divider border-color="#eee" />
+
+        <mj-text font-size="16px">
+          Best regards,<br />
+          {{ $senderName }}
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

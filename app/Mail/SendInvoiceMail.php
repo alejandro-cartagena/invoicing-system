@@ -46,6 +46,14 @@ class SendInvoiceMail extends Mailable
     {
         $businessName = $this->user->profile ? $this->user->profile->business_name : $this->user->name;
         
+        // Add logging
+        \Log::info('Sending invoice email with:', [
+            'from' => 'info@voltms.com',
+            'reply_to' => $this->user->email,
+            'business_name' => $businessName,
+            'user_id' => $this->user->id
+        ]);
+        
         $subject = $this->isUpdate 
             ? 'UPDATED: Invoice from ' . $businessName
             : 'Invoice from ' . $businessName;
@@ -55,6 +63,7 @@ class SendInvoiceMail extends Mailable
         }
 
         return new Envelope(
+            from: new Address('info@voltms.com', 'VoltMS'),
             subject: $subject,
             replyTo: [
                 new Address($this->user->email, $businessName),
@@ -77,15 +86,34 @@ class SendInvoiceMail extends Mailable
         }
         
         $businessName = $this->user->profile ? $this->user->profile->business_name : $this->user->name;
+
+        // Calculate totals
+        $subTotal = 0;
+        $taxRate = $this->invoiceData['taxRate'] ?? 0;
+        
+        if (isset($this->invoiceData['productLines']) && is_array($this->invoiceData['productLines'])) {
+            foreach ($this->invoiceData['productLines'] as $item) {
+                if (isset($item['quantity']) && isset($item['rate'])) {
+                    $subTotal += ($item['quantity'] * $item['rate']);
+                }
+            }
+        }
+        
+        $tax = $subTotal * ($taxRate / 100);
+        $total = $subTotal + $tax;
         
         return new Content(
-            view: 'emails.invoice',
+            view: 'emails.compiled.invoice',
             with: [
                 'senderName' => $businessName,
                 'invoiceData' => $this->invoiceData,
                 'creditCardPaymentUrl' => $creditCardPaymentUrl,
                 'bitcoinPaymentUrl' => $bitcoinPaymentUrl,
                 'isUpdated' => $this->isUpdate,
+                'subTotal' => $subTotal,
+                'taxRate' => $taxRate,
+                'tax' => $tax,
+                'total' => $total,
             ]
         );
     }
