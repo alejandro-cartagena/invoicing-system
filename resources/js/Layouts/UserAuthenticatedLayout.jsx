@@ -37,7 +37,7 @@ export default function UserAuthenticatedLayout({ header, children }) {
                                     href={route('user.invoices')}
                                     active={route().current('user.invoices')}
                                 >
-                                    Invoices
+                                    View Invoices
                                 </NavLink>
                             </div>
                         </div>
