@@ -544,7 +544,7 @@ class InvoiceController extends Controller
                 // Log the successful response
                 Log::info('Received payment response from Bead', [
                     'payment_id' => $paymentResponse['trackingId'] ?? null,
-                    'payment_url' => $paymentResponse['paymentUrls']['url'] ?? null,
+                    'payment_url' => $paymentResponse['paymentUrls'][0]['url'] ?? null,
                     'reference_used' => $reference
                 ]);
 
@@ -561,7 +561,7 @@ class InvoiceController extends Controller
                     'message' => 'Crypto payment initiated',
                     'payment_data' => [
                         'trackingId' => $paymentResponse['trackingId'] ?? null,
-                        'paymentUrl' => $paymentResponse['paymentUrls']['url'] ?? null
+                        'paymentUrl' => $paymentResponse['paymentUrls'][0]['url'] ?? null
                     ]
                 ]);
 

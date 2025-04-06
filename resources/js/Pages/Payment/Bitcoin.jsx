@@ -20,15 +20,21 @@ export default function Bitcoin({ invoice, token }) {
                 amount: invoice.total
             });
 
-            if (response.data.success) {
+            console.log("RESPONSE: ", response.data);
+
+            if (response.data.success && response.data.payment_data && response.data.payment_data.paymentUrl) {
                 // Redirect to the Bead payment URL
                 window.location.href = response.data.payment_data.paymentUrl;
             } else {
-                setError(response.data.message);
+                // Handle case where success is true but no paymentUrl is provided
+                const errorMsg = response.data.success ? 
+                    'Payment initiated but no payment URL was provided. Please contact support.' : 
+                    response.data.message;
+                setError(errorMsg);
+                setLoading(false);
             }
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to initiate crypto payment');
-        } finally {
             setLoading(false);
         }
     };

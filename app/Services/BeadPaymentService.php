@@ -26,8 +26,6 @@ class BeadPaymentService
         
         // Fix password handling - the escaped backslash in .env might cause issues
         $this->password = env('BEAD_PASSWORD');
-        // Remove extra backslashes that might come from .env escaping
-        $this->password = str_replace('\\\\', '\\', $this->password);
 
         if (empty($this->authUrl) || empty($this->terminalId) || empty($this->password)) {
             throw new Exception('Bead API configuration is incomplete. Please check your .env file.');
