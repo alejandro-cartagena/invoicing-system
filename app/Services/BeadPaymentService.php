@@ -329,32 +329,62 @@ class BeadPaymentService
         }
         
         try {
-            $response = Http::withToken($this->accessToken)
-                ->withHeaders([
-                    'Content-Type' => 'application/json',
-                    'Accept' => 'application/json'
-                ])
-                ->put($this->apiUrl . '/Terminals/' . $this->terminalId . '/set-webhook-url', [
-                    'webhookUrl' => $webhookUrl
-                ]);
-            
-            if ($response->successful()) {
-                Log::info('Successfully set Bead webhook URL', [
-                    'webhook_url' => $webhookUrl,
-                    'response' => $response->json()
-                ]);
-                return $response->json();
-            }
-            
-            Log::error('Failed to set Bead webhook URL', [
-                'status' => $response->status(),
-                'response' => $response->json()
+            Log::info('Attempting to set Bead webhook URL', [
+                'webhook_url' => $webhookUrl,
+                'terminal_id' => $this->terminalId,
+                'api_url' => $this->apiUrl . '/Terminals/' . $this->terminalId . '/set-webhook-url'
             ]);
             
-            throw new Exception('Failed to set webhook URL: ' . $response->body());
+            // Use cURL for more control and debugging
+            $ch = curl_init($this->apiUrl . '/Terminals/' . $this->terminalId . '/set-webhook-url');
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['Url' => $webhookUrl]));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Authorization: Bearer ' . $this->accessToken,
+                'Content-Type: application/json',
+                'Accept: application/json'
+            ]);
+            
+            // Enable verbose debugging
+            curl_setopt($ch, CURLOPT_VERBOSE, true);
+            $verbose = fopen('php://temp', 'w+');
+            curl_setopt($ch, CURLOPT_STDERR, $verbose);
+            
+            $responseBody = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+            
+            // Get verbose information
+            rewind($verbose);
+            $verboseLog = stream_get_contents($verbose);
+            fclose($verbose);
+            
+            curl_close($ch);
+            
+            Log::info('Bead webhook setting response details', [
+                'status_code' => $httpCode,
+                'response_body' => $responseBody,
+                'curl_error' => $error,
+                'verbose_log' => $verboseLog
+            ]);
+            
+            if ($httpCode >= 200 && $httpCode < 300) {
+                $responseData = !empty($responseBody) ? json_decode($responseBody, true) : ['message' => 'Success (empty response)'];
+                return $responseData;
+            }
+            
+            // Construct a meaningful error message
+            $errorDetail = !empty($responseBody) ? $responseBody : 'Empty response with status code ' . $httpCode;
+            if ($error) {
+                $errorDetail .= ' CURL Error: ' . $error;
+            }
+            
+            throw new Exception('Failed to set webhook URL: ' . $errorDetail);
         } catch (Exception $e) {
             Log::error('Bead API Webhook Configuration error', [
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
             throw $e;
         }
