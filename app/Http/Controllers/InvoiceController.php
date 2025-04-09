@@ -14,6 +14,7 @@ use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Services\BeadPaymentService;
+use App\Mail\PaymentReceiptMail;
 
 class InvoiceController extends Controller
 {
@@ -462,7 +463,10 @@ class InvoiceController extends Controller
                 $invoice->payment_date = now();
                 $invoice->transaction_id = $responseData['transactionid'] ?? null;
                 $invoice->save();
-                
+
+                // Send the receipt email
+                Mail::to($invoice->client_email)->send(new PaymentReceiptMail($invoice));
+
                 // Return success response
                 return response()->json([
                     'success' => true,

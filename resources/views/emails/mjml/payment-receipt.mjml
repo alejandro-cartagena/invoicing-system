@@ -1,0 +1,65 @@
+<mjml>
+  <mj-head>
+    <mj-title>Payment Receipt</mj-title>
+    <mj-font name="Helvetica" href="https://fonts.googleapis.com/css?family=Helvetica" />
+    <mj-attributes>
+      <mj-all font-family="Helvetica, Arial, sans-serif" font-size="16px" />
+    </mj-attributes>
+  </mj-head>
+  <mj-body background-color="#f4f4f4">
+    <mj-section background-color="#ffffff" padding="20px">
+      <mj-column>
+        <mj-text font-size="28px" color="#333" font-weight="bold">
+          Payment Receipt
+        </mj-text>
+        
+        <mj-text font-size="16px">
+          Hello {{ $invoice->user->name }},
+        </mj-text>
+        
+        <mj-text font-size="16px">
+          Thank you for your payment. Here are the details of your transaction:
+        </mj-text>
+
+        <mj-divider border-color="#eee" />
+
+        <mj-text font-size="18px" font-weight="bold">Payment Details:</mj-text>
+        <mj-text font-size="16px">
+          Invoice Number: {{ $invoice->nmi_invoice_id }}<br />
+          Amount Paid: ${{ number_format($invoice->total, 2) }}
+        </mj-text>
+
+        <mj-divider border-color="#eee" />
+
+        <!-- Item Descriptions -->
+        @if(isset($invoice->invoice_data['productLines']) && is_array($invoice->invoice_data['productLines']))
+        <mj-table font-size="16px">
+          <tr style="border-bottom:1px solid #ecedee;text-align:left;">
+            <th>Description</th>
+            <th>Quantity</th>
+            <th>Rate</th>
+            <th>Amount</th>
+          </tr>
+          @foreach($invoice->invoice_data['productLines'] as $item)
+            @if(isset($item['description']) && $item['description'])
+            <tr>
+              <td style="text-align:left;">{{ $item['description'] }}</td>
+              <td style="text-align:left;">{{ $item['quantity'] ?? '0' }}</td>
+              <td style="text-align:left;">${{ $item['rate'] ?? '0.00' }}</td>
+              <td style="text-align:left;">${{ number_format(($item['quantity'] ?? 0) * ($item['rate'] ?? 0), 2) }}</td>
+            </tr>
+            @endif
+          @endforeach
+        </mj-table>
+        @endif
+
+        <mj-divider border-color="#eee" />
+
+        <mj-text font-size="16px">
+          Best regards,<br />
+          Your Company Name
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>
