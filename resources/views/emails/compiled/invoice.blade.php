@@ -123,7 +123,7 @@
                     </tr>
                     <tr>
                       <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
-                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:1;text-align:left;color:#000000;">Hello,</div>
+                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:1;text-align:left;color:#000000;">{{ isset($invoiceData['client_first_name']) ? 'Hello, ' . $invoiceData['client_first_name'] : 'Hello,' }}</div>
                       </td>
                     </tr>
                     <tr>
@@ -146,7 +146,7 @@
                     </tr>
                     <tr>
                       <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
-                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:1;text-align:left;color:#000000;">Invoice Number: {{ $invoiceData['invoiceTitle'] ?? 'Not specified' }}<br /> Date: {{ $invoiceData['invoiceDate'] ?? 'Not specified' }}<br /> Due Date: {{ $invoiceData['invoiceDueDate'] ?? 'Not specified' }}</div>
+                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:1;text-align:left;color:#000000;">Invoice Number: {{ $invoiceData['nmi_invoice_id'] ?? 'Not specified' }}<br /> Date: {{ $invoiceData['invoiceDate'] ?? 'Not specified' }}<br /> Due Date: {{ $invoiceData['invoiceDueDate'] ?? 'Not specified' }}</div>
                       </td>
                     </tr>
                     <tr>
@@ -191,11 +191,17 @@
                     </tr>
                     <!-- Mobile Layout -->
                     <tr>
+                      <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:18px;font-weight:bold;line-height:1;text-align:left;color:#000000;">Invoice Items:</div>
+                      </td>
+                    </tr>
+                    <tr>
                       <td class="mobile-only" style="font-size:0px;padding:10px;word-break:break-word;">
                         <!--[if mso | IE]><table align="center" border="0" cellpadding="0" cellspacing="0" class="mobile-only-outlook" role="presentation" style="width:560px;" width="560" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
                         <div class="mobile-only" style="margin:0px auto;max-width:560px;">
                           <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;">
                             <tbody>
+                              @foreach($invoiceData['productLines'] as $item) @if(isset($item['description']) && $item['description'])
                               <tr>
                                 <td style="direction:ltr;font-size:0px;padding:10px;text-align:center;">
                                   <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td align="left" class="" width="560px" ><![endif]-->
@@ -209,12 +215,13 @@
                                     {{ $invoiceData['currency'] ?? '$' }}{{ number_format(($item['quantity'] ?? 0) * ($item['rate'] ?? 0), 2) }}
                                   </div>
                                   <!--[if mso | IE]></td></tr><tr><td align="center" class="mobile-only-outlook" width="560px" ><![endif]-->
-                                  <p style="border-top:solid 4px #ecedee;font-size:1px;margin:0px auto;width:100%;">
+                                  <p style="border-top:dashed 4px #ecedee;font-size:1px;margin:0px auto;width:100%;">
                                   </p>
                                   <!--[if mso | IE]><table align="center" border="0" cellpadding="0" cellspacing="0" style="border-top:solid 4px #ecedee;font-size:1px;margin:0px auto;width:490px;" role="presentation" width="490px" ><tr><td style="height:0;line-height:0;"> &nbsp;
 </td></tr></table></td></tr></table><![endif]-->
                                 </td>
                               </tr>
+                              @endif @endforeach
                             </tbody>
                           </table>
                         </div>

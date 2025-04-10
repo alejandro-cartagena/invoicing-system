@@ -32,7 +32,7 @@
         </mj-text>
         
         <mj-text font-size="16px">
-          Hello,
+          {{ isset($invoiceData['client_first_name']) ? 'Hello, ' . $invoiceData['client_first_name'] : 'Hello,' }}
         </mj-text>
         
         <mj-text font-size="16px">
@@ -43,7 +43,7 @@
 
         <mj-text font-size="18px" font-weight="bold">Invoice Details:</mj-text>
         <mj-text font-size="16px">
-          Invoice Number: {{ $invoiceData['invoiceTitle'] ?? 'Not specified' }}<br />
+          Invoice Number: {{ $invoiceData['nmi_invoice_id'] ?? 'Not specified' }}<br />
           Date: {{ $invoiceData['invoiceDate'] ?? 'Not specified' }}<br />
           Due Date: {{ $invoiceData['invoiceDueDate'] ?? 'Not specified' }}
         </mj-text>
@@ -74,6 +74,7 @@
         </mj-wrapper>
 
         <!-- Mobile Layout -->
+        <mj-text font-size="18px" font-weight="bold">Invoice Items:</mj-text>
         <mj-wrapper css-class="mobile-only" padding="10px">
           @foreach($invoiceData['productLines'] as $item)
             @if(isset($item['description']) && $item['description'])

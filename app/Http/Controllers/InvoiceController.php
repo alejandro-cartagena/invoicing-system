@@ -300,7 +300,7 @@ class InvoiceController extends Controller
             
             $validated = $request->validate([
                 'token' => 'required|string',
-                'invoiceId' => 'required|integer',
+                'invoiceId' => 'required|string',
                 'amount' => 'required|numeric',
                 'firstName' => 'required|string|max:255',
                 'lastName' => 'required|string|max:255',
@@ -309,14 +309,13 @@ class InvoiceController extends Controller
                 'state' => 'required|string|max:255',
                 'zip' => 'required|string|max:20',
                 'phone' => 'required|string|max:20',
-                'nmiInvoiceId' => 'nullable|string',
             ]);
             
             // Log the validated data
             \Log::info('Validated payment data:', $validated);
             
             // Find the invoice
-            $invoice = Invoice::findOrFail($validated['invoiceId']);
+            $invoice = Invoice::where('nmi_invoice_id', $validated['invoiceId'])->firstOrFail();
             
             // Check if the invoice is already paid
             if ($invoice->status === 'paid') {
@@ -388,22 +387,14 @@ class InvoiceController extends Controller
                 'state' => $validated['state'],
                 'zip' => $validated['zip'],
                 'phone' => $validated['phone'],
-                'order_id' => $invoice->invoice_number,
+                'orderid' => $invoice->nmi_invoice_id . '-' . time() . '-' . uniqid(),
                 'customer_id' => $invoice->client_email,
-                'currency' => 'USD',
+                'currency' => 'USD'
             ];
             
-            // Add the NMI invoice ID if it exists
-            if (!empty($validated['nmiInvoiceId'])) {
-                $paymentData['invoice_id'] = $validated['nmiInvoiceId'];
-                \Log::info('Including NMI invoice ID in payment request', [
-                    'nmi_invoice_id' => $validated['nmiInvoiceId']
-                ]);
-            } else {
-                \Log::warning('No NMI invoice ID provided for payment', [
-                    'invoice_id' => $invoice->id,
-                    'invoice_number' => $invoice->invoice_number
-                ]);
+            // Remove the invoice_id parameter since we're using orderid
+            if (isset($paymentData['invoice_id'])) {
+                unset($paymentData['invoice_id']);
             }
             
             \Log::info('Sending payment request to gateway', [
@@ -1231,6 +1222,11 @@ class InvoiceController extends Controller
                     'nmi_invoice_id' => $nmiInvoiceId,
                     'total' => $total
                 ]);
+
+                $invoiceData['nmi_invoice_id'] = $nmiInvoiceId;
+                if (isset($firstName)) {
+                    $invoiceData['client_first_name'] = $firstName;
+                }
                 
                 // Send the email with the PDF attachment
                 Mail::to($validated['recipientEmail'])

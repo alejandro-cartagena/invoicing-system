@@ -6,6 +6,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 use App\Models\Invoice;
+use Illuminate\Mail\Mailables\Content;
 
 class PaymentReceiptMail extends Mailable
 {
@@ -24,5 +25,16 @@ class PaymentReceiptMail extends Mailable
                     ->with([
                         'invoice' => $this->invoice,
                     ]);
+    }
+
+    public function content(): Content
+    {
+        return new Content(
+            view: 'emails.compiled.payment-receipt',
+            with: [
+                'invoice' => $this->invoice,
+                'invoiceData' => $this->invoice->invoice_data
+            ]
+        );
     }
 }

@@ -24,6 +24,8 @@ const CreditCard = ({ invoice, token, nmi_invoice_id }) => {
             confirmButtonText: 'Try Again'
         });
     };
+
+    console.log(nmi_invoice_id);
     
     return (
         <div className="min-h-screen bg-gray-100 py-12">
@@ -33,7 +35,7 @@ const CreditCard = ({ invoice, token, nmi_invoice_id }) => {
                 <div className="mb-8 text-center">
                     <h1 className="text-3xl font-bold text-gray-800">Invoice Payment</h1>
                     <p className="text-gray-600 mt-2">
-                        Invoice #{invoice.invoice_number} - ${parseFloat(invoice.total).toFixed(2)}
+                        Invoice #{invoice.nmi_invoice_id} - ${parseFloat(invoice.total).toFixed(2)}
                     </p>
                 </div>
                 
@@ -47,9 +49,8 @@ const CreditCard = ({ invoice, token, nmi_invoice_id }) => {
                     </div>
                 ) : (
                     <CreditCardForm 
-                        invoiceId={invoice.id}
+                        invoiceId={nmi_invoice_id}
                         amount={invoice.total}
-                        nmiInvoiceId={nmi_invoice_id}
                         onSuccess={handlePaymentSuccess}
                         onError={handlePaymentError}
                     />

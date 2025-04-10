@@ -409,39 +409,6 @@ const InvoicePage = ({ data, pdfMode, onChange }) => {
             )} 
             pdfMode={pdfMode}
           >
-            <View 
-            className={getClasses(
-              "flex mb-[5px]", // PDF classes
-              "flex flex-col md:flex-row mb-[5px]", // Responsive classes
-              pdfMode
-            )} 
-            pdfMode={pdfMode}
-            >
-              <View className="w-[40%]" pdfMode={pdfMode}>
-                <Text
-                  className="font-semibold text-base"
-                  pdfMode={pdfMode}
-                >
-                  {invoice.invoiceTitleLabel || "Invoice #"}
-                </Text>
-              </View>
-              <View 
-                className={getClasses(
-                  "w-[60%]", // PDF classes
-                  "w-full md:w-[60%]", // Responsive classes
-                  pdfMode
-                )} 
-                pdfMode={pdfMode}
-              >
-                <EditableInput
-                  className="border-2 border-solid border-gray-200 rounded px-1 hover:border-gray-300 focus:border-gray-400"
-                  placeholder="INV-12"
-                  value={invoice.invoiceTitle}
-                  onChange={(value) => handleChange('invoiceTitle', value)}
-                  pdfMode={pdfMode}
-                />
-              </View>
-            </View>
             <View className={getClasses(
               "flex mb-[5px]", // PDF classes
               "flex flex-col md:flex-row mb-[5px]", // Responsive classes

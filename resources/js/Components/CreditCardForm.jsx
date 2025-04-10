@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 
-const CreditCardForm = ({ invoiceId, amount, onSuccess, onError, nmiInvoiceId }) => {
+const CreditCardForm = ({ amount, onSuccess, onError, invoiceId }) => {
     const [loading, setLoading] = useState(false);
     const [firstName, setFirstName] = useState('John');
     const [lastName, setLastName] = useState('Doe');
@@ -133,7 +133,6 @@ const CreditCardForm = ({ invoiceId, amount, onSuccess, onError, nmiInvoiceId })
                 state: state.trim(),
                 zip: zip.trim(),
                 phone: phone.trim(),
-                nmiInvoiceId: nmiInvoiceId
             };
             
             console.log('Sending payment request to server with data:', requestData);

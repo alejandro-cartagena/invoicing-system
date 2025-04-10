@@ -80,6 +80,28 @@
     }
 
   </style>
+  <style type="text/css">
+    @media screen and (max-width: 480px) {
+      .desktop-only {
+        display: none !important;
+      }
+
+      .mobile-only {
+        display: block !important;
+      }
+    }
+
+    @media screen and (min-width: 481px) {
+      .desktop-only {
+        display: block !important;
+      }
+
+      .mobile-only {
+        display: none !important;
+      }
+    }
+
+  </style>
 </head>
 
 <body style="word-spacing:normal;background-color:#f4f4f4;">
@@ -101,7 +123,7 @@
                     </tr>
                     <tr>
                       <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
-                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:1;text-align:left;color:#000000;">Hello {{ $invoice->user->name }},</div>
+                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:1;text-align:left;color:#000000;">{{ isset($invoiceData['client_first_name']) ? 'Hello, ' . $invoiceData['client_first_name'] : 'Hello,' }}</div>
                       </td>
                     </tr>
                     <tr>
@@ -135,22 +157,74 @@
 </td></tr></table><![endif]-->
                       </td>
                     </tr>
-                    <!-- Item Descriptions -->
+                    <!-- Desktop Table -->
                     <tr>
-                      <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
-                        <table cellpadding="0" cellspacing="0" width="100%" border="0" style="color:#000000;font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:22px;table-layout:auto;width:100%;border:none;">
-                          <tr style="border-bottom:1px solid #ecedee;text-align:left;">
-                            <th>Description</th>
-                            <th>Quantity</th>
-                            <th>Rate</th>
-                            <th>Amount</th>
-                          </tr> @foreach($invoice->invoice_data['productLines'] as $item) @if(isset($item['description']) && $item['description']) <tr>
-                            <td style="text-align:left;">{{ $item['description'] }}</td>
-                            <td style="text-align:left;">{{ $item['quantity'] ?? '0' }}</td>
-                            <td style="text-align:left;">${{ $item['rate'] ?? '0.00' }}</td>
-                            <td style="text-align:left;">${{ number_format(($item['quantity'] ?? 0) * ($item['rate'] ?? 0), 2) }}</td>
-                          </tr> @endif @endforeach
-                        </table>
+                      <td class="desktop-only" style="font-size:0px;padding:10px;word-break:break-word;">
+                        <!--[if mso | IE]><table align="center" border="0" cellpadding="0" cellspacing="0" class="desktop-only-outlook" role="presentation" style="width:560px;" width="560" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
+                        <div class="desktop-only" style="margin:0px auto;max-width:560px;">
+                          <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;">
+                            <tbody>
+                              <tr>
+                                <td style="direction:ltr;font-size:0px;padding:10px;text-align:center;">
+                                  <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td align="left" class="desktop-table-outlook" width="560px" ><![endif]-->
+                                  <table cellpadding="0" cellspacing="0" width="100%" border="0" style="color:#000000;font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:22px;table-layout:auto;width:100%;border:none;">
+                                    <tr style="border-bottom:1px solid #ecedee;text-align:left;">
+                                      <th>Description</th>
+                                      <th>Quantity</th>
+                                      <th>Rate</th>
+                                      <th>Amount</th>
+                                    </tr> @foreach($invoiceData['productLines'] as $item) @if(isset($item['description']) && $item['description']) <tr>
+                                      <td style="text-align:left;">{{ $item['description'] }}</td>
+                                      <td style="text-align:left;">{{ $item['quantity'] ?? '0' }}</td>
+                                      <td style="text-align:left;">{{ $invoiceData['currency'] ?? '$' }}{{ $item['rate'] ?? '0.00' }}</td>
+                                      <td style="text-align:left;">{{ $invoiceData['currency'] ?? '$' }}{{ number_format(($item['quantity'] ?? 0) * ($item['rate'] ?? 0), 2) }}</td>
+                                    </tr> @endif @endforeach
+                                  </table>
+                                  <!--[if mso | IE]></td></tr></table><![endif]-->
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                        <!--[if mso | IE]></td></tr></table><![endif]-->
+                      </td>
+                    </tr>
+                    <!-- Mobile Layout -->
+                    <tr>
+                      <td class="mobile-only" style="font-size:0px;padding:10px;word-break:break-word;">
+                        <!--[if mso | IE]><table align="center" border="0" cellpadding="0" cellspacing="0" class="mobile-only-outlook" role="presentation" style="width:560px;" width="560" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
+                        <div class="mobile-only" style="margin:0px auto;max-width:560px;">
+                          <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;">
+                            <tbody>
+                              @foreach($invoiceData['productLines'] as $item) @if(isset($item['description']) && $item['description'])
+                              <tr>
+                                <td style="direction:ltr;font-size:0px;padding:10px;text-align:center;">
+                                  <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td align="left" class="" width="560px" ><![endif]-->
+                                  <div style="font-family:Helvetica, Arial, sans-serif;font-size:18px;font-weight:bold;line-height:1;text-align:left;color:#000000;">Invoice Items:</div>
+                                  <!--[if mso | IE]></td></tr><tr><td align="left" class="" width="560px" ><![endif]-->
+                                  <div style="font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:1;text-align:left;color:#000000;"><strong>Description:</strong><br />
+                                    {{ $item['description'] }}<br /><br />
+                                    <strong>Quantity:</strong><br />
+                                    {{ $item['quantity'] ?? '0' }}<br /><br />
+                                    <strong>Rate:</strong><br />
+                                    {{ $invoiceData['currency'] ?? '$' }}{{ $item['rate'] ?? '0.00' }}<br /><br />
+                                    <strong>Amount:</strong><br />
+                                    {{ $invoiceData['currency'] ?? '$' }}{{ number_format(($item['quantity'] ?? 0) * ($item['rate'] ?? 0), 2) }}
+                                  </div>
+                                  <!--[if mso | IE]></td></tr><tr><td align="center" class="mobile-only-outlook" width="560px" ><![endif]-->
+                                  @if(!$loop->last)
+                                  <p style="border-top:solid 4px #ecedee;font-size:1px;margin:0px auto;width:100%;">
+                                  </p>
+                                  @endif
+                                  <!--[if mso | IE]><table align="center" border="0" cellpadding="0" cellspacing="0" style="border-top:solid 4px #ecedee;font-size:1px;margin:0px auto;width:490px;" role="presentation" width="490px" ><tr><td style="height:0;line-height:0;"> &nbsp;
+</td></tr></table></td></tr></table><![endif]-->
+                                </td>
+                              </tr>
+                              @endif @endforeach
+                            </tbody>
+                          </table>
+                        </div>
+                        <!--[if mso | IE]></td></tr></table><![endif]-->
                       </td>
                     </tr>
                     <tr>
