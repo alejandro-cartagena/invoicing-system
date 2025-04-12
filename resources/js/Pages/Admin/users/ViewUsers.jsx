@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import AdminAuthenticatedLayout from '@/Layouts/AdminAuthenticatedLayout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faChevronLeft, faChevronRight, faTrash, faEdit } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faChevronLeft, faChevronRight, faTrash, faEye } from '@fortawesome/free-solid-svg-icons';
 import Swal from 'sweetalert2';
 import { router } from '@inertiajs/react';
 import { Head } from '@inertiajs/react';
@@ -25,8 +25,8 @@ const ViewUsers = ({ users }) => {
     const displayedUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
     const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
 
-    const handleEdit = (userId) => {
-        router.get(route('admin.users.edit', userId));
+    const handleView = (userId) => {
+        router.get(route('admin.users.view', userId));
     };
 
     const handleDelete = (userId, email) => {
@@ -78,7 +78,7 @@ const ViewUsers = ({ users }) => {
         >
             <Head title="View Users" />
 
-            <div className="py-12">
+            <div className="container py-12">
                 <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
                     {/* Search Bar */}
                     <div className="mb-6">
@@ -99,7 +99,7 @@ const ViewUsers = ({ users }) => {
                         </div>
                     </div>
 
-                    <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                    <div className="bg-white xl:overflow-x-visible xl:whitespace-normal overflow-x-auto whitespace-nowrap shadow-sm sm:rounded-lg">
                         <div className="p-6 bg-white border-b border-gray-200">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
@@ -130,7 +130,7 @@ const ViewUsers = ({ users }) => {
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 {user.email}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
+                                            <td className="px-6 py-4 whitespace-nowrap cursor-pointer text-blue-600 hover:underline" onClick={() => handleView(user.id)}>
                                                 {user.merchantId || 'Not assigned'}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
@@ -139,13 +139,13 @@ const ViewUsers = ({ users }) => {
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex space-x-4">
                                                     <button 
-                                                        onClick={() => handleEdit(user.id)}
+                                                        onClick={() => handleView(user.id)}
                                                         className="text-blue-600 hover:text-blue-900 relative group"
-                                                        aria-label="Edit User"
+                                                        aria-label="View User"
                                                     >
-                                                        <FontAwesomeIcon icon={faEdit} />
+                                                        <FontAwesomeIcon icon={faEye} />
                                                         <span className="invisible group-hover:visible absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                                                            Edit
+                                                            View
                                                         </span>
                                                     </button>
                                                     

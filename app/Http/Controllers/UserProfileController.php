@@ -228,7 +228,7 @@ class UserProfileController extends Controller
         }
     }
 
-    public function edit(User $user)
+    public function view(User $user)
     {
         $userData = [
             'id' => $user->id,
@@ -243,7 +243,7 @@ class UserProfileController extends Controller
             'private_key' => $user->profile->private_key
         ];
 
-        return Inertia::render('Admin/users/EditUser', [
+        return Inertia::render('Admin/users/ViewUser', [
             'user' => $userData
         ]);
     }

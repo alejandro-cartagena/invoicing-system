@@ -44,7 +44,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('/admin/users', [UserProfileController::class, 'store'])->name('admin.users.store');
     Route::get('/admin/users', [UserProfileController::class, 'index'])->name('admin.users.index');
     Route::delete('/admin/users/{user}', [UserProfileController::class, 'destroy'])->name('admin.users.destroy');
-    Route::get('/admin/users/{user}/edit', [UserProfileController::class, 'edit'])->name('admin.users.edit');
+    Route::get('/admin/users/{user}/view', [UserProfileController::class, 'view'])->name('admin.users.view');
     Route::patch('/admin/users/{user}', [UserProfileController::class, 'update'])->name('admin.users.update');
 
     // Add this route for fetching merchant information

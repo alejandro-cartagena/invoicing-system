@@ -175,7 +175,7 @@ export default function EditUser({ user }) {
                         <div className="p-6">
                             <button
                                 onClick={handleBack}
-                                className="bg-gray-500 text-white px-4 py-1 rounded hover:bg-gray-600 mb-6"
+                                className="bg-blue-500 text-white px-4 py-1 rounded hover:bg-blue-600 mb-6"
                             >
                                 &#8592; Back to Users
                             </button>
@@ -188,7 +188,7 @@ export default function EditUser({ user }) {
 
                             {/* API Key generation section */}
                             <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                                <div className="flex justify-between items-center">
+                                <div className="flex md:flex-row flex-col justify-between md:items-center">
                                     <div>
                                         <h3 className="text-md font-medium text-gray-800">
                                             API Keys
@@ -202,7 +202,7 @@ export default function EditUser({ user }) {
                                             </p>
                                         )}
                                     </div>
-                                    <div>
+                                    <div className="my-4 md:my-0">
                                         <PrimaryButton
                                             type="button"
                                             onClick={generateApiKeys}
