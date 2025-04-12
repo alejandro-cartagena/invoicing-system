@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserProfileController;
 use Inertia\Inertia;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\DvfWebhookController;
 
 Route::get('/', function () {
     return Inertia::render('Auth/Login', [
@@ -179,6 +180,10 @@ Route::get('/test-bead-api-status', function () {
 Route::get('/payment-success', function () {
     return Inertia::render('Payment/PaymentSuccess');
 })->name('payment.success');
+
+// Add this route for DVF payment webhooks
+Route::post('/dvf/webhook', [DvfWebhookController::class, 'handle'])
+    ->name('dvf.webhook');
 
 require __DIR__.'/auth.php';
 
