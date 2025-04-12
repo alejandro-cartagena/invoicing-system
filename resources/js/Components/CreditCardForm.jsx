@@ -291,7 +291,7 @@ const CreditCardForm = ({ amount, onSuccess, onError, invoiceId }) => {
                             value={formData.firstName}
                             onChange={handleChange}
                             onBlur={handleBlur}
-                            className={`w-full p-2 border rounded-md ${
+                            className={`w-full p-2 border rounded-md placeholder-gray-300 ${
                                 touched.firstName && validationErrors.firstName 
                                     ? 'border-red-500' 
                                     : 'border-gray-300'
@@ -315,7 +315,7 @@ const CreditCardForm = ({ amount, onSuccess, onError, invoiceId }) => {
                             value={formData.lastName}
                             onChange={handleChange}
                             onBlur={handleBlur}
-                            className={`w-full p-2 border rounded-md ${
+                            className={`w-full p-2 border rounded-md placeholder-gray-300 ${
                                 touched.lastName && validationErrors.lastName 
                                     ? 'border-red-500' 
                                     : 'border-gray-300'
@@ -340,7 +340,7 @@ const CreditCardForm = ({ amount, onSuccess, onError, invoiceId }) => {
                         value={formData.address}
                         onChange={handleChange}
                         onBlur={handleBlur}
-                        className={`w-full p-2 border rounded-md ${
+                        className={`w-full p-2 border rounded-md placeholder-gray-300 ${
                             touched.address && validationErrors.address 
                                 ? 'border-red-500' 
                                 : 'border-gray-300'
@@ -365,7 +365,7 @@ const CreditCardForm = ({ amount, onSuccess, onError, invoiceId }) => {
                             value={formData.city}
                             onChange={handleChange}
                             onBlur={handleBlur}
-                            className={`w-full p-2 border rounded-md ${
+                            className={`w-full p-2 border rounded-md placeholder-gray-300 ${
                                 touched.city && validationErrors.city 
                                     ? 'border-red-500' 
                                     : 'border-gray-300'
@@ -418,7 +418,7 @@ const CreditCardForm = ({ amount, onSuccess, onError, invoiceId }) => {
                             value={formData.zip}
                             onChange={handleChange}
                             onBlur={handleBlur}
-                            className={`w-full p-2 border rounded-md ${
+                            className={`w-full p-2 border rounded-md placeholder-gray-300 ${
                                 touched.zip && validationErrors.zip 
                                     ? 'border-red-500' 
                                     : 'border-gray-300'
@@ -443,7 +443,7 @@ const CreditCardForm = ({ amount, onSuccess, onError, invoiceId }) => {
                         value={formData.phone}
                         onChange={handleChange}
                         onBlur={handleBlur}
-                        className={`w-full p-2 border rounded-md ${
+                        className={`w-full p-2 border rounded-md placeholder-gray-300 ${
                             touched.phone && validationErrors.phone 
                                 ? 'border-red-500' 
                                 : 'border-gray-300'

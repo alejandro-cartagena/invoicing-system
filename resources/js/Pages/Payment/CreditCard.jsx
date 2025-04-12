@@ -31,7 +31,7 @@ const CreditCard = ({ invoice, token, nmi_invoice_id }) => {
         <div className="min-h-screen bg-gray-100 py-12">
             <Head title="Credit Card Payment" />
             
-            <div className="max-w-4xl mx-auto px-4">
+            <div className="max-w-2xl mx-auto px-4">
                 <div className="mb-8 text-center">
                     <h1 className="text-3xl font-bold text-gray-800">Invoice Payment</h1>
                     <p className="text-gray-600 mt-2">
