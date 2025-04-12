@@ -166,7 +166,7 @@ const ViewUsers = ({ users }) => {
                                     
                                     {displayedUsers.length === 0 && (
                                         <tr>
-                                            <td colSpan="4" className="px-6 py-4 text-center text-sm text-gray-500">
+                                            <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">
                                                 No users found matching your search.
                                             </td>
                                         </tr>

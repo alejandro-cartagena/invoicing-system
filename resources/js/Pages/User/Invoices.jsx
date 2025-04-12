@@ -279,13 +279,13 @@ const Invoices = ({ invoices: initialInvoices }) => {
                             <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 w-full md:w-auto">
                                 <Link
                                     href={route('user.general-invoice')}
-                                    className="px-4 py-2 bg-gray-500 text-white rounded-md text-sm hover:bg-gray-600 transition-all duration-300 text-center"
+                                    className="px-4 py-2 bg-indigo-500 text-white rounded-md text-sm hover:bg-indigo-600 transition-all duration-300 text-center"
                                 >
                                     Create General Invoice
                                 </Link>
                                 <Link
                                     href={route('user.real-estate-invoice')}
-                                    className="px-4 py-2 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 transition-all duration-300 text-center"
+                                    className="px-4 py-2 bg-green-500 text-white rounded-md text-sm hover:bg-green-600 transition-all duration-300 text-center"
                                 >
                                     Create Real Estate Invoice
                                 </Link>

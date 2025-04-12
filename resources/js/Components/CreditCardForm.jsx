@@ -282,7 +282,7 @@ const CreditCardForm = ({ amount, onSuccess, onError, invoiceId }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                         <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
-                            First Name *
+                            First Name
                         </label>
                         <input
                             type="text"
@@ -306,7 +306,7 @@ const CreditCardForm = ({ amount, onSuccess, onError, invoiceId }) => {
                     
                     <div>
                         <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
-                            Last Name *
+                            Last Name
                         </label>
                         <input
                             type="text"
@@ -331,7 +331,7 @@ const CreditCardForm = ({ amount, onSuccess, onError, invoiceId }) => {
                 
                 <div className="mb-4">
                     <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
-                        Address *
+                        Address
                     </label>
                     <input
                         type="text"
@@ -356,7 +356,7 @@ const CreditCardForm = ({ amount, onSuccess, onError, invoiceId }) => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div>
                         <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
-                            City *
+                            City
                         </label>
                         <input
                             type="text"
@@ -380,7 +380,7 @@ const CreditCardForm = ({ amount, onSuccess, onError, invoiceId }) => {
                     
                     <div>
                         <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-1">
-                            State *
+                            State
                         </label>
                         <select
                             id="state"
@@ -409,7 +409,7 @@ const CreditCardForm = ({ amount, onSuccess, onError, invoiceId }) => {
                     
                     <div>
                         <label htmlFor="zip" className="block text-sm font-medium text-gray-700 mb-1">
-                            ZIP Code *
+                            ZIP Code
                         </label>
                         <input
                             type="text"
@@ -434,7 +434,7 @@ const CreditCardForm = ({ amount, onSuccess, onError, invoiceId }) => {
                 
                 <div className="mb-4">
                     <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                        Phone Number *
+                        Phone Number
                     </label>
                     <input
                         type="tel"

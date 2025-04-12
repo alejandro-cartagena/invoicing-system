@@ -55,7 +55,7 @@ class UserProfileController extends Controller
             // No keys are generated at this point
         ]);
 
-        return redirect()->route('admin.users.index')
+        return redirect()->route('admin.users.view', ['user' => $user])
             ->with('message', 'User created successfully');
     }
 

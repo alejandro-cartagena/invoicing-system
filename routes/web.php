@@ -152,10 +152,6 @@ Route::get('/test-bead-auth', [InvoiceController::class, 'testBeadAuth'])
     ->middleware(['auth'])
     ->name('test.bead.auth');
 
-// Add this route for Bead payment webhooks
-Route::post('/bead/webhook', [InvoiceController::class, 'handleBeadWebhook'])
-    ->name('bead.webhook');
-
 // Add this route for testing Bead API
 Route::get('/test-bead-api-status', function () {
     try {
@@ -180,10 +176,6 @@ Route::get('/test-bead-api-status', function () {
 Route::get('/payment-success', function () {
     return Inertia::render('Payment/PaymentSuccess');
 })->name('payment.success');
-
-// Add this route for DVF payment webhooks
-Route::post('/dvf/webhook', [DvfWebhookController::class, 'handle'])
-    ->name('dvf.webhook');
 
 require __DIR__.'/auth.php';
 
