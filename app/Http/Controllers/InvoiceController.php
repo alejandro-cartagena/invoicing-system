@@ -292,94 +292,50 @@ class InvoiceController extends Controller
         ]);
     }
 
+    /**
+     * Process credit card payment using NMI token
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function processCreditCardPayment(Request $request)
     {
         try {
-            // Log the raw request data for debugging
-            \Log::info('Raw payment request data:', $request->all());
-            
+            // Validate the request
             $validated = $request->validate([
                 'token' => 'required|string',
                 'invoiceId' => 'required|string',
                 'amount' => 'required|numeric',
-                'firstName' => 'required|string|max:255',
-                'lastName' => 'required|string|max:255',
-                'address' => 'required|string|max:255',
-                'city' => 'required|string|max:255',
-                'state' => 'required|string|max:255',
-                'zip' => 'required|string|max:20',
-                'phone' => 'required|string|max:20',
+                'firstName' => 'required|string',
+                'lastName' => 'required|string',
+                'address' => 'required|string',
+                'city' => 'required|string',
+                'state' => 'required|string',
+                'zip' => 'required|string',
+                'phone' => 'required|string',
             ]);
-            
-            // Log the validated data
-            \Log::info('Validated payment data:', $validated);
-            
-            // Find the invoice
+
+            // Get the invoice by NMI invoice ID instead of primary key
             $invoice = Invoice::where('nmi_invoice_id', $validated['invoiceId'])->firstOrFail();
             
-            // Check if the invoice is already paid
-            if ($invoice->status === 'paid') {
+            // Get the user's profile for the API key
+            $user = User::findOrFail($invoice->user_id);
+            $userProfile = UserProfile::where('user_id', $user->id)->firstOrFail();
+            
+            if (empty($userProfile->private_key)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'This invoice has already been paid.'
+                    'message' => 'No API private key found for this account.'
                 ], 400);
             }
-            
-            // Get the user who created the invoice
-            $user = User::findOrFail($invoice->user_id);
-            
-            // Get the user's profile with the private key
-            $userProfile = UserProfile::where('user_id', $user->id)->first();
-            
-            // Check if we have a private key for this user
-            if (!$userProfile || empty($userProfile->private_key)) {
-                \Log::error('Missing private key for user', [
-                    'user_id' => $user->id,
-                    'invoice_id' => $invoice->id
-                ]);
-                
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Payment configuration error. Please contact support.'
-                ], 500);
-            }
-            
-            // Log the token for debugging
-            \Log::info('Payment token received', [
-                'token' => $validated['token'],
-                'is_test_token' => in_array($validated['token'], [
-                    '00000000-000000-000000-000000000000',
-                    '11111111-111111-111111-111111111111'
-                ])
-            ]);
-            
-            // Only simulate for specific test tokens
-            if (in_array($validated['token'], [
-                '00000000-000000-000000-000000000000',
-                '11111111-111111-111111-111111111111'
-            ])) {
-                \Log::info('Using predefined test token, simulating successful payment');
-                
-                // Update the invoice status
-                $invoice->status = 'paid';
-                $invoice->payment_date = now();
-                $invoice->transaction_id = 'TEST-' . uniqid();
-                $invoice->save();
-                
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Test payment processed successfully',
-                    'transaction_id' => $invoice->transaction_id,
-                    'auth_code' => 'TEST123'
-                ]);
-            }
-            
-            // Prepare the payment data with the user's private key
-            $paymentData = [
+
+            // Prepare NMI API request for a sale transaction
+            $saleData = [
                 'security_key' => $userProfile->private_key,
-                'payment_token' => $validated['token'],
                 'type' => 'sale',
+                'payment_token' => $validated['token'], // The token from Collect.js
                 'amount' => $validated['amount'],
+                'orderid' => $validated['invoiceId'],
                 'first_name' => $validated['firstName'],
                 'last_name' => $validated['lastName'],
                 'address1' => $validated['address'],
@@ -387,29 +343,28 @@ class InvoiceController extends Controller
                 'state' => $validated['state'],
                 'zip' => $validated['zip'],
                 'phone' => $validated['phone'],
-                'orderid' => $invoice->nmi_invoice_id . '-' . time() . '-' . uniqid(),
-                'customer_id' => $invoice->client_email,
-                'currency' => 'USD'
+                'currency' => 'USD',
+                'tax' => number_format($invoice->tax_amount, 2, '.', ''),
+                'customer_id' => $invoice->client_email
             ];
             
-            // Remove the invoice_id parameter since we're using orderid
-            if (isset($paymentData['invoice_id'])) {
-                unset($paymentData['invoice_id']);
-            }
+            // Log the request data (redacting the security key)
+            $logData = $saleData;
+            $logData['security_key'] = '[REDACTED]';
+            \Log::info('Processing credit card payment via NMI', $logData);
             
-            \Log::info('Sending payment request to gateway', [
-                'url' => 'https://dvfsolutions.transactiongateway.com/api/transact.php',
-                'data' => array_merge($paymentData, ['security_key' => '[REDACTED]']),
-                'merchant_id' => $userProfile->merchant_id ?? 'Not available'
+            // Send the request to NMI
+            $ch = curl_init('https://secure.nmi.com/api/transact.php');
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($saleData));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                "accept: application/x-www-form-urlencoded",
+                "content-type: application/x-www-form-urlencoded"
             ]);
             
-            // Send the payment request to DVF Solutions
-            $ch = curl_init('https://dvfsolutions.transactiongateway.com/api/transact.php');
-            curl_setopt($ch, CURLOPT_POST, 1);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($paymentData));
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-            
-            // Disable SSL verification for local development
+            // SSL verification settings
             if (app()->environment('local')) {
                 curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
                 curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
@@ -418,74 +373,59 @@ class InvoiceController extends Controller
                 curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
             }
             
-            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
             $response = curl_exec($ch);
-            
-            // Check for cURL errors
-            if (curl_errno($ch)) {
-                $error = curl_error($ch);
-                \Log::error('cURL error: ' . $error);
-                curl_close($ch);
-                throw new \Exception('cURL error: ' . $error);
-            }
-            
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            
             curl_close($ch);
             
-            // Log the raw response for debugging
-            \Log::info('Payment gateway raw response', [
+            // Log the response
+            \Log::info('NMI Payment API Response', [
                 'http_code' => $httpCode,
-                'response' => $response
+                'response' => $response,
+                'curl_error' => $curlError
             ]);
             
-            // Check if we got a valid HTTP response
-            if ($httpCode != 200) {
-                throw new \Exception('Payment gateway returned HTTP code ' . $httpCode);
+            // Check for cURL errors
+            if ($curlError) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error connecting to payment gateway: ' . $curlError
+                ], 500);
             }
             
             // Parse the response
             parse_str($response, $responseData);
-            \Log::info('Payment gateway parsed response', $responseData);
             
-            // Check if the payment was successful
+            // Check if the payment was successful (response code 1 = approved)
             if (isset($responseData['response']) && $responseData['response'] == 1) {
-                // Update the invoice status
-                $invoice->status = 'paid';
-                $invoice->payment_date = now();
-                $invoice->transaction_id = $responseData['transactionid'] ?? null;
-                $invoice->save();
-
-                // Send the receipt email
+                // Update the invoice as paid
+                $invoice->update([
+                    'status' => 'paid',
+                    'payment_date' => now(),
+                    'transaction_id' => $responseData['transactionid'] ?? null,
+                ]);
+                
+                // Send receipt email to customer
                 Mail::to($invoice->client_email)->send(new PaymentReceiptMail($invoice));
-
-                // Return success response
+                
                 return response()->json([
                     'success' => true,
                     'message' => 'Payment processed successfully',
                     'transaction_id' => $responseData['transactionid'] ?? null,
-                    'auth_code' => $responseData['authcode'] ?? null
+                    'authorization_code' => $responseData['authcode'] ?? null,
                 ]);
             } else {
-                // Return error response
+                // Payment failed
                 return response()->json([
                     'success' => false,
                     'message' => $responseData['responsetext'] ?? 'Payment processing failed',
-                    'error_code' => $responseData['response_code'] ?? null
-                ], 400);
+                    'code' => $responseData['response'] ?? null,
+                ]);
             }
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            \Log::error('Validation error: ' . json_encode($e->errors()));
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred while processing your payment: ' . implode(' ', array_map(function($errors) {
-                    return implode(' ', $errors);
-                }, $e->errors()))
-            ], 422);
         } catch (\Exception $e) {
             \Log::error('Payment processing error: ' . $e->getMessage(), [
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
+                'exception' => $e,
                 'trace' => $e->getTraceAsString()
             ]);
             
