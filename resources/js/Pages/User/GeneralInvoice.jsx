@@ -74,7 +74,7 @@ const GeneralInvoice = () => {
             console.log("invoiceData", invoiceData);
             
             // Determine which endpoint to use based on whether we're editing or creating
-            let endpoint, responseData;
+            let responseData;
             
             if (isEditing && invoiceId) {
                 // Use update-in-nmi endpoint when editing
@@ -106,7 +106,6 @@ const GeneralInvoice = () => {
                     : 'Invoice sent successfully!';
                 
                 toast.success(successMessage);
-                
                 // Use setTimeout to redirect after showing the toast
                 setTimeout(() => {
                     router.get(route('user.invoices'));

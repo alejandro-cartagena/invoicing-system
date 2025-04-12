@@ -3,10 +3,10 @@ import { Head } from '@inertiajs/react';
 import CreditCardForm from '@/Components/CreditCardForm';
 import Swal from 'sweetalert2';
 
-const CreditCard = ({ invoice, token, nmi_invoice_id }) => {
+const CreditCard = ({ invoice, nmi_invoice_id }) => {
     const [paymentSuccess, setPaymentSuccess] = useState(false);
     
-    const handlePaymentSuccess = (data) => {
+    const handlePaymentSuccess = () => {
         setPaymentSuccess(true);
         Swal.fire({
             title: 'Payment Successful!',
