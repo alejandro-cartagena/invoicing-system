@@ -65,9 +65,9 @@ class DvfWebhookController extends Controller
             }
             
             // Process the webhook based on its type
-            if (isset($webhook['type'])) {
-                switch ($webhook['type']) {
-                    case 'transaction.sale':
+            if (isset($webhook['event_type'])) {
+                switch ($webhook['event_type']) {
+                    case 'transaction.sale.success':
                         return $this->handleTransactionSale($webhook);
                     
                     case 'transaction.refund':
@@ -119,7 +119,7 @@ class DvfWebhookController extends Controller
     {
         try {
             // Extract the order ID from the webhook
-            $orderId = $webhook['data']['orderid'] ?? null;
+            $orderId = $webhook['event_body']['order_id'] ?? null;
             
             if (!$orderId) {
                 Log::warning('Transaction webhook missing orderid');
@@ -151,10 +151,10 @@ class DvfWebhookController extends Controller
             }
             
             // Check if the transaction was successful
-            $responseCode = $webhook['data']['response_code'] ?? null;
-            $response = $webhook['data']['response'] ?? null;
+            $responseCode = $webhook['event_body']['action']['response_code'] ?? null;
+            $response = $webhook['event_body']['action']['response_text'] ?? null;
             
-            if ($responseCode == '100' && $response == '1') {
+            if ($responseCode == '100' && $response == 'SUCCESS') {
                 // Transaction was successful, update the invoice
                 $invoice->status = 'paid';
                 $invoice->payment_date = now();
@@ -166,6 +166,10 @@ class DvfWebhookController extends Controller
                     'nmi_invoice_id' => $invoice->nmi_invoice_id,
                     'transaction_id' => $invoice->transaction_id
                 ]);
+                
+                // Store webhook for frontend access
+                $webhook['_processed_invoice'] = $invoice->toArray();
+                \App\Http\Controllers\WebhookDataController::storeWebhook($webhook, 'processed');
                 
                 return response()->json(['status' => 'success', 'message' => 'Invoice updated to paid']);
             } else {

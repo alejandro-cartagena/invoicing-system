@@ -40,6 +40,15 @@ export default function UserAuthenticatedLayout({ header, children }) {
                                     View Invoices
                                 </NavLink>
                             </div>
+
+                            <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                                <NavLink
+                                    href={route('webhooks')}
+                                    active={route().current('webhooks')}
+                                >
+                                    Webhooks
+                                </NavLink>
+                            </div>
                         </div>
 
                         <div className="hidden sm:ms-6 sm:flex sm:items-center">
@@ -151,6 +160,15 @@ export default function UserAuthenticatedLayout({ header, children }) {
                             active={route().current('user.invoices')}
                         >
                             Invoices
+                        </ResponsiveNavLink>
+                    </div>
+
+                    <div className="space-y-1 pb-3 pt-2">
+                        <ResponsiveNavLink
+                            href={route('webhooks')}
+                            active={route().current('webhooks')}
+                        >
+                            Webhooks
                         </ResponsiveNavLink>
                     </div>
 

@@ -8,6 +8,7 @@ use App\Http\Controllers\UserProfileController;
 use Inertia\Inertia;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\DvfWebhookController;
+use App\Http\Controllers\WebhookDataController;
 
 Route::get('/', function () {
     return Inertia::render('Auth/Login', [
@@ -73,6 +74,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // Add webhook data routes
+    Route::get('/api/webhooks/recent', [WebhookDataController::class, 'getRecentWebhooks'])
+        ->name('webhooks.recent');
+    Route::delete('/api/webhooks', [WebhookDataController::class, 'clearWebhooks'])
+        ->name('webhooks.clear');
 });
 
 // Send general invoice email
@@ -176,6 +183,11 @@ Route::get('/test-bead-api-status', function () {
 Route::get('/payment-success', function () {
     return Inertia::render('Payment/PaymentSuccess');
 })->name('payment.success');
+
+// Add this to your routes/web.php
+Route::get('/webhooks', function () {
+    return Inertia::render('User/Webhooks');
+})->middleware(['auth', 'verified'])->name('webhooks');
 
 require __DIR__.'/auth.php';
 
