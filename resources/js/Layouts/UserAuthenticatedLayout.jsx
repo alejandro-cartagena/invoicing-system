@@ -3,13 +3,54 @@ import Dropdown from '@/Components/Dropdown';
 import NavLink from '@/Components/NavLink';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
 import { Link, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function UserAuthenticatedLayout({ header, children }) {
     const user = usePage().props.auth.user;
 
     const [showingNavigationDropdown, setShowingNavigationDropdown] =
         useState(false);
+
+    // Initialize Pusher and subscribe to payment notification channel
+    useEffect(() => {
+        // Check if Pusher is already loaded
+        if (window.Pusher) {
+            console.log('Using Pusher directly');
+            const pusher = new window.Pusher('089581dc4fd058f7cbae', {
+                cluster: 'us2'
+            });
+            
+            console.log('Pusher initialized:', pusher);
+            
+            // Subscribe to the notification channel
+            const channel = pusher.subscribe('notification');
+            console.log('Channel subscribed:', channel);
+            
+            // Listen for payment notification events
+            channel.bind('payment.notification', function(data) {
+                console.log('Payment notification received (direct Pusher):', data);
+            });
+            
+            // Debugging - check connection state
+            console.log('Pusher connection state:', pusher.connection.state);
+            
+            pusher.connection.bind('connected', () => {
+                console.log('Pusher connected successfully');
+            });
+            
+            pusher.connection.bind('error', (err) => {
+                console.error('Pusher connection error:', err);
+            });
+            
+            // Cleanup function
+            return () => {
+                channel.unbind('payment.notification');
+                pusher.unsubscribe('notification');
+            };
+        } else {
+            console.error('Pusher not found. Make sure Pusher is loaded correctly.');
+        }
+    }, []);
 
     return (
         <div className="min-h-screen bg-gray-100">

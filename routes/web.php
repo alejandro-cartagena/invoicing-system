@@ -177,5 +177,8 @@ Route::get('/payment-success', function () {
     return Inertia::render('Payment/PaymentSuccess');
 })->name('payment.success');
 
+Route::post('/payment-notification', [PaymentNotificationController::class, 'store'])
+    ->name('payment.notification');
+
 require __DIR__.'/auth.php';
 

@@ -15,6 +15,7 @@ use Inertia\Inertia;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Services\BeadPaymentService;
 use App\Mail\PaymentReceiptMail;
+use App\Events\PaymentNotification;
 
 class InvoiceController extends Controller
 {
@@ -408,6 +409,19 @@ class InvoiceController extends Controller
                 
                 // Send receipt email to customer
                 Mail::to($invoice->client_email)->send(new PaymentReceiptMail($invoice));
+                
+                // Dispatch payment notification event
+                $notificationData = [
+                    'invoice_id' => $invoice->id,
+                    'nmi_invoice_id' => $invoice->nmi_invoice_id,
+                    'client_email' => $invoice->client_email,
+                    'amount' => $validated['amount'],
+                    'transaction_id' => $responseData['transactionid'] ?? null,
+                    'authorization_code' => $responseData['authcode'] ?? null,
+                    'status' => 'success',
+                    'payment_date' => now()->toDateTimeString(),
+                ];
+                event(new \App\Events\PaymentNotification($notificationData));
                 
                 return response()->json([
                     'success' => true,
