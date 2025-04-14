@@ -4,6 +4,7 @@ import NavLink from '@/Components/NavLink';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
 import { Link, usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 
 export default function UserAuthenticatedLayout({ header, children }) {
     const user = usePage().props.auth.user;
@@ -29,6 +30,15 @@ export default function UserAuthenticatedLayout({ header, children }) {
             // Listen for payment notification events
             channel.bind('payment.notification', function(data) {
                 console.log('Payment notification received (direct Pusher):', data);
+                
+                // Show toast notification with payment details using react-hot-toast
+                toast.success(
+                    `Invoice Paid! From: ${data.client_email}, Amount: $${parseFloat(data.amount).toFixed(2)}, Invoice ID: ${data.nmi_invoice_id}`,
+                    {
+                        duration: 5000,
+                        position: 'top-right',
+                    }
+                );
             });
             
             // Debugging - check connection state
