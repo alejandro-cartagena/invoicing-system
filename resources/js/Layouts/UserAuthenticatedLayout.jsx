@@ -17,8 +17,12 @@ export default function UserAuthenticatedLayout({ header, children }) {
         // Check if Pusher is already loaded
         if (window.Pusher) {
             console.log('Using Pusher directly');
-            const pusher = new window.Pusher('089581dc4fd058f7cbae', {
-                cluster: 'us2'
+
+            const pusherKey = import.meta.env.VITE_PUSHER_APP_KEY;
+            const pusherCluster = import.meta.env.VITE_PUSHER_APP_CLUSTER;
+            
+            const pusher = new window.Pusher(pusherKey, {
+                cluster: pusherCluster
             });
             
             console.log('Pusher initialized:', pusher);
