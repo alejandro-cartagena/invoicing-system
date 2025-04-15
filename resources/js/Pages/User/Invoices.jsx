@@ -50,6 +50,45 @@ const Invoices = ({ invoices: initialInvoices }) => {
         setCurrentPage(1);
     }, [searchTerm, statusFilters]);
 
+    useEffect(() => {
+        // Check if Pusher is available
+        if (window.Pusher) {
+            const pusherKey = import.meta.env.VITE_PUSHER_APP_KEY;
+            const pusherCluster = import.meta.env.VITE_PUSHER_APP_CLUSTER;
+            
+            const pusher = new window.Pusher(pusherKey, {
+                cluster: pusherCluster
+            });
+            
+            // Subscribe to the notification channel
+            const channel = pusher.subscribe('notification');
+            
+            // Listen for payment notification events
+            channel.bind('payment.notification', function(data) {
+                console.log('Payment notification received in Invoices component:', data);
+                
+                // Update the invoice status if we find a matching nmi_invoice_id
+                setInvoices(currentInvoices => 
+                    currentInvoices.map(invoice => {
+                        if (invoice.nmi_invoice_id === data.nmi_invoice_id) {
+                            return {
+                                ...invoice,
+                                status: 'paid',
+                            };
+                        }
+                        return invoice;
+                    })
+                );
+            });
+
+            // Cleanup function
+            return () => {
+                channel.unbind('payment.notification');
+                pusher.unsubscribe('notification');
+            };
+        }
+    }, []); // Empty dependency array since we only want this to run once on mount
+
     const handlePageChange = (newPage) => {
         if (newPage > 0 && newPage <= totalPages) {
             setCurrentPage(newPage);
