@@ -10,19 +10,22 @@ export default function PaymentSuccess() {
     useEffect(() => {
         // Get payment status from URL parameters
         const params = new URLSearchParams(window.location.search);
+
+        console.log("PARAMS: ", params);
         const trackingId = params.get('trackingId');
-        const paymentStatus = params.get('status');
 
         if (trackingId) {
-            // You could verify the payment status with your backend
-            axios.post('/api/verify-payment', {
-                trackingId,
-                status: paymentStatus
+            // Verify payment status using the verify-bead-payment-status route
+            axios.get('/verify-bead-payment-status', {
+                params: {
+                    trackingId: trackingId
+                }
             })
             .then(response => {
+                console.log("RESPONSE: ", response.data);
                 if (response.data.success) {
                     setStatus('success');
-                    setPaymentDetails(response.data.payment);
+                    setPaymentDetails(response.data.data);
                 } else {
                     setStatus('failed');
                     setError(response.data.message);
@@ -34,7 +37,8 @@ export default function PaymentSuccess() {
             });
         } else {
             // Handle case where no tracking ID is provided
-            setStatus('success'); // Assume success for now if no tracking ID
+            setStatus('failed');
+            setError('No tracking ID provided');
         }
     }, []);
 
@@ -61,15 +65,6 @@ export default function PaymentSuccess() {
                             </div>
                             <h2 className="text-2xl font-bold mb-2 text-gray-800">Payment Successful!</h2>
                             <p className="text-gray-600 mb-6">Thank you for your payment.</p>
-                            
-                            <div className="mt-8">
-                                <a 
-                                    href="/invoices" 
-                                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition"
-                                >
-                                    Return to Invoices
-                                </a>
-                            </div>
                         </div>
                     )}
                     
@@ -83,14 +78,6 @@ export default function PaymentSuccess() {
                             <h2 className="text-2xl font-bold mb-2 text-gray-800">Payment Failed</h2>
                             <p className="text-red-600 mb-6">{error || "There was an issue with your payment."}</p>
                             
-                            <div className="mt-8">
-                                <a 
-                                    href="/invoices" 
-                                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition"
-                                >
-                                    Return to Invoices
-                                </a>
-                            </div>
                         </div>
                     )}
                 </div>

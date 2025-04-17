@@ -4,6 +4,7 @@ import axios from 'axios';
 
 export default function Bitcoin({ invoice, token }) {
     const [paymentData, setPaymentData] = useState(null);
+    const [paymentStatus, setPaymentStatus] = useState(null);
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -12,9 +13,10 @@ export default function Bitcoin({ invoice, token }) {
     }, []);
 
     const initiateCryptoPayment = async () => {
-        try {
+        try 
+        {
             setLoading(true);
-            const response = await axios.post('/general-invoice/process-bitcoin', {
+            const response = await axios.post('/invoice/process-bitcoin', {
                 token: token,
                 invoiceId: invoice.id,
                 amount: invoice.total
@@ -22,10 +24,52 @@ export default function Bitcoin({ invoice, token }) {
 
             console.log("RESPONSE: ", response.data);
 
-            if (response.data.success && response.data.payment_data && response.data.payment_data.paymentUrl) {
+            if (response.data.has_existing_payment) {
+                const hasExistingPayment = response.data.has_existing_payment;
+                const responseData = response.data.payment_data;
+                const beadPaymentUrl = `https://pay.qa.beadpay.io/${responseData.pageId}`
+
+                // Handle existing payment status if available
+                if (hasExistingPayment && responseData) {
+                    console.log("Existing Payment Status:", responseData);
+                    setPaymentStatus(responseData.status_code);
+                    
+                    switch (responseData.status_code) {
+                        case "created":
+                            window.location.href = beadPaymentUrl;
+                            break;
+                        case "completed":
+                            // Redirect to PaymentSuccess page with tracking ID
+                            window.location.href = `/payment-success?trackingId=${responseData.trackingId}&status=completed`;
+                            break;
+                        case "underpaid":
+                            setError("The payment amount sent was less than required. Please contact support for assistance.");
+                            setLoading(false);
+                            break;
+                        case "overpaid":
+                            // Still show success but with additional message about overpayment
+                            window.location.href = `/payment-success?trackingId=${responseData.trackingId}&status=overpaid`;
+                            break;
+                        case "expired":
+                            setError("This payment request has expired. Please initiate a new payment.");
+                            setLoading(false);
+                            break;
+                        case "invalid":
+                            setError("This payment is invalid. Please contact support or try initiating a new payment.");
+                            setLoading(false);
+                            break;
+                        default:
+                            setError("Unknown payment status. Please contact support.");
+                            setLoading(false);
+                            break;
+                    }
+                }
+            }
+            else if (response.data.success && response.data.payment_data && response.data.payment_data.paymentUrl) {
                 // Redirect to the Bead payment URL
                 window.location.href = response.data.payment_data.paymentUrl;
-            } else {
+            }
+            else {
                 // Handle case where success is true but no paymentUrl is provided
                 const errorMsg = response.data.success ? 
                     'Payment initiated but no payment URL was provided. Please contact support.' : 
@@ -33,15 +77,26 @@ export default function Bitcoin({ invoice, token }) {
                 setError(errorMsg);
                 setLoading(false);
             }
+
+
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to initiate crypto payment');
             setLoading(false);
         }
     };
 
-    const copyToClipboard = (text) => {
-        navigator.clipboard.writeText(text);
-        // Optionally add some UI feedback for successful copy
+    // Add a section to display payment status if available
+    const renderPaymentStatus = () => {
+        if (!paymentStatus) return null;
+
+        return (
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <h3 className="text-lg font-semibold mb-2">Payment Status</h3>
+                <pre className="bg-white p-4 rounded overflow-auto">
+                    {JSON.stringify(paymentStatus, null, 2)}
+                </pre>
+            </div>
+        );
     };
 
     if (loading) {
@@ -74,90 +129,4 @@ export default function Bitcoin({ invoice, token }) {
         );
     }
 
-    return (
-        <div className="min-h-screen bg-gray-100 py-12">
-            <Head title="Bitcoin Payment" />
-            
-            <div className="max-w-3xl mx-auto sm:px-6 lg:px-8">
-                <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <div className="p-6 bg-white border-b border-gray-200">
-                        <h1 className="text-2xl font-bold mb-6">Pay Invoice with Bitcoin</h1>
-                        
-                        <div className="mb-6">
-                            <h2 className="text-lg font-semibold">Invoice Details</h2>
-                            <p className="mt-2">Invoice Number: {invoice.invoice_number}</p>
-                            <p>Amount Due: ${invoice.total}</p>
-                            <p>Due Date: {new Date(invoice.due_date).toLocaleDateString()}</p>
-                        </div>
-
-                        {paymentData && (
-                            <>
-                                <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-md mb-6">
-                                    {paymentData.qrCode && (
-                                        <img 
-                                            src={paymentData.qrCode} 
-                                            alt="Bitcoin Payment QR Code" 
-                                            className="mx-auto mb-4"
-                                        />
-                                    )}
-                                </div>
-                                
-                                <div className="mb-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Bitcoin Address
-                                    </label>
-                                    <div className="flex">
-                                        <input 
-                                            type="text" 
-                                            className="flex-1 border-gray-300 rounded-l-md shadow-sm" 
-                                            value={paymentData.address || ''} 
-                                            readOnly 
-                                        />
-                                        <button 
-                                            type="button" 
-                                            onClick={() => copyToClipboard(paymentData.address)}
-                                            className="px-4 py-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r-md text-gray-600 hover:bg-gray-200"
-                                        >
-                                            Copy
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="mb-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Amount to Send (BTC)
-                                    </label>
-                                    <div className="flex">
-                                        <input 
-                                            type="text" 
-                                            className="flex-1 border-gray-300 rounded-l-md shadow-sm" 
-                                            value={paymentData.btcAmount || ''} 
-                                            readOnly 
-                                        />
-                                        <button 
-                                            type="button" 
-                                            onClick={() => copyToClipboard(paymentData.btcAmount)}
-                                            className="px-4 py-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r-md text-gray-600 hover:bg-gray-200"
-                                        >
-                                            Copy
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <div className="text-sm text-gray-600">
-                                    <p className="font-semibold">Instructions:</p>
-                                    <ol className="list-decimal pl-5 mt-2 space-y-1">
-                                        <li>Send exactly {paymentData.btcAmount} BTC to the address above</li>
-                                        <li>Payment will be confirmed after {paymentData.requiredConfirmations || 1} blockchain confirmation(s)</li>
-                                        <li>The invoice will be marked as paid automatically once confirmed</li>
-                                        <li>This payment request will expire in {paymentData.expiresIn || '30'} minutes</li>
-                                    </ol>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
 }
