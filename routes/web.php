@@ -182,6 +182,6 @@ Route::get('/payment-success', function () {
 
 Route::post('/payment-notification', [PaymentNotificationController::class, 'store'])
     ->name('payment.notification');
-
+    
 require __DIR__.'/auth.php';
 

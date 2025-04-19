@@ -315,9 +315,12 @@ class BeadPaymentService
             ]);
 
             $trackingId = $request->input('trackingId');
+
             if (!$trackingId) {
                 throw new Exception('Tracking ID not found in webhook');
             }
+
+            $paymentData = $this->checkPaymentStatus($trackingId);
 
             // Find the invoice by Bead payment ID (which is the trackingId)
             $invoice = Invoice::where('bead_payment_id', $trackingId)->first();
@@ -326,30 +329,30 @@ class BeadPaymentService
             }
 
             // Update invoice status based on statusCode
-            $statusCode = $request->input('statusCode');
+            $statusCode = $paymentData['status_code'];
             switch ($statusCode) {
-                case 2: // Payment Completed
+                case "completed": // Payment Completed
                     $invoice->status = 'paid';
                     $invoice->payment_date = now();
                     $invoice->transaction_id = $request->input('paymentCode');
                     break;
-                case 3: // Payment Underpaid
+                case "underpaid": // Payment Underpaid
                     $invoice->status = 'underpaid';
                     break;
-                case 4: // Payment Overpaid
+                case "overpaid": // Payment Overpaid
                     $invoice->status = 'paid';
                     $invoice->payment_date = now();
                     $invoice->transaction_id = $request->input('paymentCode');
                     // You might want to note the overpayment
                     $invoice->notes = 'Payment was overpaid. Customer should reclaim excess funds.';
                     break;
-                case 7: // Payment Expired
+                case "expired": // Payment Expired
                     $invoice->status = 'expired';
                     break;
-                case 8: // Payment Invalid
+                case "invalid": // Payment Invalid
                     $invoice->status = 'invalid';
                     break;
-                case 9: // Payment Cancelled
+                case "cancelled": // Payment Cancelled
                     $invoice->status = 'cancelled';
                     break;
                 default:

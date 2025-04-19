@@ -24,6 +24,8 @@ export default function Bitcoin({ invoice, token }) {
 
             console.log("RESPONSE: ", response.data);
 
+            console.log("Payment ID:", response.data.payment_data.trackingId);
+
             if (response.data.has_existing_payment) {
                 const hasExistingPayment = response.data.has_existing_payment;
                 const responseData = response.data.payment_data;
@@ -32,6 +34,7 @@ export default function Bitcoin({ invoice, token }) {
                 // Handle existing payment status if available
                 if (hasExistingPayment && responseData) {
                     console.log("Existing Payment Status:", responseData);
+                    debugger;
                     setPaymentStatus(responseData.status_code);
                     
                     switch (responseData.status_code) {
@@ -43,8 +46,8 @@ export default function Bitcoin({ invoice, token }) {
                             window.location.href = `/payment-success?trackingId=${responseData.trackingId}&status=completed`;
                             break;
                         case "underpaid":
-                            setError("The payment amount sent was less than required. Please contact support for assistance.");
-                            setLoading(false);
+                            alert(`The payment amount sent was less than required. The current payment amount is ${responseData.amounts.requested.inPaymentCurrency.amount} and the required amount is ${responseData.amounts.requested.inRequestedCurrency.amount}. Redirecting to payment page.`);
+                            window.location.href = beadPaymentUrl;
                             break;
                         case "overpaid":
                             // Still show success but with additional message about overpayment

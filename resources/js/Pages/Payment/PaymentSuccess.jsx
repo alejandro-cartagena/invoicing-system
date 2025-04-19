@@ -7,40 +7,42 @@ export default function PaymentSuccess() {
     const [error, setError] = useState(null);
     const [paymentDetails, setPaymentDetails] = useState(null);
 
-    useEffect(() => {
-        // Get payment status from URL parameters
-        const params = new URLSearchParams(window.location.search);
+    // useEffect(() => {
+    //     // Get payment status from URL parameters
+    //     const params = new URLSearchParams(window.location.search);
+    //     const trackingId = params.get('trackingId');
+        
+    //     console.log("URL Parameters:", Object.fromEntries(params.entries()));
+    //     console.log("Tracking ID:", trackingId);
 
-        console.log("PARAMS: ", params);
-        const trackingId = params.get('trackingId');
-
-        if (trackingId) {
-            // Verify payment status using the verify-bead-payment-status route
-            axios.get('/verify-bead-payment-status', {
-                params: {
-                    trackingId: trackingId
-                }
-            })
-            .then(response => {
-                console.log("RESPONSE: ", response.data);
-                if (response.data.success) {
-                    setStatus('success');
-                    setPaymentDetails(response.data.data);
-                } else {
-                    setStatus('failed');
-                    setError(response.data.message);
-                }
-            })
-            .catch(err => {
-                setStatus('failed');
-                setError(err.response?.data?.message || 'Payment verification failed');
-            });
-        } else {
-            // Handle case where no tracking ID is provided
-            setStatus('failed');
-            setError('No tracking ID provided');
-        }
-    }, []);
+    //     if (trackingId) {
+    //         // Verify payment status using the verify-bead-payment-status route
+    //         axios.get('/verify-bead-payment-status', {
+    //             params: {
+    //                 trackingId: trackingId
+    //             }
+    //         })
+    //         .then(response => {
+    //             console.log("Payment Status Response:", response.data);
+    //             if (response.data.success) {
+    //                 setStatus('success');
+    //                 setPaymentDetails(response.data.data);
+    //             } else {
+    //                 setStatus('failed');
+    //                 setError(response.data.message);
+    //             }
+    //         })
+    //         .catch(err => {
+    //             console.error("Payment Status Error:", err);
+    //             setStatus('failed');
+    //             setError(err.response?.data?.message || 'Payment verification failed');
+    //         });
+    //     } else {
+    //         console.log("No tracking ID found in URL parameters");
+    //         setStatus('failed');
+    //         setError('No tracking ID provided');
+    //     }
+    // }, []);
 
     return (
         <div className="min-h-screen bg-gray-100 py-12">

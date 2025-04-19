@@ -16,6 +16,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use App\Services\BeadPaymentService;
 use App\Mail\PaymentReceiptMail;
 use App\Events\PaymentNotification;
+use Exception;
 
 class InvoiceController extends Controller
 {
@@ -1993,40 +1994,12 @@ class InvoiceController extends Controller
     public function handleBeadWebhook(Request $request)
     {
         try {
-            Log::info('Received Bead webhook', [
-                'payload' => $request->all()
-            ]);
-
-            $paymentId = $request->input('PaymentId');
-            if (!$paymentId) {
-                throw new Exception('Payment ID not found in webhook');
-            }
-
-            // Find the invoice by Bead payment ID
-            $invoice = Invoice::where('bead_payment_id', $paymentId)->first();
-            if (!$invoice) {
-                throw new Exception('Invoice not found for payment ID: ' . $paymentId);
-            }
-
-            // Update invoice status based on payment status
-            $status = $request->input('Status');
-            switch ($status) {
-                case 'Completed':
-                    $invoice->status = 'paid';
-                    $invoice->payment_date = now();
-                    break;
-                case 'Failed':
-                    $invoice->status = 'failed';
-                    break;
-                // Add other status cases as needed
-            }
-
-            $invoice->save();
-
-            return response()->json(['success' => true]);
+            $beadService = new BeadPaymentService();
+            return $beadService->handleBeadWebhook($request);
         } catch (Exception $e) {
-            Log::error('Failed to process Bead webhook: ' . $e->getMessage());
-            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+            Log::error('Failed to process Bead webhook in controller: ' . $e->getMessage());
+            // Still return 200 to prevent retries, following the same pattern as the service
+            return response()->json(['success' => false, 'error' => $e->getMessage()]);
         }
     }
 
