@@ -32,12 +32,22 @@ const GeneralInvoice = () => {
         setInvoiceData(invoice);
     };
 
+    // Add this email validation function near the top of the component
+    const isValidEmail = (email) => {
+        const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        return emailRegex.test(email);
+    };
 
     const handleSendInvoice = async () => {
         try {
-            // Basic validation
+            // Email validation
             if (!recipientEmail.trim()) {
                 toast.error('Please enter a recipient email address');
+                return;
+            }
+
+            if (!isValidEmail(recipientEmail)) {
+                toast.error('Please enter a valid email address');
                 return;
             }
 
@@ -166,8 +176,11 @@ const GeneralInvoice = () => {
                             value={recipientEmail}
                             onChange={(e) => setRecipientEmail(e.target.value)}
                             placeholder="Recipient's email"
+                            pattern="[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
+                            title="Please enter a valid email address"
                             className="w-full flex-1 border-gray-300 rounded-md shadow-sm focus:border-gray-600 focus:ring focus:ring-gray-200 focus:ring-opacity-50"
                             disabled={sending}
+                            required
                         />
                         <button
                             onClick={handleSendInvoice}
@@ -206,8 +219,11 @@ const GeneralInvoice = () => {
                             value={recipientEmail}
                             onChange={(e) => setRecipientEmail(e.target.value)}
                             placeholder="Recipient's email"
+                            pattern="[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
+                            title="Please enter a valid email address"
                             className="w-full flex-1 border-gray-300 rounded-md shadow-sm focus:border-gray-600 focus:ring focus:ring-gray-200 focus:ring-opacity-50"
                             disabled={sending}
+                            required
                         />
                         <button
                             onClick={handleSendInvoice}

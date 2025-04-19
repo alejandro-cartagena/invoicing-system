@@ -17,6 +17,11 @@ import { faDownload, faEnvelope, faSave, faUpload } from '@fortawesome/free-soli
 const MAX_IMAGE_SIZE_MB = 1; // Maximum image size in MB
 const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024; // Convert to bytes
 
+const isValidEmail = (email) => {
+    const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test(email);
+};
+
 const RealEstateInvoice = () => {
     // Get props from the page
     const { invoiceData: initialInvoiceData, recipientEmail: initialEmail, invoiceId, isEditing: initialIsEditing, isResending: initialIsResending } = usePage().props;
@@ -32,13 +37,20 @@ const RealEstateInvoice = () => {
     };
 
     const handleSendInvoice = async () => {
-        if (!recipientEmail) {
-            toast.error('Please enter recipient email');
+        // Email validation
+        if (!recipientEmail.trim()) {
+            toast.error('Please enter a recipient email address');
             return;
         }
 
-        if (!invoiceData) {
-            toast.error('Please create an invoice first');
+        if (!isValidEmail(recipientEmail)) {
+            toast.error('Please enter a valid email address');
+            return;
+        }
+
+        // Check if invoice exists and has at least one product line
+        if (!invoiceData || !invoiceData.productLines || invoiceData.productLines.length === 0) {
+            toast.error('Please add at least one item to the invoice');
             return;
         }
 
@@ -158,7 +170,6 @@ const RealEstateInvoice = () => {
             <div className="container md:max-w-4xl mx-auto md:py-10">
                 
                 {/* Email input section */}
-                {/* Email input section */}
                 <div className="hidden md:block mb-6 p-6 bg-white rounded shadow-md">
                     <div className="flex flex-col md:flex-row items-center gap-4">
                         <input
@@ -166,8 +177,11 @@ const RealEstateInvoice = () => {
                             value={recipientEmail}
                             onChange={(e) => setRecipientEmail(e.target.value)}
                             placeholder="Recipient's email"
+                            pattern="[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
+                            title="Please enter a valid email address"
                             className="w-full flex-1 border-gray-300 rounded-md shadow-sm focus:border-gray-600 focus:ring focus:ring-gray-200 focus:ring-opacity-50"
                             disabled={sending}
+                            required
                         />
                         <button
                             onClick={handleSendInvoice}
@@ -206,8 +220,11 @@ const RealEstateInvoice = () => {
                             value={recipientEmail}
                             onChange={(e) => setRecipientEmail(e.target.value)}
                             placeholder="Recipient's email"
+                            pattern="[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
+                            title="Please enter a valid email address"
                             className="w-full flex-1 border-gray-300 rounded-md shadow-sm focus:border-gray-600 focus:ring focus:ring-gray-200 focus:ring-opacity-50"
                             disabled={sending}
+                            required
                         />
                         <button
                             onClick={handleSendInvoice}
