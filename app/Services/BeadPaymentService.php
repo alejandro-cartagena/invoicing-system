@@ -346,6 +346,19 @@ class BeadPaymentService
                     $invoice->transaction_id = $request->input('paymentCode');
                     // Send receipt email to customer
                     Mail::to($invoice->client_email)->send(new PaymentReceiptMail($invoice));
+
+                    // Dispatch payment notification event
+                    $notificationData = [
+                        'invoice_id' => $invoice->id,
+                        'nmi_invoice_id' => $invoice->nmi_invoice_id,
+                        'client_email' => $invoice->client_email,
+                        'amount' => $invoice->total,
+                        'transaction_id' => $request->input('paymentCode'),
+                        'status' => 'success',
+                        'payment_date' => now()->toDateTimeString(),
+                    ];
+                    event(new \App\Events\PaymentNotification($notificationData));
+
                     break;
                 case "underpaid": // Payment Underpaid
                     $invoice->status = 'underpaid';
