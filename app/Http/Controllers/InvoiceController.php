@@ -2027,6 +2027,10 @@ class InvoiceController extends Controller
             // Check payment status from Bead API
             $beadService = new BeadPaymentService();
             $paymentStatus = $beadService->checkPaymentStatus($trackingId);
+
+            Log::info('Payment status', [
+                'paymentStatus' => $paymentStatus
+            ]);
             
             // Update invoice status if payment is completed
             if (isset($paymentStatus['status']) && $paymentStatus['status'] === 'Completed') {
@@ -2034,13 +2038,13 @@ class InvoiceController extends Controller
                 $invoice->payment_date = now();
                 $invoice->save();
                 
+                
                 return response()->json([
                     'success' => true,
                     'message' => 'Payment verified successfully',
-                    'payment' => [
-                        'status' => $paymentStatus['status'],
-                        'invoiceId' => $invoice->id,
-                        'invoiceNumber' => $invoice->invoice_number,
+                    'payment' => $paymentStatus,
+                    'invoice' => [
+                        'id' => $invoice->nmi_invoice_id,
                         'amount' => $invoice->total
                     ]
                 ]);
@@ -2049,11 +2053,10 @@ class InvoiceController extends Controller
             // For other statuses, just return the status without updating the invoice
             return response()->json([
                 'success' => true,
-                'message' => 'Payment status retrieved',
-                'payment' => [
-                    'status' => $paymentStatus['status'] ?? 'Unknown',
-                    'invoiceId' => $invoice->id,
-                    'invoiceNumber' => $invoice->invoice_number,
+                'message' => 'Payment verified successfully',
+                'payment' => $paymentStatus,
+                'invoice' => [
+                    'id' => $invoice->nmi_invoice_id,
                     'amount' => $invoice->total
                 ]
             ]);
@@ -2067,6 +2070,49 @@ class InvoiceController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error verifying payment: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get an invoice by its NMI invoice ID
+     *
+     * @param string $nmiInvoiceId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getByNmiInvoiceId(string $nmiInvoiceId)
+    {
+        try {
+            // Find the invoice by NMI invoice ID
+            $invoice = Invoice::where('nmi_invoice_id', $nmiInvoiceId)->first();
+            
+            if (!$invoice) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invoice not found with the provided NMI invoice ID'
+                ], 404);
+            }
+            
+            // Parse the invoice_data JSON if it's stored as a string
+            $invoiceData = is_string($invoice->invoice_data) 
+                ? json_decode($invoice->invoice_data, true) 
+                : $invoice->invoice_data;
+            
+            return response()->json([
+                'success' => true,
+                'invoice' => $invoice,
+                'invoiceData' => $invoiceData
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to retrieve invoice by NMI ID: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Error retrieving invoice: ' . $e->getMessage()
             ], 500);
         }
     }

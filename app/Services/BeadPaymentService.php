@@ -139,7 +139,7 @@ class BeadPaymentService
                 'requestedAmount' => $requestedAmount,
                 'paymentUrlType' => 'web',
                 'reference' => $orderId,
-                'redirectUrl' => $redirectUrl . '/payment-success'
+                'redirectUrl' => $redirectUrl . '/payment-success?reference=' . $orderId
             ];
 
             // Log full payload and credentials for debugging

@@ -182,6 +182,10 @@ Route::get('/payment-success', function () {
 
 Route::post('/payment-notification', [PaymentNotificationController::class, 'store'])
     ->name('payment.notification');
+
+// Add this route for getting invoice by NMI invoice ID
+Route::get('/invoice/nmi/{nmiInvoiceId}', [InvoiceController::class, 'getByNmiInvoiceId'])
+    ->name('user.invoice.get-by-nmi-id');
     
 require __DIR__.'/auth.php';
 
