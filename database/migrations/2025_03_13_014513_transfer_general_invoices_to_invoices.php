@@ -29,7 +29,6 @@ return new class extends Migration
                         'id' => $invoice->id,
                         'user_id' => $invoice->user_id,
                         'invoice_type' => 'general',
-                        'invoice_number' => $invoice->invoice_number,
                         'client_name' => $invoice->client_name,
                         'client_email' => $invoice->client_email,
                         'subtotal' => $invoice->subtotal,

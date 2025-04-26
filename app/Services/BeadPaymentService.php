@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Log;
 use Exception;
 use App\Models\Invoice;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\PaymentReceiptMail;
 
 class BeadPaymentService
 {
@@ -130,8 +132,7 @@ class BeadPaymentService
 
             $requestedAmount = floatval($amount);
             
-            // Use the React frontend URL for redirect
-            $frontendUrl = 'http://localhost:3000';
+            $redirectUrl = 'http://localhost:8000';
             
             // Simplify payload to match exactly what's in the documentation
             $payload = [
@@ -140,7 +141,7 @@ class BeadPaymentService
                 'requestedAmount' => $requestedAmount,
                 'paymentUrlType' => 'web',
                 'reference' => $orderId,
-                'redirectUrl' => $frontendUrl . '/payment-success'
+                'redirectUrl' => $redirectUrl . '/payment-success?reference=' . $orderId
             ];
 
             // Log full payload and credentials for debugging
@@ -217,34 +218,95 @@ class BeadPaymentService
     }
 
     /**
-     * Check payment status
+     * Check payment status using tracking ID
      */
-    public function checkPaymentStatus($paymentId)
+    public function checkPaymentStatus($trackingId)
     {
-        if (!$this->accessToken) {
-            $this->authenticate();
-        }
-
         try {
-            $response = Http::withToken($this->accessToken)
-                ->get($this->apiUrl . '/payments/' . $paymentId);
-
-            if ($response->successful()) {
-                return $response->json();
+            if (!$this->accessToken) {
+                $this->authenticate();
             }
 
-            Log::error('Failed to check Bead payment status', [
-                'status' => $response->status(),
-                'response' => $response->json()
+            // Initialize cURL request to get payment status
+            $ch = curl_init("{$this->apiUrl}/payments/tracking/{$trackingId}");
+            
+            // Set cURL options
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_HTTPHEADER => [
+                    'Authorization: Bearer ' . $this->accessToken,
+                    'Accept: application/json',
+                    'api-version: 0.2'
+                ]
+            ]);
+            
+            // Execute the request
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+            
+            curl_close($ch);
+            
+            // Log the response for debugging
+            Log::info('Bead Payment Status Response', [
+                'tracking_id' => $trackingId,
+                'http_code' => $httpCode,
+                'response' => $response,
+                'curl_error' => $error
             ]);
 
-            throw new Exception('Failed to check payment status: ' . $response->body());
-        } catch (Exception $e) {
-            Log::error('Bead API Status Check error', [
-                'error' => $e->getMessage()
+            // Check for cURL errors
+            if ($error) {
+                throw new Exception('Error connecting to Bead API: ' . $error);
+            }
+
+            // Decode the JSON response
+            $statusData = json_decode($response, true);
+            
+            // Add detailed logging of the raw response data
+            Log::info('Raw Bead Payment Status Data:', [
+                'status_data' => $statusData
             ]);
+
+            if ($httpCode !== 200) {
+                throw new Exception('Bead API returned error: ' . ($statusData['message'] ?? 'Unknown error'));
+            }
+
+            return [
+                'success' => true,
+                'status_code' => $statusData['statusCode'] ?? null,
+                'status_description' => $this->getStatusDescription($statusData['statusCode'] ?? null),
+                'amounts' => $statusData['amounts'] ?? null,
+                'completed_at' => $statusData['completedAt'] ?? null,
+                'reference' => $statusData['reference'] ?? null,
+                'trackingId' => $statusData['trackingId'] ?? null,
+                'pageId' => $statusData['pageId'] ?? null
+            ];
+
+        } catch (Exception $e) {
+            Log::error('Failed to get Bead payment status: ' . $e->getMessage(), [
+                'tracking_id' => $trackingId,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             throw $e;
         }
+    }
+
+    /**
+     * Get human-readable description for Bead status codes
+     */
+    private function getStatusDescription($statusCode) {
+        $statusDescriptions = [
+            2 => 'Completed - The customer sent the requested amount and processing was successful.',
+            3 => 'Underpaid - The customer sent less than the requested amount.',
+            4 => 'Overpaid - The customer sent more than the requested amount.',
+            7 => 'Expired - The customer\'s funds were not received before the payment window expired.',
+            8 => 'Invalid - An irregular event occurred during processing.',
+            9 => 'Cancelled - The customer or merchant requested to cancel the payment.'
+        ];
+
+        return $statusDescriptions[$statusCode] ?? 'Unknown status';
     }
 
     public function handleBeadWebhook(Request $request)
@@ -255,9 +317,12 @@ class BeadPaymentService
             ]);
 
             $trackingId = $request->input('trackingId');
+
             if (!$trackingId) {
                 throw new Exception('Tracking ID not found in webhook');
             }
+
+            $paymentData = $this->checkPaymentStatus($trackingId);
 
             // Find the invoice by Bead payment ID (which is the trackingId)
             $invoice = Invoice::where('bead_payment_id', $trackingId)->first();
@@ -265,31 +330,40 @@ class BeadPaymentService
                 throw new Exception('Invoice not found for tracking ID: ' . $trackingId);
             }
 
+            // Log payment data for debugging and tracking
+            Log::info('Processing Bead payment webhook data', [
+                'tracking_id' => $trackingId,
+                'payment_data' => $paymentData,
+                'invoice_id' => $invoice->id
+            ]);
+
             // Update invoice status based on statusCode
-            $statusCode = $request->input('statusCode');
+            $statusCode = $paymentData['status_code'];
             switch ($statusCode) {
-                case 2: // Payment Completed
+                case "completed": // Payment Completed
                     $invoice->status = 'paid';
                     $invoice->payment_date = now();
                     $invoice->transaction_id = $request->input('paymentCode');
+                    // Send receipt email to customer
+                    Mail::to($invoice->client_email)->send(new PaymentReceiptMail($invoice));
                     break;
-                case 3: // Payment Underpaid
+                case "underpaid": // Payment Underpaid
                     $invoice->status = 'underpaid';
                     break;
-                case 4: // Payment Overpaid
+                case "overpaid": // Payment Overpaid
                     $invoice->status = 'paid';
                     $invoice->payment_date = now();
                     $invoice->transaction_id = $request->input('paymentCode');
                     // You might want to note the overpayment
                     $invoice->notes = 'Payment was overpaid. Customer should reclaim excess funds.';
                     break;
-                case 7: // Payment Expired
+                case "expired": // Payment Expired
                     $invoice->status = 'expired';
                     break;
-                case 8: // Payment Invalid
+                case "invalid": // Payment Invalid
                     $invoice->status = 'invalid';
                     break;
-                case 9: // Payment Cancelled
+                case "cancelled": // Payment Cancelled
                     $invoice->status = 'cancelled';
                     break;
                 default:

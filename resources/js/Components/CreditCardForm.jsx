@@ -219,7 +219,7 @@ const CreditCardForm = ({ amount, onSuccess, onError, invoiceId }) => {
             
             console.log('Sending payment request with data:', requestData);
             
-            const response = await axios.post(route('general-invoice.process.credit-card'), requestData, {
+            const response = await axios.post(route('invoice.process.credit-card'), requestData, {
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',

@@ -136,10 +136,6 @@ class DvfWebhookController extends Controller
                 // Try to find by nmi_invoice_id first
                 $invoice = Invoice::where('nmi_invoice_id', $invoiceId)->first();
                 
-                // If not found, try by invoice_number
-                if (!$invoice) {
-                    $invoice = Invoice::where('invoice_number', $invoiceId)->first();
-                }
             }
             
             if (!$invoice) {

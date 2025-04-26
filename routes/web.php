@@ -86,18 +86,21 @@ Route::post('/invoice/send-to-nmi', [InvoiceController::class, 'sendInvoiceToNmi
     ->name('invoice.send-to-nmi');
 
 // Payment routes (these will be accessed via email links)
-Route::get('/general-invoice/pay/{token}/credit-card', [InvoiceController::class, 'showCreditCardPayment'])
-    ->name('general-invoice.pay.credit-card');
+Route::get('/invoice/pay/{token}/credit-card', [InvoiceController::class, 'showCreditCardPayment'])
+    ->name('invoice.pay.credit-card');
     
-Route::get('/general-invoice/pay/{token}/bitcoin', [InvoiceController::class, 'showBitcoinPayment'])
-    ->name('general-invoice.pay.bitcoin');
+Route::get('/invoice/pay/{token}/bitcoin', [InvoiceController::class, 'showBitcoinPayment'])
+    ->name('invoice.pay.bitcoin');
 
 // Payment processing routes
-Route::post('/general-invoice/process-credit-card', [InvoiceController::class, 'processCreditCardPayment'])
-    ->name('general-invoice.process.credit-card');
+Route::post('/invoice/process-credit-card', [InvoiceController::class, 'processCreditCardPayment'])
+    ->name('invoice.process.credit-card');
     
-Route::post('/general-invoice/process-bitcoin', [InvoiceController::class, 'processBitcoinPayment'])
-    ->name('general-invoice.process.bitcoin');
+Route::post('/invoice/create-crypto-payment', [InvoiceController::class, 'createCryptoPayment'])
+    ->name('invoice.create.crypto-payment');
+
+Route::get('/verify-bead-payment-status', [InvoiceController::class, 'getBeadPaymentStatus'])
+    ->name('verify.bead.payment.status');
 
 // Invoice listing page
 Route::get('/invoices', [InvoiceController::class, 'index'])
@@ -180,5 +183,9 @@ Route::get('/payment-success', function () {
 Route::post('/payment-notification', [PaymentNotificationController::class, 'store'])
     ->name('payment.notification');
 
+// Add this route for getting invoice by NMI invoice ID
+Route::get('/invoice/nmi/{nmiInvoiceId}', [InvoiceController::class, 'getByNmiInvoiceId'])
+    ->name('user.invoice.get-by-nmi-id');
+    
 require __DIR__.'/auth.php';
 

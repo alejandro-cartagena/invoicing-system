@@ -12,7 +12,6 @@ class Invoice extends Model
     protected $fillable = [
         'user_id',
         'invoice_type',
-        'invoice_number',
         'company_name',
         'client_email',
         'first_name',
@@ -42,7 +41,8 @@ class Invoice extends Model
         'transaction_id',
         'nmi_invoice_id',
         // Add this field for Bead payments
-        'bead_payment_id'
+        'bead_payment_id',
+        'bead_payment_url'
     ];
 
     protected $casts = [

@@ -14,7 +14,7 @@ return new class extends Migration
     {
         Schema::table('invoices', function (Blueprint $table) {
             // Add the new columns
-            $table->string('first_name')->nullable()->after('invoice_number');
+            $table->string('first_name')->nullable()->after('invoice_type');
             $table->string('last_name')->nullable()->after('first_name');
             $table->string('country')->nullable()->after('last_name');
             $table->string('city')->nullable()->after('country');

@@ -16,6 +16,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use App\Services\BeadPaymentService;
 use App\Mail\PaymentReceiptMail;
 use App\Events\PaymentNotification;
+use Exception;
 
 class InvoiceController extends Controller
 {
@@ -142,7 +143,6 @@ class InvoiceController extends Controller
             $invoiceCreateData = [
                 'user_id' => $user->id,
                 'invoice_type' => $validated['invoiceType'],
-                'invoice_number' => $invoiceData['invoiceTitle'] ?? ('INV-' . time()),
                 'company_name' => $invoiceData['companyName'] ?? 'Client',
                 'client_email' => $validated['recipientEmail'],
                 'subtotal' => $subTotal,
@@ -271,7 +271,7 @@ class InvoiceController extends Controller
     public function showCreditCardPayment(string $token)
     {
         $invoice = Invoice::where('payment_token', $token)
-            ->where('status', '!=', 'paid')
+            ->whereNotIn('status', ['paid', 'closed'])
             ->firstOrFail();
             
         return Inertia::render('Payment/CreditCard', [
@@ -284,7 +284,7 @@ class InvoiceController extends Controller
     public function showBitcoinPayment(string $token)
     {
         $invoice = Invoice::where('payment_token', $token)
-            ->where('status', '!=', 'paid')
+            ->whereNotIn('status', ['paid', 'closed'])
             ->firstOrFail();
             
         return Inertia::render('Payment/Bitcoin', [
@@ -450,7 +450,58 @@ class InvoiceController extends Controller
         }
     }
 
-    public function processBitcoinPayment(Request $request)
+    public function getBeadPaymentStatus(Request $request) {
+        try {
+            // Validate the request
+            $validated = $request->validate([
+                'trackingId' => 'required|string'
+            ]);
+
+            // Find the invoice using the tracking ID (bead_payment_id)
+            $invoice = Invoice::where('bead_payment_id', $validated['trackingId'])->first();
+            
+            if (!$invoice) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invoice not found for this tracking ID'
+                ], 404);
+            }
+
+            // Initialize BeadPaymentService and get status
+            $beadService = new BeadPaymentService();
+            $statusResponse = $beadService->checkPaymentStatus($validated['trackingId']);
+
+            // Update invoice status if payment is completed (status code 2)
+            if (isset($statusResponse['data']['status_code']) && $statusResponse['data']['status_code'] === 2) {
+                $invoice->status = 'paid';
+                $invoice->payment_date = now();
+                $invoice->save();
+            }
+
+            // Return the status information with invoice details
+            return response()->json([
+                'success' => true,
+                'data' => array_merge($statusResponse['data'], [
+                    'invoice_id' => $invoice->id,
+                    'tracking_id' => $validated['trackingId']
+                ])
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to get Bead payment status: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to get payment status: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function createCryptoPayment(Request $request)
     {
         try {
             $validated = $request->validate([
@@ -461,6 +512,33 @@ class InvoiceController extends Controller
 
             // Find the invoice
             $invoice = Invoice::findOrFail($validated['invoiceId']);
+
+            // Check if the invoice already has a bead_payment_id
+            if ($invoice->bead_payment_id) {
+                $beadService = new BeadPaymentService();
+                try {
+                    $paymentData = $beadService->checkPaymentStatus($invoice->bead_payment_id);
+                    Log::info('Retrieved existing Bead payment status', [
+                        'invoice_id' => $invoice->id,
+                        'bead_payment_id' => $invoice->bead_payment_id,
+                        'status' => $paymentData
+                    ]);
+
+                    return response()->json([
+                        'success' => true,
+                        'has_existing_payment' => true,
+                        'message' => 'Retrieved existing payment status',
+                        'payment_url' => $invoice->bead_payment_url,
+                        'payment_data' => $paymentData,
+                    ]);
+                } catch (Exception $e) {
+                    Log::error('Failed to check existing payment status', [
+                        'error' => $e->getMessage(),
+                        'bead_payment_id' => $invoice->bead_payment_id
+                    ]);
+                    // Continue with new payment if status check fails
+                }
+            }
 
             // Check if the invoice is already paid
             if ($invoice->status === 'paid') {
@@ -474,20 +552,18 @@ class InvoiceController extends Controller
             
             try {
                 Log::info('Creating crypto payment for invoice', [
-                    'invoice_id' => $invoice->id,
-                    'invoice_number' => $invoice->invoice_number,
                     'nmi_invoice_id' => $invoice->nmi_invoice_id,
                     'amount' => $validated['amount']
                 ]);
 
-                // Use nmi_invoice_id as the reference if available, otherwise fall back to invoice_number
-                $reference = !empty($invoice->nmi_invoice_id) ? $invoice->nmi_invoice_id : $invoice->invoice_number;
+                // Use nmi_invoice_id as the reference
+                $reference = $invoice->nmi_invoice_id;
                 
                 $paymentResponse = $beadService->createCryptoPayment(
                     $validated['amount'],
                     'USD',
                     $reference, // Using nmi_invoice_id as reference
-                    'Invoice payment for ' . $invoice->invoice_number
+                    'Invoice payment for ' . $reference
                 );
 
                 // Log the successful response
@@ -501,7 +577,8 @@ class InvoiceController extends Controller
                 $invoice->update([
                     'bead_payment_id' => $paymentResponse['trackingId'] ?? null,
                     'payment_method' => 'crypto',
-                    'status' => 'pending' // Update status to pending
+                    'status' => 'pending', // Update status to pending
+                    'bead_payment_url' => $paymentResponse['paymentUrls'][0]['url'] ?? null
                 ]);
 
                 // Format the response for the frontend
@@ -520,7 +597,7 @@ class InvoiceController extends Controller
                 
                 // Check if the error message contains a 403 (Forbidden) reference
                 if (strpos($errorMessage, '403') !== false) {
-                    $errorMessage = "The Bead payment system returned a 403 Forbidden error. This typically means the terminal doesn't have permission to process crypto payments. Please contact support and provide these details: Terminal ID: {$beadService->getTerminalId()}, Invoice: {$invoice->invoice_number}";
+                    $errorMessage = "The Bead payment system returned a 403 Forbidden error. This typically means the terminal doesn't have permission to process crypto payments. Please contact support and provide these details: Terminal ID: {$beadService->getTerminalId()}, Invoice Id: {$invoice->nmi_invoice_id}";
                     $statusCode = 403;
                 }
                 
@@ -743,7 +820,6 @@ class InvoiceController extends Controller
             $newInvoice = Invoice::create([
                 'user_id' => $user->id,
                 'invoice_type' => $invoice->invoice_type,
-                'invoice_number' => $invoiceData['invoiceTitle'] ?? ('INV-' . time()),
                 'company_name' => $invoiceData['companyName'] ?? 'Client',
                 'client_email' => $validated['recipientEmail'],
                 'subtotal' => $subTotal,
@@ -1030,7 +1106,6 @@ class InvoiceController extends Controller
             $invoiceCreateData = [
                 'user_id' => $user->id,
                 'invoice_type' => $validated['invoiceType'],
-                'invoice_number' => $invoiceData['invoiceTitle'] ?? ('INV-' . time()),
                 'company_name' => $companyName,
                 'client_email' => $validated['recipientEmail'],
                 'first_name' => $firstName,
@@ -1505,7 +1580,6 @@ class InvoiceController extends Controller
                 'payment_terms' => 'upon_receipt',
                 'payment_methods_allowed' => 'cc', // Credit card only
                 'order_description' => $invoiceData['notes'] ?? 'Invoice ' . ($invoiceData['invoiceTitle'] ?? ''),
-                'orderid' => $invoiceData['invoiceTitle'] ?? $invoice->invoice_number,
                 'tax' => number_format($taxAmount, 2, '.', ''),
                 'currency' => 'USD', // Default to USD
                 'item_count' => count($invoiceData['productLines'] ?? []), // Add item count explicitly
@@ -1916,40 +1990,12 @@ class InvoiceController extends Controller
     public function handleBeadWebhook(Request $request)
     {
         try {
-            Log::info('Received Bead webhook', [
-                'payload' => $request->all()
-            ]);
-
-            $paymentId = $request->input('PaymentId');
-            if (!$paymentId) {
-                throw new Exception('Payment ID not found in webhook');
-            }
-
-            // Find the invoice by Bead payment ID
-            $invoice = Invoice::where('bead_payment_id', $paymentId)->first();
-            if (!$invoice) {
-                throw new Exception('Invoice not found for payment ID: ' . $paymentId);
-            }
-
-            // Update invoice status based on payment status
-            $status = $request->input('Status');
-            switch ($status) {
-                case 'Completed':
-                    $invoice->status = 'paid';
-                    $invoice->payment_date = now();
-                    break;
-                case 'Failed':
-                    $invoice->status = 'failed';
-                    break;
-                // Add other status cases as needed
-            }
-
-            $invoice->save();
-
-            return response()->json(['success' => true]);
+            $beadService = new BeadPaymentService();
+            return $beadService->handleBeadWebhook($request);
         } catch (Exception $e) {
-            Log::error('Failed to process Bead webhook: ' . $e->getMessage());
-            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+            Log::error('Failed to process Bead webhook in controller: ' . $e->getMessage());
+            // Still return 200 to prevent retries, following the same pattern as the service
+            return response()->json(['success' => false, 'error' => $e->getMessage()]);
         }
     }
 
@@ -1977,20 +2023,24 @@ class InvoiceController extends Controller
             // Check payment status from Bead API
             $beadService = new BeadPaymentService();
             $paymentStatus = $beadService->checkPaymentStatus($trackingId);
+
+            Log::info('Payment status', [
+                'paymentStatus' => $paymentStatus
+            ]);
             
             // Update invoice status if payment is completed
-            if (isset($paymentStatus['status']) && $paymentStatus['status'] === 'Completed') {
+            if (isset($paymentStatus['status_code']) && $paymentStatus['status_code'] === 'completed') {
                 $invoice->status = 'paid';
                 $invoice->payment_date = now();
                 $invoice->save();
                 
+                
                 return response()->json([
                     'success' => true,
                     'message' => 'Payment verified successfully',
-                    'payment' => [
-                        'status' => $paymentStatus['status'],
-                        'invoiceId' => $invoice->id,
-                        'invoiceNumber' => $invoice->invoice_number,
+                    'payment' => $paymentStatus,
+                    'invoice' => [
+                        'id' => $invoice->nmi_invoice_id,
                         'amount' => $invoice->total
                     ]
                 ]);
@@ -1999,11 +2049,10 @@ class InvoiceController extends Controller
             // For other statuses, just return the status without updating the invoice
             return response()->json([
                 'success' => true,
-                'message' => 'Payment status retrieved',
-                'payment' => [
-                    'status' => $paymentStatus['status'] ?? 'Unknown',
-                    'invoiceId' => $invoice->id,
-                    'invoiceNumber' => $invoice->invoice_number,
+                'message' => 'Payment verified successfully',
+                'payment' => $paymentStatus,
+                'invoice' => [
+                    'id' => $invoice->nmi_invoice_id,
                     'amount' => $invoice->total
                 ]
             ]);
@@ -2017,6 +2066,49 @@ class InvoiceController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error verifying payment: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get an invoice by its NMI invoice ID
+     *
+     * @param string $nmiInvoiceId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getByNmiInvoiceId(string $nmiInvoiceId)
+    {
+        try {
+            // Find the invoice by NMI invoice ID
+            $invoice = Invoice::where('nmi_invoice_id', $nmiInvoiceId)->first();
+            
+            if (!$invoice) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invoice not found with the provided NMI invoice ID'
+                ], 404);
+            }
+            
+            // Parse the invoice_data JSON if it's stored as a string
+            $invoiceData = is_string($invoice->invoice_data) 
+                ? json_decode($invoice->invoice_data, true) 
+                : $invoice->invoice_data;
+            
+            return response()->json([
+                'success' => true,
+                'invoice' => $invoice,
+                'invoiceData' => $invoiceData
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to retrieve invoice by NMI ID: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Error retrieving invoice: ' . $e->getMessage()
             ], 500);
         }
     }
