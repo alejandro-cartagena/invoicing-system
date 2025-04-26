@@ -41,7 +41,8 @@ class Invoice extends Model
         'transaction_id',
         'nmi_invoice_id',
         // Add this field for Bead payments
-        'bead_payment_id'
+        'bead_payment_id',
+        'bead_payment_url'
     ];
 
     protected $casts = [

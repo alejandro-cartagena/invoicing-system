@@ -22,7 +22,9 @@ export default function Bitcoin({ invoice, token }) {
                 amount: invoice.total
             });
 
-            console.log("RESPONSE: ", response.data);
+            console.log("response: ", response);
+
+            const beadPaymentUrl = response.data.payment_url;
 
             console.log("Payment ID:", response.data.payment_data.trackingId);
 
@@ -34,8 +36,6 @@ export default function Bitcoin({ invoice, token }) {
                 const paidAmount = responseData.amounts.paid.inPaymentCurrency.amount;
                 const requestedAmount = responseData.amounts.requested.inPaymentCurrency.amount;
                 const remainingAmount = requestedAmount - paidAmount;
-
-                const beadPaymentUrl = `https://pay.qa.beadpay.io/${trackingId}`
 
                 // Handle existing payment status if available
                 if (hasExistingPayment && responseData) {

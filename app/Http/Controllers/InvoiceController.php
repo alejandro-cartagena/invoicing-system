@@ -528,6 +528,7 @@ class InvoiceController extends Controller
                         'success' => true,
                         'has_existing_payment' => true,
                         'message' => 'Retrieved existing payment status',
+                        'payment_url' => $invoice->bead_payment_url,
                         'payment_data' => $paymentData,
                     ]);
                 } catch (Exception $e) {
@@ -576,7 +577,8 @@ class InvoiceController extends Controller
                 $invoice->update([
                     'bead_payment_id' => $paymentResponse['trackingId'] ?? null,
                     'payment_method' => 'crypto',
-                    'status' => 'pending' // Update status to pending
+                    'status' => 'pending', // Update status to pending
+                    'bead_payment_url' => $paymentResponse['paymentUrls'][0]['url'] ?? null
                 ]);
 
                 // Format the response for the frontend

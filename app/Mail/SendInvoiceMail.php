@@ -81,8 +81,8 @@ class SendInvoiceMail extends Mailable
         $bitcoinPaymentUrl = null;
         
         if ($this->paymentToken) {
-            $creditCardPaymentUrl = URL::signedRoute('general-invoice.pay.credit-card', ['token' => $this->paymentToken]);
-            $bitcoinPaymentUrl = URL::signedRoute('general-invoice.pay.bitcoin', ['token' => $this->paymentToken]);
+            $creditCardPaymentUrl = URL::signedRoute('invoice.pay.credit-card', ['token' => $this->paymentToken]);
+            $bitcoinPaymentUrl = URL::signedRoute('invoice.pay.bitcoin', ['token' => $this->paymentToken]);
         }
         
         $businessName = $this->user->profile ? $this->user->profile->business_name : $this->user->name;
