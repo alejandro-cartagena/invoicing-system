@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Log;
 use Exception;
 use App\Models\Invoice;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\PaymentReceiptMail;
 
 class BeadPaymentService
 {
@@ -328,6 +330,13 @@ class BeadPaymentService
                 throw new Exception('Invoice not found for tracking ID: ' . $trackingId);
             }
 
+            // Log payment data for debugging and tracking
+            Log::info('Processing Bead payment webhook data', [
+                'tracking_id' => $trackingId,
+                'payment_data' => $paymentData,
+                'invoice_id' => $invoice->id
+            ]);
+
             // Update invoice status based on statusCode
             $statusCode = $paymentData['status_code'];
             switch ($statusCode) {
@@ -335,6 +344,8 @@ class BeadPaymentService
                     $invoice->status = 'paid';
                     $invoice->payment_date = now();
                     $invoice->transaction_id = $request->input('paymentCode');
+                    // Send receipt email to customer
+                    Mail::to($invoice->client_email)->send(new PaymentReceiptMail($invoice));
                     break;
                 case "underpaid": // Payment Underpaid
                     $invoice->status = 'underpaid';

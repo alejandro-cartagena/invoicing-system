@@ -16,7 +16,7 @@ export default function Bitcoin({ invoice, token }) {
         try 
         {
             setLoading(true);
-            const response = await axios.post('/invoice/process-bitcoin', {
+            const response = await axios.post('/invoice/create-crypto-payment', {
                 token: token,
                 invoiceId: invoice.id,
                 amount: invoice.total

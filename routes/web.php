@@ -96,8 +96,8 @@ Route::get('/general-invoice/pay/{token}/bitcoin', [InvoiceController::class, 's
 Route::post('/general-invoice/process-credit-card', [InvoiceController::class, 'processCreditCardPayment'])
     ->name('general-invoice.process.credit-card');
     
-Route::post('/invoice/process-bitcoin', [InvoiceController::class, 'processBitcoinPayment'])
-    ->name('invoice.process.bitcoin');
+Route::post('/invoice/create-crypto-payment', [InvoiceController::class, 'createCryptoPayment'])
+    ->name('invoice.create.crypto-payment');
 
 Route::get('/verify-bead-payment-status', [InvoiceController::class, 'getBeadPaymentStatus'])
     ->name('verify.bead.payment.status');

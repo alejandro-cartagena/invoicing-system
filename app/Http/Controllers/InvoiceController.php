@@ -501,7 +501,7 @@ class InvoiceController extends Controller
         }
     }
 
-    public function processBitcoinPayment(Request $request)
+    public function createCryptoPayment(Request $request)
     {
         try {
             $validated = $request->validate([
@@ -2027,7 +2027,7 @@ class InvoiceController extends Controller
             ]);
             
             // Update invoice status if payment is completed
-            if (isset($paymentStatus['status']) && $paymentStatus['status'] === 'Completed') {
+            if (isset($paymentStatus['status_code']) && $paymentStatus['status_code'] === 'completed') {
                 $invoice->status = 'paid';
                 $invoice->payment_date = now();
                 $invoice->save();
