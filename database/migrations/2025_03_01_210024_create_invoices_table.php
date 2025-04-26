@@ -15,7 +15,6 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->enum('invoice_type', ['general', 'real_estate'])->default('general');
-            $table->string('invoice_number');
             $table->string('client_name');
             $table->string('client_email');
             $table->decimal('subtotal', 10, 2);

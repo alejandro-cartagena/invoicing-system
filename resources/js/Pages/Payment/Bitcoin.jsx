@@ -29,12 +29,17 @@ export default function Bitcoin({ invoice, token }) {
             if (response.data.has_existing_payment) {
                 const hasExistingPayment = response.data.has_existing_payment;
                 const responseData = response.data.payment_data;
-                const beadPaymentUrl = `https://pay.qa.beadpay.io/${responseData.pageId}`
+                const trackingId = responseData.trackingId;
+
+                const paidAmount = responseData.amounts.paid.inPaymentCurrency.amount;
+                const requestedAmount = responseData.amounts.requested.inPaymentCurrency.amount;
+                const remainingAmount = requestedAmount - paidAmount;
+
+                const beadPaymentUrl = `https://pay.qa.beadpay.io/${trackingId}`
 
                 // Handle existing payment status if available
                 if (hasExistingPayment && responseData) {
                     console.log("Existing Payment Status:", responseData);
-                    debugger;
                     setPaymentStatus(responseData.status_code);
                     
                     switch (responseData.status_code) {
@@ -43,15 +48,15 @@ export default function Bitcoin({ invoice, token }) {
                             break;
                         case "completed":
                             // Redirect to PaymentSuccess page with tracking ID
-                            window.location.href = `/payment-success?trackingId=${responseData.trackingId}&status=completed`;
+                            window.location.href = `/payment-success?trackingId=${trackingId}&status=completed`;
                             break;
                         case "underpaid":
-                            alert(`The payment amount sent was less than required. The current payment amount is ${responseData.amounts.requested.inPaymentCurrency.amount} and the required amount is ${responseData.amounts.requested.inRequestedCurrency.amount}. Redirecting to payment page.`);
+                            alert(`The payment amount sent was less than required. The current amount paid is ${paidAmount} and the remaining amount is ${remainingAmount}. Redirecting to payment page.`);
                             window.location.href = beadPaymentUrl;
                             break;
                         case "overpaid":
                             // Still show success but with additional message about overpayment
-                            window.location.href = `/payment-success?trackingId=${responseData.trackingId}&status=overpaid`;
+                            window.location.href = `/payment-success?trackingId=${trackingId}&status=overpaid`;
                             break;
                         case "expired":
                             setError("This payment request has expired. Please initiate a new payment.");

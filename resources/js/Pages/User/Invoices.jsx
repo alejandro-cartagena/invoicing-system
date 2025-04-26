@@ -28,7 +28,6 @@ const Invoices = ({ invoices: initialInvoices }) => {
         return invoices.filter(invoice => 
             // Apply search filter
             (
-                (invoice.invoice_number && invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
                 (invoice.nmi_invoice_id && invoice.nmi_invoice_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
                 (invoice.client_name && invoice.client_name.toLowerCase().includes(searchTerm.toLowerCase()))
             ) &&
@@ -118,11 +117,11 @@ const Invoices = ({ invoices: initialInvoices }) => {
         return date.toLocaleDateString("en-US", { year: "2-digit", month: "2-digit", day: "2-digit" });
     };
 
-    const handleClose = (invoiceId, invoiceNumber, nmiInvoiceId) => {
+    const handleClose = (invoiceId, nmiInvoiceId) => {
         // Include NMI invoice ID in the confirmation message if available
         const invoiceIdentifier = nmiInvoiceId 
             ? `${nmiInvoiceId}` 
-            : invoiceNumber;
+            : invoiceId;
         
         Swal.fire({
             title: 'Are you sure?',
@@ -218,7 +217,7 @@ const Invoices = ({ invoices: initialInvoices }) => {
                 // Create a temporary link element
                 const link = document.createElement('a');
                 link.href = url;
-                link.setAttribute('download', `Invoice-${invoice.invoice_number}.pdf`);
+                link.setAttribute('download', `Invoice-${invoice.nmi_invoice_id}.pdf`);
                 
                 // Append to the document, click it, and remove it
                 document.body.appendChild(link);
@@ -449,7 +448,7 @@ const Invoices = ({ invoices: initialInvoices }) => {
                                                     href={route('user.invoice.view', invoice.id)}
                                                     className="text-blue-600 hover:text-blue-800 hover:underline"
                                                 >
-                                                    {invoice.nmi_invoice_id || invoice.invoice_number}
+                                                    {invoice.nmi_invoice_id}
                                                 </Link>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
@@ -484,7 +483,7 @@ const Invoices = ({ invoices: initialInvoices }) => {
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex space-x-4">
                                                     <button 
-                                                        onClick={() => invoice.status !== 'closed' || invoice.status !== 'paid' ? handleClose(invoice.id, invoice.invoice_number, invoice.nmi_invoice_id) : null}
+                                                        onClick={() => invoice.status !== 'closed' || invoice.status !== 'paid' ? handleClose(invoice.id, invoice.nmi_invoice_id) : null}
                                                         className={`${invoice.status === 'closed' || invoice.status === 'paid' ? 'text-gray-400 cursor-not-allowed' : 'text-red-600 hover:text-red-900'} relative group`}
                                                         aria-label={invoice.status === 'closed' ? 'Invoice Closed' : invoice.status === 'paid' ? 'Invoice Paid' : 'Close Invoice'}
                                                         disabled={invoice.status === 'closed' || invoice.status === 'paid'}

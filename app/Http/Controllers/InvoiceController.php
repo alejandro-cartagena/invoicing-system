@@ -143,7 +143,6 @@ class InvoiceController extends Controller
             $invoiceCreateData = [
                 'user_id' => $user->id,
                 'invoice_type' => $validated['invoiceType'],
-                'invoice_number' => $invoiceData['invoiceTitle'] ?? ('INV-' . time()),
                 'company_name' => $invoiceData['companyName'] ?? 'Client',
                 'client_email' => $validated['recipientEmail'],
                 'subtotal' => $subTotal,
@@ -272,7 +271,7 @@ class InvoiceController extends Controller
     public function showCreditCardPayment(string $token)
     {
         $invoice = Invoice::where('payment_token', $token)
-            ->where('status', '!=', 'paid')
+            ->whereNotIn('status', ['paid', 'closed'])
             ->firstOrFail();
             
         return Inertia::render('Payment/CreditCard', [
@@ -285,7 +284,7 @@ class InvoiceController extends Controller
     public function showBitcoinPayment(string $token)
     {
         $invoice = Invoice::where('payment_token', $token)
-            ->where('status', '!=', 'paid')
+            ->whereNotIn('status', ['paid', 'closed'])
             ->firstOrFail();
             
         return Inertia::render('Payment/Bitcoin', [
@@ -552,20 +551,18 @@ class InvoiceController extends Controller
             
             try {
                 Log::info('Creating crypto payment for invoice', [
-                    'invoice_id' => $invoice->id,
-                    'invoice_number' => $invoice->invoice_number,
                     'nmi_invoice_id' => $invoice->nmi_invoice_id,
                     'amount' => $validated['amount']
                 ]);
 
-                // Use nmi_invoice_id as the reference if available, otherwise fall back to invoice_number
+                // Use nmi_invoice_id as the reference
                 $reference = $invoice->nmi_invoice_id;
                 
                 $paymentResponse = $beadService->createCryptoPayment(
                     $validated['amount'],
                     'USD',
                     $reference, // Using nmi_invoice_id as reference
-                    'Invoice payment for ' . $invoice->invoice_number
+                    'Invoice payment for ' . $reference
                 );
 
                 // Log the successful response
@@ -598,7 +595,7 @@ class InvoiceController extends Controller
                 
                 // Check if the error message contains a 403 (Forbidden) reference
                 if (strpos($errorMessage, '403') !== false) {
-                    $errorMessage = "The Bead payment system returned a 403 Forbidden error. This typically means the terminal doesn't have permission to process crypto payments. Please contact support and provide these details: Terminal ID: {$beadService->getTerminalId()}, Invoice: {$invoice->invoice_number}";
+                    $errorMessage = "The Bead payment system returned a 403 Forbidden error. This typically means the terminal doesn't have permission to process crypto payments. Please contact support and provide these details: Terminal ID: {$beadService->getTerminalId()}, Invoice Id: {$invoice->nmi_invoice_id}";
                     $statusCode = 403;
                 }
                 
@@ -821,7 +818,6 @@ class InvoiceController extends Controller
             $newInvoice = Invoice::create([
                 'user_id' => $user->id,
                 'invoice_type' => $invoice->invoice_type,
-                'invoice_number' => $invoiceData['invoiceTitle'] ?? ('INV-' . time()),
                 'company_name' => $invoiceData['companyName'] ?? 'Client',
                 'client_email' => $validated['recipientEmail'],
                 'subtotal' => $subTotal,
@@ -1108,7 +1104,6 @@ class InvoiceController extends Controller
             $invoiceCreateData = [
                 'user_id' => $user->id,
                 'invoice_type' => $validated['invoiceType'],
-                'invoice_number' => $invoiceData['invoiceTitle'] ?? ('INV-' . time()),
                 'company_name' => $companyName,
                 'client_email' => $validated['recipientEmail'],
                 'first_name' => $firstName,
@@ -1583,7 +1578,6 @@ class InvoiceController extends Controller
                 'payment_terms' => 'upon_receipt',
                 'payment_methods_allowed' => 'cc', // Credit card only
                 'order_description' => $invoiceData['notes'] ?? 'Invoice ' . ($invoiceData['invoiceTitle'] ?? ''),
-                'orderid' => $invoiceData['invoiceTitle'] ?? $invoice->invoice_number,
                 'tax' => number_format($taxAmount, 2, '.', ''),
                 'currency' => 'USD', // Default to USD
                 'item_count' => count($invoiceData['productLines'] ?? []), // Add item count explicitly

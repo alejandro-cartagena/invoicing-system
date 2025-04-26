@@ -132,7 +132,7 @@ const ViewInvoice = ({ invoice }) => {
                                             </div>
                                             <div className="md:text-lg text-gray-700 mb-1">
                                                 <span className="font-semibold">Invoice #: </span>
-                                                {invoice.nmi_invoice_id || invoice.invoice_number || '-'}
+                                                {invoice.nmi_invoice_id || '-'}
                                             </div>
                                             <div className="md:text-lg text-gray-700 mb-1">
                                                 <span className="font-semibold">Invoice Date: </span>
