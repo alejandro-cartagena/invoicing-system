@@ -196,8 +196,8 @@
                         <div class="mobile-only" style="margin:0px auto;max-width:560px;">
                           <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;">
                             <tbody>
-                              @foreach($invoiceData['productLines'] as $item) @if(isset($item['description']) && $item['description'])
                               <tr>
+                              @foreach($invoiceData['productLines'] as $item) @if(isset($item['description']) && $item['description'])
                                 <td style="direction:ltr;font-size:0px;padding:10px;text-align:center;">
                                   <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td align="left" class="" width="560px" ><![endif]-->
                                   <div style="font-family:Helvetica, Arial, sans-serif;font-size:18px;font-weight:bold;line-height:1;text-align:left;color:#000000;">Invoice Items:</div>
@@ -212,10 +212,8 @@
                                     {{ $invoiceData['currency'] ?? '$' }}{{ number_format(($item['quantity'] ?? 0) * ($item['rate'] ?? 0), 2) }}
                                   </div>
                                   <!--[if mso | IE]></td></tr><tr><td align="center" class="mobile-only-outlook" width="560px" ><![endif]-->
-                                  @if(!$loop->last)
                                   <p style="border-top:solid 4px #ecedee;font-size:1px;margin:0px auto;width:100%;">
                                   </p>
-                                  @endif
                                   <!--[if mso | IE]><table align="center" border="0" cellpadding="0" cellspacing="0" style="border-top:solid 4px #ecedee;font-size:1px;margin:0px auto;width:490px;" role="presentation" width="490px" ><tr><td style="height:0;line-height:0;"> &nbsp;
 </td></tr></table></td></tr></table><![endif]-->
                                 </td>
