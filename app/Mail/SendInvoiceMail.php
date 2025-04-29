@@ -48,7 +48,7 @@ class SendInvoiceMail extends Mailable
         
         // Add logging
         \Log::info('Sending invoice email with:', [
-            'from' => 'info@voltms.com',
+            'from' => config('mail.from.address'),
             'reply_to' => $this->user->email,
             'business_name' => $businessName,
             'user_id' => $this->user->id
@@ -63,7 +63,7 @@ class SendInvoiceMail extends Mailable
         }
 
         return new Envelope(
-            from: new Address('info@voltms.com', 'VoltMS'),
+            from: new Address(config('mail.from.address'), config('mail.from.name', 'VoltMS')),
             subject: $subject,
             replyTo: [
                 new Address($this->user->email, $businessName),
