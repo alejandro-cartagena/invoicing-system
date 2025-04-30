@@ -409,6 +409,7 @@ class InvoiceController extends Controller
                 
                 // Send receipt email to customer
                 Mail::to($invoice->client_email)->send(new PaymentReceiptMail($invoice));
+                Mail::to($invoice->user->email)->send(new PaymentReceiptMail($invoice));
                 
                 // Dispatch payment notification event
                 $notificationData = [
