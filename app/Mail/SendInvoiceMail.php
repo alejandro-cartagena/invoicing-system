@@ -63,7 +63,7 @@ class SendInvoiceMail extends Mailable
         }
 
         return new Envelope(
-            from: new Address(config('mail.from.address'), config('mail.from.name', 'VoltMS')),
+            from: new Address(config('mail.from.address'), config('mail.from.name')),
             subject: $subject,
             replyTo: [
                 new Address($this->user->email, $businessName),
