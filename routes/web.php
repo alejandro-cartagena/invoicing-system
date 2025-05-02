@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserProfileController;
 use Inertia\Inertia;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\PaymentNotificationController;
 use App\Http\Controllers\DvfWebhookController;
 
 Route::get('/', function () {

@@ -197,7 +197,7 @@
                           <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;">
                             <tbody>
                               <tr>
-                              @foreach($invoiceData['productLines'] as $item) @if(isset($item['description']) && $item['description'])
+                                @foreach($invoiceData['productLines'] as $item) @if(isset($item['description']) && $item['description'])
                                 <td style="direction:ltr;font-size:0px;padding:10px;text-align:center;">
                                   <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td align="left" class="" width="560px" ><![endif]-->
                                   <div style="font-family:Helvetica, Arial, sans-serif;font-size:18px;font-weight:bold;line-height:1;text-align:left;color:#000000;">Invoice Items:</div>
