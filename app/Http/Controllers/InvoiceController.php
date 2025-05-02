@@ -646,52 +646,82 @@ class InvoiceController extends Controller
         return redirect()->route('user.invoices')->with('success', 'Invoice deleted successfully');
     }
 
-    public function resend(Invoice $invoice)
+    public function resend(Invoice $invoice, Request $request)
     {
         // Check if the invoice belongs to the authenticated user
         if ($invoice->user_id !== Auth::id()) {
             abort(403, 'Unauthorized action.');
         }
         
-        // Add this check to prevent resending paid or closed invoices
+        // Check if the invoice is paid or closed
         if ($invoice->status === 'paid' || $invoice->status === 'closed') {
             return redirect()->route('user.invoices')
                 ->with('error', 'Paid or closed invoices cannot be resent.');
         }
-        
-        // Get the user
+
+        // Validate the request
+        $validated = $request->validate([
+            'pdfBase64' => 'required|string',
+            'recipientEmail' => 'required|email',
+            // Add validation for real estate fields if it's a real estate invoice
+            'propertyAddress' => 'required_if:invoiceType,real_estate',
+            'titleNumber' => 'required_if:invoiceType,real_estate',
+            'buyerName' => 'required_if:invoiceType,real_estate',
+            'sellerName' => 'required_if:invoiceType,real_estate',
+            'agentName' => 'required_if:invoiceType,real_estate',
+        ]);
+
+        // Get the authenticated user
         $user = Auth::user();
+        if (!$user) {
+            return redirect()->route('user.invoices')
+                ->with('error', 'User not authenticated');
+        }
+
+        // Clean the PDF content (remove data:application/pdf;base64, prefix)
+        $pdfContent = $validated['pdfBase64'];
+        if (strpos($pdfContent, 'data:application/pdf;base64,') === 0) {
+            $pdfContent = substr($pdfContent, 28);
+        }
         
+        // Decode the base64 content
+        $decodedPdf = base64_decode($pdfContent);
+        
+        // Verify it's a valid PDF (check for PDF signature)
+        if (substr($decodedPdf, 0, 4) !== '%PDF') {
+            return redirect()->route('user.invoices')
+                ->with('error', 'Invalid PDF content');
+        }
+
         // Get the invoice data
         $invoiceData = $invoice->invoice_data;
         
         // If this is a real estate invoice, ensure the fields are included
         if ($invoice->invoice_type === 'real_estate') {
             $invoiceData = array_merge($invoiceData, [
-                'propertyAddress' => $invoice->property_address,
-                'titleNumber' => $invoice->title_number,
-                'buyerName' => $invoice->buyer_name,
-                'sellerName' => $invoice->seller_name,
-                'agentName' => $invoice->agent_name
+                'propertyAddress' => $validated['propertyAddress'] ?? $invoice->property_address,
+                'titleNumber' => $validated['titleNumber'] ?? $invoice->title_number,
+                'buyerName' => $validated['buyerName'] ?? $invoice->buyer_name,
+                'sellerName' => $validated['sellerName'] ?? $invoice->seller_name,
+                'agentName' => $validated['agentName'] ?? $invoice->agent_name
             ]);
         }
         
-        // Generate the PDF
-        $pdf = PDF::loadView('pdfs.invoice', ['data' => $invoiceData]);
-        $pdfContent = $pdf->output();
-        
-        // Send the email with the PDF attachment
-        Mail::to($invoice->client_email)
+        // Send the email with the decoded PDF content
+        Mail::to($validated['recipientEmail'])
             ->send(new SendInvoiceMail(
-                $invoiceData, // Now includes real estate fields
+                $invoiceData,
                 $user,
-                $pdfContent,
+                $decodedPdf,
                 $invoice->payment_token,
                 false,
                 $invoice->invoice_type
             ));
         
-        return redirect()->route('user.invoices')->with('success', 'Invoice resent successfully');
+            return response()->json([
+                'success' => true,
+                'message' => 'Invoice resent successfully'
+            ]);
     }
 
     public function download(Invoice $invoice)

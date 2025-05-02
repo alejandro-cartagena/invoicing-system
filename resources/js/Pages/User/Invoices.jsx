@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import UserAuthenticatedLayout from '@/Layouts/UserAuthenticatedLayout';
 import { Head, Link } from '@inertiajs/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTrash, faX, faEdit, faDownload, faEye, faPaperPlane, faSearch, faChevronLeft, faChevronRight, faFilter } from '@fortawesome/free-solid-svg-icons';
+import { faX, faEdit, faPenToSquare, faDownload, faEye, faPaperPlane, faSearch, faChevronLeft, faChevronRight, faFilter } from '@fortawesome/free-solid-svg-icons';
 import { router } from '@inertiajs/react';
 import Swal from 'sweetalert2';
 import axios from 'axios';
@@ -251,6 +251,89 @@ const Invoices = ({ invoices: initialInvoices }) => {
         }
     };
 
+    const handleResend = async (invoice) => {
+        if (invoice.status === 'closed' || invoice.status === 'paid') return;
+        
+        // Show confirmation dialog
+        const result = await Swal.fire({
+            title: 'Resend Invoice?',
+            text: `Are you sure you want to resend invoice ${invoice.nmi_invoice_id} to ${invoice.client_email}?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, resend it!'
+        });
+    
+        if (result.isConfirmed) {
+            // Show loading state
+            Swal.fire({
+                title: 'Resending Invoice...',
+                text: 'Please wait while we process your request.',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+    
+            try {
+                // First, generate the PDF
+                let pdfBlob;
+                if (invoice.invoice_type === 'real_estate') {
+                    pdfBlob = await generateRealEstatePDF(invoice.invoice_data);
+                } else {
+                    pdfBlob = await generatePDF(invoice.invoice_data);
+                }
+
+                // Convert blob to base64
+                const reader = new FileReader();
+                const base64Promise = new Promise((resolve) => {
+                    reader.onloadend = () => resolve(reader.result);
+                });
+                reader.readAsDataURL(pdfBlob);
+                const base64pdf = await base64Promise;
+
+                // Prepare the data for sending
+                const data = {
+                    pdfBase64: base64pdf,
+                    recipientEmail: invoice.client_email,
+                    // Include real estate fields if needed
+                    ...(invoice.invoice_type === 'real_estate' && {
+                        propertyAddress: invoice.invoice_data.propertyAddress,
+                        titleNumber: invoice.invoice_data.titleNumber,
+                        buyerName: invoice.invoice_data.buyerName,
+                        sellerName: invoice.invoice_data.sellerName,
+                        agentName: invoice.invoice_data.agentName
+                    })
+                };
+
+                // Use axios instead of router.post
+                const response = await axios.post(route('user.invoice.resend', invoice.id), data);
+                
+                if (response.data.success) {
+                    // Show success message
+                    Swal.fire({
+                        title: 'Success!',
+                        text: 'Invoice has been resent successfully.',
+                        icon: 'success',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                } else {
+                    throw new Error(response.data.message || 'Failed to resend invoice');
+                }
+            } catch (error) {
+                console.error('Resend error:', error);
+                // Show error message
+                Swal.fire({
+                    title: 'Error!',
+                    text: error.response?.data?.message || 'Failed to resend invoice. Please try again.',
+                    icon: 'error'
+                });
+            }
+        }
+    };
+
     // Add this function to get a friendly display name for the invoice type
     const getInvoiceTypeDisplay = (type) => {
         switch(type) {
@@ -482,6 +565,8 @@ const Invoices = ({ invoices: initialInvoices }) => {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex space-x-4">
+
+                                                    {/* Close Invoice Button */}
                                                     <button 
                                                         onClick={() => invoice.status !== 'closed' || invoice.status !== 'paid' ? handleClose(invoice.id, invoice.nmi_invoice_id) : null}
                                                         className={`${invoice.status === 'closed' || invoice.status === 'paid' ? 'text-gray-400 cursor-not-allowed' : 'text-red-600 hover:text-red-900'} relative group`}
@@ -493,7 +578,8 @@ const Invoices = ({ invoices: initialInvoices }) => {
                                                             {invoice.status === 'closed' ? 'Invoice Closed' : invoice.status === 'paid' ? 'Invoice Paid' : 'Close Invoice'}
                                                         </span>
                                                     </button>
-                                                    
+
+                                                    {/* Download Invoice Button */}
                                                     <button 
                                                         onClick={() => handleDownload(invoice)}
                                                         className='text-green-600 hover:text-green-900 relative group'
@@ -504,7 +590,8 @@ const Invoices = ({ invoices: initialInvoices }) => {
                                                             {'Download Invoice'}
                                                         </span>
                                                     </button>
-                                                    
+
+                                                    {/* Edit Invoice Button */}
                                                     <button 
                                                         onClick={() => {
                                                             if (invoice.status === 'closed' || invoice.status === 'paid') return;
@@ -518,9 +605,22 @@ const Invoices = ({ invoices: initialInvoices }) => {
                                                         aria-label={invoice.status === 'closed' ? 'Cannot Edit Closed Invoice' : invoice.status === 'paid' ? 'Cannot Edit Paid Invoice' : 'Edit Invoice'}
                                                         disabled={invoice.status === 'closed' || invoice.status === 'paid'}
                                                     >
+                                                        <FontAwesomeIcon icon={faPenToSquare} />
+                                                        <span className="invisible group-hover:visible absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                                                            {invoice.status === 'closed' ? 'Cannot Edit Closed Invoice' : invoice.status === 'paid' ? 'Cannot Edit Paid Invoice' : 'Edit'}
+                                                        </span>
+                                                    </button>
+
+                                                    {/* Resend Invoice Button */}
+                                                    <button 
+                                                        onClick={() => handleResend(invoice)}
+                                                        className={`${invoice.status === 'closed' || invoice.status === 'paid' ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:text-indigo-900'} relative group`}
+                                                        aria-label={invoice.status === 'closed' ? 'Cannot Resend Closed Invoice' : invoice.status === 'paid' ? 'Cannot Resend Paid Invoice' : 'Resend Invoice'}
+                                                        disabled={invoice.status === 'closed' || invoice.status === 'paid'}
+                                                    >
                                                         <FontAwesomeIcon icon={faPaperPlane} />
                                                         <span className="invisible group-hover:visible absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                                                            {invoice.status === 'closed' ? 'Cannot Edit Closed Invoice' : invoice.status === 'paid' ? 'Cannot Edit Paid Invoice' : 'Edit/Resend'}
+                                                            {invoice.status === 'closed' ? 'Cannot Resend Closed Invoice' : invoice.status === 'paid' ? 'Cannot Resend Paid Invoice' : 'Resend'}
                                                         </span>
                                                     </button>
                                                 </div>
