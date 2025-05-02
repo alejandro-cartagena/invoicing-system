@@ -1,48 +1,49 @@
-import AdminAuthenticatedLayout from '@/Layouts/AdminAuthenticatedLayout';
+import UserAuthenticatedLayout from '@/Layouts/UserAuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserPlus, faUsers } from '@fortawesome/free-solid-svg-icons';
+import { faFileInvoiceDollar, faHouse } from '@fortawesome/free-solid-svg-icons';
 
 import AdminHomePageCard from '@/Components/AdminHomePageCard';
 
-export default function Dashboard() {
+export default function CreateInvoices() {
     return (
-        <AdminAuthenticatedLayout
+        <UserAuthenticatedLayout
             header={
                 <h2 className="text-xl text-center font-semibold leading-tight text-gray-800">
-                    Admin Dashboard
+                    Create Invoices
                 </h2>
             }
         >
-            <Head title="Dashboard" />
+            <Head title="Create Invoices" />
 
-            <div className="container mt-20 md:mt-40">
+
+            <div className="container mt-20 md:mt-30 ">
                 {/* Add admin-specific content here */}
                 <div className="flex flex-col md:flex-row justify-center items-center gap-10">
                     <AdminHomePageCard
                     imageUrl={<FontAwesomeIcon 
-                        icon={faUserPlus} 
+                        icon={faFileInvoiceDollar} 
                         className="w-full text-[var(--color-black-text)] text-7xl md:text-8xl" 
                     />}
                     imageAlt="Placeholder"
-                    title="Create New User" 
-                    description="Add new users and assign their roles"
+                    title="General Invoice" 
+                    description="Create a general invoice"
                     className="h-full"
-                    onClick={() => router.visit(route('admin.create'))}
+                    onClick={() => router.visit(route('user.general-invoice'))}
                     />
                     <AdminHomePageCard
                     imageUrl={<FontAwesomeIcon 
-                        icon={faUsers} 
+                        icon={faHouse} 
                         className="w-full text-[var(--color-black-text)] text-7xl md:text-8xl" 
                     />}
                     imageAlt="Placeholder"
-                    title="View All Users"
-                    description="View and Manage Existing Users"
+                    title="Real Estate Invoice"
+                    description="Create a real estate invoice"
                     className="h-full"
-                    onClick={() => router.visit(route('admin.users.index'))}
+                    onClick={() => router.visit(route('user.real-estate-invoice'))}
                     />
                 </div>
             </div>
-        </AdminAuthenticatedLayout>
+        </UserAuthenticatedLayout>
     );
 }

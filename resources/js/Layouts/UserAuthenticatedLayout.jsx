@@ -89,6 +89,15 @@ export default function UserAuthenticatedLayout({ header, children }) {
 
                             <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                                 <NavLink
+                                    href={route('user.create-invoices')}
+                                    active={route().current('user.create-invoices')}
+                                >
+                                    Create Invoices
+                                </NavLink>
+                            </div>
+
+                            <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                                <NavLink
                                     href={route('user.invoices')}
                                     active={route().current('user.invoices')}
                                 >

@@ -27,6 +27,9 @@ Route::get('dashboard', function () {
     return Inertia::render('User/Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
+Route::get('create-invoices', function () {
+    return Inertia::render('User/CreateInvoices');
+})->middleware(['auth', 'verified'])->name('user.create-invoices');
 
 Route::get('/general-invoice', function () {
     return Inertia::render('User/GeneralInvoice');

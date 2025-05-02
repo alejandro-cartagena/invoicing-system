@@ -170,7 +170,7 @@ export default function EditUser({ user }) {
         <AdminAuthenticatedLayout>
             <Head title="User Details" />
             <div className="py-12">
-                <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
+                <div className="max-w-4xl mx-auto sm:px-6 lg:px-8">
                     <div className="bg-white overflow-hidden shadow-lg sm:rounded-lg">
                         <div className="p-6">
                             <button
@@ -187,14 +187,14 @@ export default function EditUser({ user }) {
                             </p>
 
                             {/* API Key generation section */}
-                            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                            <div className={`mt-6 p-4 ${hasExistingKeys ? 'bg-green-50' : 'bg-yellow-50'} rounded-lg border border-gray-200`}>
                                 <div className="flex md:flex-row flex-col justify-between md:items-center">
                                     <div>
                                         <h3 className="text-md font-medium text-gray-800">
                                             API Keys
                                         </h3>
                                         <p className="text-sm text-gray-600 mt-1">
-                                            Generate API keys for this merchant to use with payment processing.
+                                            {hasExistingKeys ? 'User can now process payments using the API keys.' : 'Generate API keys for this merchant to use with payment processing.'}
                                         </p>
                                         {hasExistingKeys && !apiKeys && (
                                             <p className="text-sm text-green-600 mt-1">

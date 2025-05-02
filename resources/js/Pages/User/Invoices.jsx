@@ -592,6 +592,7 @@ const Invoices = ({ invoices: initialInvoices }) => {
                                                     </button>
 
                                                     {/* Edit Invoice Button */}
+                                                    {/*
                                                     <button 
                                                         onClick={() => {
                                                             if (invoice.status === 'closed' || invoice.status === 'paid') return;

@@ -56,10 +56,10 @@ const ViewInvoice = ({ invoice }) => {
 
             <div className="py-12">
                 <div className="container md:max-w-4xl mx-auto sm:px-6 lg:px-8">
-                    <div className="mb-6 flex items-center justify-between">
+                    <div className="mb-6 flex flex-col md:flex-row items-center justify-between">
                         <Link 
                             href={route('user.invoices')} 
-                            className="flex items-center md:text-lg text-blue-600 hover:text-blue-800"
+                            className="flex mb-8 md:mb-0 md:items-center md:text-lg text-blue-600 hover:text-blue-800"
                         >
                             <FontAwesomeIcon icon={faChevronLeft} className="mr-2" />
                             Back to Invoices
