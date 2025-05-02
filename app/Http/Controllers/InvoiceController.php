@@ -17,6 +17,7 @@ use App\Services\BeadPaymentService;
 use App\Mail\PaymentReceiptMail;
 use App\Events\PaymentNotification;
 use Exception;
+use App\Mail\MerchantPaymentReceiptMail;
 
 class InvoiceController extends Controller
 {
@@ -169,6 +170,11 @@ class InvoiceController extends Controller
                     false,
                     $validated['invoiceType']
                 ));
+
+            // Send receipt email to customer
+            Mail::to($invoice->client_email)->send(new PaymentReceiptMail($invoice));
+            // Send merchant notification email
+            Mail::to($invoice->user->email)->send(new MerchantPaymentReceiptMail($invoice));
 
             return response()->json([
                 'success' => true,
@@ -409,7 +415,8 @@ class InvoiceController extends Controller
                 
                 // Send receipt email to customer
                 Mail::to($invoice->client_email)->send(new PaymentReceiptMail($invoice));
-                Mail::to($invoice->user->email)->send(new PaymentReceiptMail($invoice));
+                // Send merchant notification email
+                Mail::to($invoice->user->email)->send(new MerchantPaymentReceiptMail($invoice));
                 
                 // Dispatch payment notification event
                 $notificationData = [

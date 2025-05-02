@@ -9,7 +9,7 @@ use App\Models\Invoice;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\PaymentReceiptMail;
-
+use App\Mail\MerchantPaymentReceiptMail;
 class BeadPaymentService
 {
     private $accessToken;
@@ -346,6 +346,8 @@ class BeadPaymentService
                     $invoice->transaction_id = $request->input('paymentCode');
                     // Send receipt email to customer
                     Mail::to($invoice->client_email)->send(new PaymentReceiptMail($invoice));
+                    // Send merchant notification email
+                    Mail::to($invoice->user->email)->send(new MerchantPaymentReceiptMail($invoice));
 
                     // Dispatch payment notification event
                     $notificationData = [

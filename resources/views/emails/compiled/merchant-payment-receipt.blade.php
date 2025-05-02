@@ -2,7 +2,7 @@
 <html lang="und" dir="auto" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 
 <head>
-  <title>Invoice from {{ $senderName }}</title>
+  <title>Payment Received</title>
   <!--[if !mso]><!-->
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <!--<![endif]-->
@@ -118,17 +118,17 @@
                   <tbody>
                     <tr>
                       <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
-                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:28px;font-weight:bold;line-height:1;text-align:left;color:#333333;">Invoice from {{ $senderName }}</div>
+                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:28px;font-weight:bold;line-height:1;text-align:left;color:#333333;">Payment Received</div>
                       </td>
                     </tr>
                     <tr>
                       <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
-                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:1;text-align:left;color:#000000;">{{ isset($invoiceData['client_first_name']) ? 'Hello, ' . $invoiceData['client_first_name'] : 'Hello,' }}</div>
+                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:1;text-align:left;color:#000000;">You have received a new payment from {{ $invoice->client_email }}.</div>
                       </td>
                     </tr>
                     <tr>
                       <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
-                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:1;text-align:left;color:#000000;">Please find attached the invoice from {{ $senderName }}.</div>
+                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:1;text-align:left;color:#000000;">Here are the payment details:</div>
                       </td>
                     </tr>
                     <tr>
@@ -141,12 +141,12 @@
                     </tr>
                     <tr>
                       <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
-                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:18px;font-weight:bold;line-height:1;text-align:left;color:#000000;">Invoice Details:</div>
+                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:18px;font-weight:bold;line-height:1;text-align:left;color:#000000;">Payment Details:</div>
                       </td>
                     </tr>
                     <tr>
                       <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
-                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:1;text-align:left;color:#000000;">Invoice Number: {{ $invoiceData['nmi_invoice_id'] ?? 'Not specified' }}<br /> Date: {{ $invoiceData['invoiceDate'] ?? 'Not specified' }}<br /> Due Date: {{ $invoiceData['invoiceDueDate'] ?? 'Not specified' }}</div>
+                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:1;text-align:left;color:#000000;">Invoice Number: {{ $invoice->nmi_invoice_id }}<br /> Amount Received: ${{ number_format($invoice->total, 2) }}</div>
                       </td>
                     </tr>
                     <tr>
@@ -191,11 +191,6 @@
                     </tr>
                     <!-- Mobile Layout -->
                     <tr>
-                      <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
-                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:18px;font-weight:bold;line-height:1;text-align:left;color:#000000;">Invoice Items:</div>
-                      </td>
-                    </tr>
-                    <tr>
                       <td class="mobile-only" style="font-size:0px;padding:10px;word-break:break-word;">
                         <!--[if mso | IE]><table align="center" border="0" cellpadding="0" cellspacing="0" class="mobile-only-outlook" role="presentation" style="width:560px;" width="560" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
                         <div class="mobile-only" style="margin:0px auto;max-width:560px;">
@@ -205,6 +200,8 @@
                                 @foreach($invoiceData['productLines'] as $item) @if(isset($item['description']) && $item['description'])
                                 <td style="direction:ltr;font-size:0px;padding:10px;text-align:center;">
                                   <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td align="left" class="" width="560px" ><![endif]-->
+                                  <div style="font-family:Helvetica, Arial, sans-serif;font-size:18px;font-weight:bold;line-height:1;text-align:left;color:#000000;">Invoice Items:</div>
+                                  <!--[if mso | IE]></td></tr><tr><td align="left" class="" width="560px" ><![endif]-->
                                   <div style="font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:1;text-align:left;color:#000000;"><strong>Description:</strong><br />
                                     {{ $item['description'] }}<br /><br />
                                     <strong>Quantity:</strong><br />
@@ -229,47 +226,6 @@
                       </td>
                     </tr>
                     <tr>
-                      <td align="right" style="font-size:0px;padding:10px;word-break:break-word;">
-                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:1;text-align:right;color:#000000;"><strong>Sub Total:</strong> {{ $invoiceData['currency'] ?? '$' }}{{ number_format($subTotal, 2) }}</div>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td align="right" style="font-size:0px;padding:5px;word-break:break-word;">
-                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:1;text-align:right;color:#000000;"><strong>Tax ({{ number_format($taxRate, 1) }}%):</strong> {{ $invoiceData['currency'] ?? '$' }}{{ number_format($tax, 2) }}</div>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td align="right" style="font-size:0px;padding:10px;word-break:break-word;">
-                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:18px;font-weight:bold;line-height:1;text-align:right;color:#000000;"><strong>Total:</strong> {{ $invoiceData['currency'] ?? '$' }}{{ number_format($total, 2) }}</div>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td align="center" style="font-size:0px;padding:10px 25px;word-break:break-word;">
-                        <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse:separate;line-height:100%;">
-                          <tbody>
-                            <tr>
-                              <td align="center" bgcolor="#4CAF50" role="presentation" style="border:none;border-radius:3px;cursor:auto;mso-padding-alt:10px 25px;background:#4CAF50;" valign="middle">
-                                <a href="{{ $creditCardPaymentUrl }}" style="display:inline-block;background:#4CAF50;color:white;font-family:Helvetica, Arial, sans-serif;font-size:16px;font-weight:normal;line-height:120%;margin:0;text-decoration:none;text-transform:none;padding:10px 25px;mso-padding-alt:0px;border-radius:3px;" target="_blank"> Pay with Credit Card </a>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td align="center" style="font-size:0px;padding:10px 25px;word-break:break-word;">
-                        <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse:separate;line-height:100%;">
-                          <tbody>
-                            <tr>
-                              <td align="center" bgcolor="#f7931a" role="presentation" style="border:none;border-radius:3px;cursor:auto;mso-padding-alt:10px 25px;background:#f7931a;" valign="middle">
-                                <a href="{{ $bitcoinPaymentUrl }}" style="display:inline-block;background:#f7931a;color:white;font-family:Helvetica, Arial, sans-serif;font-size:16px;font-weight:normal;line-height:120%;margin:0;text-decoration:none;text-transform:none;padding:10px 25px;mso-padding-alt:0px;border-radius:3px;" target="_blank"> Pay with Bitcoin </a>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </td>
-                    </tr>
-                    <tr>
                       <td align="center" style="font-size:0px;padding:10px 25px;word-break:break-word;">
                         <p style="border-top:solid 4px #eeeeee;font-size:1px;margin:0px auto;width:100%;">
                         </p>
@@ -279,9 +235,7 @@
                     </tr>
                     <tr>
                       <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
-                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:1;text-align:left;color:#000000;">Best regards,<br />
-                          {{ $senderName }}
-                        </div>
+                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:1;text-align:left;color:#000000;">This payment has been processed and added to your account.</div>
                       </td>
                     </tr>
                   </tbody>

@@ -1,0 +1,108 @@
+<mjml>
+  <mj-head>
+    <mj-title>Payment Received</mj-title>
+    <mj-font name="Helvetica" href="https://fonts.googleapis.com/css?family=Helvetica" />
+    <mj-attributes>
+      <mj-all font-family="Helvetica, Arial, sans-serif" font-size="16px" />
+    </mj-attributes>
+    <mj-style>
+      @media screen and (max-width: 480px) {
+        .desktop-only {
+          display: none !important;
+        }
+        .mobile-only {
+          display: block !important;
+        }
+      }
+      @media screen and (min-width: 481px) {
+        .desktop-only {
+          display: block !important;
+        }
+        .mobile-only {
+          display: none !important;
+        }
+      }
+    </mj-style>
+  </mj-head>
+  <mj-body background-color="#f4f4f4">
+    <mj-section background-color="#ffffff" padding="20px">
+      <mj-column>
+        <mj-text font-size="28px" color="#333" font-weight="bold">
+          Payment Received
+        </mj-text>
+        
+        <mj-text font-size="16px">
+          You have received a new payment from {{ $invoice->client_email }}.
+        </mj-text>
+        
+        <mj-text font-size="16px">
+          Here are the payment details:
+        </mj-text>
+
+        <mj-divider border-color="#eee" />
+
+        <mj-text font-size="18px" font-weight="bold">Payment Details:</mj-text>
+        <mj-text font-size="16px">
+          Invoice Number: {{ $invoice->nmi_invoice_id }}<br />
+          Amount Received: ${{ number_format($invoice->total, 2) }}
+        </mj-text>
+
+        <mj-divider border-color="#eee" />
+
+        @if(isset($invoiceData['productLines']) && is_array($invoiceData['productLines']))
+        <!-- Desktop Table -->
+        <mj-wrapper css-class="desktop-only" padding="10px">
+          <mj-table css-class="desktop-table" font-size="16px">
+            <tr style="border-bottom:1px solid #ecedee;text-align:left;">
+              <th>Description</th>
+              <th>Quantity</th>
+              <th>Rate</th>
+              <th>Amount</th>
+            </tr>
+            @foreach($invoiceData['productLines'] as $item)
+              @if(isset($item['description']) && $item['description'])
+              <tr>
+                <td style="text-align:left;">{{ $item['description'] }}</td>
+                <td style="text-align:left;">{{ $item['quantity'] ?? '0' }}</td>
+                <td style="text-align:left;">{{ $invoiceData['currency'] ?? '$' }}{{ $item['rate'] ?? '0.00' }}</td>
+                <td style="text-align:left;">{{ $invoiceData['currency'] ?? '$' }}{{ number_format(($item['quantity'] ?? 0) * ($item['rate'] ?? 0), 2) }}</td>
+              </tr>
+              @endif
+            @endforeach
+          </mj-table>
+        </mj-wrapper>
+
+        <!-- Mobile Layout -->
+        <mj-wrapper css-class="mobile-only" padding="10px">
+          <mj-text font-size="18px" font-weight="bold">Invoice Items:</mj-text>
+          @foreach($invoiceData['productLines'] as $item)
+            @if(isset($item['description']) && $item['description'])
+            <mj-text padding-bottom="20px" font-size="16px">
+              <strong>Description:</strong><br />
+              {{ $item['description'] }}<br /><br />
+              
+              <strong>Quantity:</strong><br />
+              {{ $item['quantity'] ?? '0' }}<br /><br />
+              
+              <strong>Rate:</strong><br />
+              {{ $invoiceData['currency'] ?? '$' }}{{ $item['rate'] ?? '0.00' }}<br /><br />
+              
+              <strong>Amount:</strong><br />
+              {{ $invoiceData['currency'] ?? '$' }}{{ number_format(($item['quantity'] ?? 0) * ($item['rate'] ?? 0), 2) }}
+            </mj-text>
+            @if(!$loop->last)
+              <mj-divider border-color="#ecedee" css-class="mobile-only" />
+            @endif
+            @endif
+          @endforeach
+        </mj-wrapper>
+
+        <mj-divider border-color="#eee" />
+
+        <mj-text font-size="16px">
+          This payment has been processed and added to your account.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>
