@@ -6,6 +6,7 @@ import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import PrimaryButton from '@/Components/PrimaryButton';
+import Checkbox from '@/Components/Checkbox';
 
 export default function Create() {
     const { data, setData, post, processing, errors } = useForm({
@@ -19,6 +20,12 @@ export default function Create() {
         first_name: '',
         last_name: '',
         gateway_id: '',
+        // Add Bead credentials fields
+        add_bead_credentials: false,
+        bead_merchant_id: '',
+        bead_terminal_id: '',
+        bead_username: '',
+        bead_password: '',
     });
     
     const [fetchingMerchant, setFetchingMerchant] = useState(false);
@@ -33,17 +40,31 @@ export default function Create() {
             setMerchantFetchError('Please fetch a valid merchant before creating a user.');
             return;
         }
+
+        // Log the data being submitted
+        console.log('Submitting form data:', data);
         
         // Ensure the gateway_id and merchant_id match before submission
         const formData = {
             ...data,
             merchant_id: data.gateway_id, // Enforce merchant_id to be the same as gateway_id
         };
+
+        // Log the final form data
+        console.log('Final form data being submitted:', formData);
         
         post(route('admin.users.store'), formData, {
+            onSuccess: (response) => {
+                console.log('Success response:', response);
+                // You can add any success handling here
+            },
             onError: (errors) => {
                 console.log('Submission errors:', errors);
+                // You can add any error handling here
             },
+            onFinish: () => {
+                console.log('Form submission finished');
+            }
         });
     };
     
@@ -305,7 +326,74 @@ export default function Create() {
                                         <InputError message={errors.last_name} className="mt-2" />
                                     </div>
 
-                                    
+                                    {/* Bead Credentials Section */}
+                                    <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                        <div className="flex items-center mb-4">
+                                            <Checkbox
+                                                name="add_bead_credentials"
+                                                checked={data.add_bead_credentials}
+                                                onChange={(e) => setData('add_bead_credentials', e.target.checked)}
+                                            />
+                                            <InputLabel
+                                                htmlFor="add_bead_credentials"
+                                                value="Add Bead Credentials to Process Crypto Payments"
+                                                className="ml-2"
+                                            />
+                                        </div>
+
+                                        {data.add_bead_credentials && (
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <InputLabel htmlFor="bead_merchant_id" value="Bead Merchant ID" />
+                                                    <TextInput
+                                                        id="bead_merchant_id"
+                                                        type="text"
+                                                        className="mt-1 block w-full"
+                                                        value={data.bead_merchant_id}
+                                                        onChange={(e) => setData('bead_merchant_id', e.target.value)}
+                                                    />
+                                                    <InputError message={errors.bead_merchant_id} className="mt-2" />
+                                                </div>
+
+                                                <div>
+                                                    <InputLabel htmlFor="bead_terminal_id" value="Bead Terminal ID" />
+                                                    <TextInput
+                                                        id="bead_terminal_id"
+                                                        type="text"
+                                                        className="mt-1 block w-full"
+                                                        value={data.bead_terminal_id}
+                                                        onChange={(e) => setData('bead_terminal_id', e.target.value)}
+                                                    />
+                                                    <InputError message={errors.bead_terminal_id} className="mt-2" />
+                                                </div>
+
+                                                <div>
+                                                    <InputLabel htmlFor="bead_username" value="Bead Username" />
+                                                    <TextInput
+                                                        id="bead_username"
+                                                        type="text"
+                                                        className="mt-1 block w-full"
+                                                        value={data.bead_username}
+                                                        onChange={(e) => setData('bead_username', e.target.value)}
+                                                    />
+                                                    <InputError message={errors.bead_username} className="mt-2" />
+                                                </div>
+
+                                                <div>
+                                                    <InputLabel htmlFor="bead_password" value="Bead Password" />
+                                                    <TextInput
+                                                        id="bead_password"
+                                                        type="password"
+                                                        className="mt-1 block w-full"
+                                                        value={data.bead_password}
+                                                        onChange={(e) => setData('bead_password', e.target.value)}
+                                                    />
+                                                    <InputError message={errors.bead_password} className="mt-2" />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
                                     <div className="flex items-center gap-4">
                                         <PrimaryButton disabled={processing}>
                                             Create User

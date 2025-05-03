@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\DvfWebhookController;
+use App\Http\Controllers\BeadCredentialController;
 
 /*
 |--------------------------------------------------------------------------
@@ -31,4 +32,10 @@ Route::post('/', [InvoiceController::class, 'handleBeadWebhook']);
 // Test route
 Route::get('/test', function() {
     return response()->json(['message' => 'API routes are working!']);
+});
+
+// Bead Credentials API Routes
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/bead-credentials/{userId}', [BeadCredentialController::class, 'getCredentials'])
+        ->name('api.bead-credentials.get');
 }); 

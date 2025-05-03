@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use App\Http\Requests\Auth\CreateUserProfileRequest;
 use App\Services\NmiService;
+use Illuminate\Support\Facades\DB;
+use App\Models\BeadCredential;
 
 class UserProfileController extends Controller
 {
@@ -25,38 +27,91 @@ class UserProfileController extends Controller
         return Inertia::render('Admin/CreateUser');
     }
 
-    public function store(CreateUserProfileRequest $request)
+    public function store(Request $request)
     {
-        // Double-check that a valid merchant was found using the gateway ID
-        $gatewayId = $request->gateway_id;
-        $merchantData = $this->nmiService->getMerchantInfo($gatewayId);
-        
-        if (!$merchantData) {
-            return redirect()->back()
-                ->withInput()
-                ->withErrors(['gateway_id' => 'The provided gateway ID is not valid or the merchant could not be found.']);
+        \Log::info('Starting user creation process', ['request_data' => $request->all()]);
+
+        try {
+            $validated = $request->validate([
+                'email' => 'required|string|email|max:255|unique:users',
+                'password' => 'required|string|min:8|confirmed',
+                'business_name' => 'required|string|max:255',
+                'address' => 'required|string|max:255',
+                'phone_number' => 'required|string|max:20',
+                'merchant_id' => 'required|string|max:255|unique:user_profiles,merchant_id',
+                'first_name' => 'required|string|max:255',
+                'last_name' => 'required|string|max:255',
+                'gateway_id' => 'required|string|max:255',
+                // Add validation for Bead credentials
+                'add_bead_credentials' => 'boolean',
+                'bead_merchant_id' => 'required_if:add_bead_credentials,true|string|max:255',
+                'bead_terminal_id' => 'required_if:add_bead_credentials,true|string|max:255',
+                'bead_username' => 'required_if:add_bead_credentials,true|string|max:255',
+                'bead_password' => 'required_if:add_bead_credentials,true|string|max:255',
+            ]);
+
+            \Log::info('Validation passed', ['validated_data' => $validated]);
+
+            DB::beginTransaction();
+
+            // Create the user
+            $user = User::create([
+                'name' => $validated['first_name'] . ' ' . $validated['last_name'],
+                'email' => $validated['email'],
+                'password' => Hash::make($validated['password']),
+                'usertype' => 'user',
+            ]);
+
+            \Log::info('User created', ['user_id' => $user->id]);
+
+            // Create the user profile
+            $profile = $user->profile()->create([
+                'business_name' => $validated['business_name'],
+                'address' => $validated['address'],
+                'phone_number' => $validated['phone_number'],
+                'merchant_id' => $validated['merchant_id'],
+                'first_name' => $validated['first_name'],
+                'last_name' => $validated['last_name'],
+                'gateway_id' => $validated['gateway_id'],
+            ]);
+
+            \Log::info('User profile created', ['profile_id' => $profile->id]);
+
+            // Create Bead credentials if requested
+            if ($request->add_bead_credentials) {
+                $beadCredential = new BeadCredential();
+                $beadCredential->user_id = $user->id;
+                $beadCredential->merchant_id = $validated['bead_merchant_id'];
+                $beadCredential->terminal_id = $validated['bead_terminal_id'];
+                $beadCredential->username = $validated['bead_username'];
+                $beadCredential->password = $validated['bead_password']; // This will trigger the setPasswordAttribute mutator
+                $beadCredential->status = 'manual';
+                $beadCredential->onboarding_status = 'NEEDS_INFO';
+                $beadCredential->save();
+
+                \Log::info('Bead credentials created', ['bead_credential_id' => $beadCredential->id]);
+            }
+
+            DB::commit();
+
+            \Log::info('User creation completed successfully');
+
+            return redirect()->route('admin.users.index')
+                ->with('success', 'User created successfully.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('Validation error during user creation', [
+                'errors' => $e->errors(),
+                'request_data' => $request->all()
+            ]);
+            throw $e;
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Error during user creation', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return back()->with('error', 'Failed to create user: ' . $e->getMessage());
         }
-        
-        // Create the user without generating API keys
-        $user = User::create([
-            'name' => $request->first_name . ' ' . $request->last_name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'usertype' => 'user',
-        ]);
-
-        $user->profile()->create([
-            'business_name' => $request->business_name,
-            'address' => $request->address,
-            'phone_number' => $request->phone_number,
-            'merchant_id' => $request->gateway_id, // Use gateway_id as merchant_id
-            'first_name' => $request->first_name,
-            'last_name' => $request->last_name,
-            // No keys are generated at this point
-        ]);
-
-        return redirect()->route('admin.users.view', ['user' => $user])
-            ->with('message', 'User created successfully');
     }
 
     /**

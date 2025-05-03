@@ -9,6 +9,7 @@ use Inertia\Inertia;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\PaymentNotificationController;
 use App\Http\Controllers\DvfWebhookController;
+use App\Http\Controllers\BeadCredentialController;
 
 Route::get('/', function () {
     return Inertia::render('Auth/Login', [
@@ -77,6 +78,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // Bead Credentials Routes
+    Route::post('/bead-credentials', [BeadCredentialController::class, 'store'])->name('bead-credentials.store');
+    Route::put('/bead-credentials/{id}', [BeadCredentialController::class, 'update'])->name('bead-credentials.update');
 });
 
 // Send general invoice email
