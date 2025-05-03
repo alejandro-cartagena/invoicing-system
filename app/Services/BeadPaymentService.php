@@ -18,19 +18,29 @@ class BeadPaymentService
     private $terminalId;
     private $username;
     private $password;
+    private $merchantId;
 
-    public function __construct()
+    public function __construct($beadCredentials = null)
     {
         $this->apiUrl = config('services.bead.api_url', env('BEAD_API_URL'));
         $this->authUrl = config('services.bead.auth_url', env('BEAD_AUTH_URL'));
-        $this->terminalId = config('services.bead.terminal_id', env('BEAD_TERMINAL_ID'));
-        $this->username = env('BEAD_USERNAME');
-        
-        // Fix password handling - the escaped backslash in .env might cause issues
-        $this->password = env('BEAD_PASSWORD');
+
+        if ($beadCredentials) {
+            // Use credentials from database
+            $this->terminalId = $beadCredentials->terminal_id;
+            $this->username = $beadCredentials->username;
+            $this->password = $beadCredentials->password; // This will be decrypted via the accessor
+            $this->merchantId = $beadCredentials->merchant_id;
+        } else {
+            // Fallback to .env values (for backward compatibility)
+            $this->terminalId = config('services.bead.terminal_id', env('BEAD_TERMINAL_ID'));
+            $this->username = config('services.bead.username', env('BEAD_USERNAME'));
+            $this->password = config('services.bead.password', env('BEAD_PASSWORD'));
+            $this->merchantId = config('services.bead.merchant_id', env('BEAD_MERCHANT_ID'));
+        }
 
         if (empty($this->authUrl) || empty($this->terminalId) || empty($this->password)) {
-            throw new Exception('Bead API configuration is incomplete. Please check your .env file.');
+            throw new Exception('Bead API configuration is incomplete. Please check your credentials.');
         }
     }
 
@@ -134,9 +144,9 @@ class BeadPaymentService
             
             $redirectUrl = 'http://localhost:8000';
             
-            // Simplify payload to match exactly what's in the documentation
+            // Use merchant_id from credentials
             $payload = [
-                'merchantId' => env('BEAD_MERCHANT_ID'),
+                'merchantId' => $this->merchantId,
                 'terminalId' => $this->terminalId,
                 'requestedAmount' => $requestedAmount,
                 'paymentUrlType' => 'web',
@@ -312,7 +322,7 @@ class BeadPaymentService
     public function handleBeadWebhook(Request $request)
     {
         try {
-            Log::info('Received Bead webhook', [
+            Log::info('Processing Bead webhook', [
                 'payload' => $request->all()
             ]);
 
@@ -322,6 +332,7 @@ class BeadPaymentService
                 throw new Exception('Tracking ID not found in webhook');
             }
 
+            // Get payment status
             $paymentData = $this->checkPaymentStatus($trackingId);
 
             // Find the invoice by Bead payment ID (which is the trackingId)
@@ -344,10 +355,6 @@ class BeadPaymentService
                     $invoice->status = 'paid';
                     $invoice->payment_date = now();
                     $invoice->transaction_id = $request->input('paymentCode');
-                    // Send receipt email to customer
-                    Mail::to($invoice->client_email)->send(new PaymentReceiptMail($invoice));
-                    // Send merchant notification email
-                    Mail::to($invoice->user->email)->send(new MerchantPaymentReceiptMail($invoice));
 
                     // Dispatch payment notification event
                     $notificationData = [

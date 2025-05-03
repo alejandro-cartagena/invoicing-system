@@ -18,6 +18,7 @@ use App\Mail\PaymentReceiptMail;
 use App\Events\PaymentNotification;
 use Exception;
 use App\Mail\MerchantPaymentReceiptMail;
+use App\Models\BeadCredential;
 
 class InvoiceController extends Controller
 {
@@ -521,9 +522,19 @@ class InvoiceController extends Controller
             // Find the invoice
             $invoice = Invoice::findOrFail($validated['invoiceId']);
 
+            // Get the user's Bead credentials
+            $beadCredentials = BeadCredential::where('user_id', $invoice->user_id)->first();
+            
+            if (!$beadCredentials) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No Bead credentials found for this user.'
+                ], 400);
+            }
+
             // Check if the invoice already has a bead_payment_id
             if ($invoice->bead_payment_id) {
-                $beadService = new BeadPaymentService();
+                $beadService = new BeadPaymentService($beadCredentials);
                 try {
                     $paymentData = $beadService->checkPaymentStatus($invoice->bead_payment_id);
                     Log::info('Retrieved existing Bead payment status', [
@@ -556,7 +567,7 @@ class InvoiceController extends Controller
                 ], 400);
             }
 
-            $beadService = new BeadPaymentService();
+            $beadService = new BeadPaymentService($beadCredentials);
             
             try {
                 Log::info('Creating crypto payment for invoice', [
@@ -2028,16 +2039,77 @@ class InvoiceController extends Controller
     public function handleBeadWebhook(Request $request)
     {
         try {
-            $beadService = new BeadPaymentService();
-            return $beadService->handleBeadWebhook($request);
-        } catch (Exception $e) {
-            Log::error('Failed to process Bead webhook in controller: ' . $e->getMessage());
-            // Still return 200 to prevent retries, following the same pattern as the service
-            return response()->json(['success' => false, 'error' => $e->getMessage()]);
+            Log::info('Received Bead webhook', [
+                'payload' => $request->all()
+            ]);
+
+            $trackingId = $request->input('trackingId');
+
+            if (!$trackingId) {
+                throw new Exception('Tracking ID not found in webhook');
+            }
+
+            // Find the invoice by Bead payment ID (which is the trackingId)
+            $invoice = Invoice::where('bead_payment_id', $trackingId)->first();
+            if (!$invoice) {
+                throw new Exception('Invoice not found for tracking ID: ' . $trackingId);
+            }
+
+            Log::info('Invoice found for tracking ID: ' . $trackingId, [
+                'invoice' => $invoice
+            ]);
+
+            // Get the user's Bead credentials
+            $beadCredentials = BeadCredential::where('user_id', $invoice->user_id)->first();
+            if (!$beadCredentials) {
+                throw new Exception('No Bead credentials found for user: ' . $invoice->user_id);
+            }
+
+            $beadService = new BeadPaymentService($beadCredentials);
+            $paymentData = $beadService->checkPaymentStatus($trackingId);
+
+            // Update invoice status based on payment data
+            if (isset($paymentData['status_code']) && $paymentData['status_code'] === 'completed') {
+                $invoice->status = 'paid';
+                $invoice->payment_date = now();
+                $invoice->save();
+                
+                // Send client notification email
+                Mail::to($invoice->client_email)->send(new PaymentReceiptMail($invoice));
+
+                // Send merchant notification email
+                Mail::to($invoice->user->email)->send(new MerchantPaymentReceiptMail($invoice));
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Payment verified successfully',
+                    'payment' => $paymentData,
+                    'invoice' => [
+                        'id' => $invoice->nmi_invoice_id,
+                        'amount' => $invoice->total
+                    ]
+                ]);
+            }
+            
+            // For other statuses, just return the status without updating the invoice
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment verified successfully',
+                'payment' => $paymentData,
+                'invoice' => [
+                    'id' => $invoice->nmi_invoice_id,
+                    'amount' => $invoice->total
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to process Bead webhook: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to process Bead webhook: ' . $e->getMessage()
+            ], 500);
         }
     }
 
-    // Add this method after handleBeadWebhook
     public function verifyBeadPayment(Request $request)
     {
         try {
@@ -2057,21 +2129,38 @@ class InvoiceController extends Controller
                     'message' => 'Invoice not found for this payment'
                 ], 404);
             }
+
+            // Get the user's Bead credentials
+            $beadCredentials = BeadCredential::where('user_id', $invoice->user_id)->first();
             
-            // Check payment status from Bead API
-            $beadService = new BeadPaymentService();
+            if (!$beadCredentials) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No Bead credentials found for this user'
+                ], 400);
+            }
+            
+            // Check payment status from Bead API using the user's credentials
+            $beadService = new BeadPaymentService($beadCredentials);
             $paymentStatus = $beadService->checkPaymentStatus($trackingId);
 
             Log::info('Payment status', [
-                'paymentStatus' => $paymentStatus
+                'paymentStatus' => $paymentStatus,
+                'invoice_id' => $invoice->id,
+                'user_id' => $invoice->user_id
             ]);
             
             // Update invoice status if payment is completed
-            if (isset($paymentStatus['status_code']) && $paymentStatus['status_code'] === 'completed') {
+            if (isset($paymentStatus['status_code']) && $paymentStatus['status_code'] === 'completed' && $invoice->status !== 'paid') {
                 $invoice->status = 'paid';
                 $invoice->payment_date = now();
                 $invoice->save();
-                
+
+                // Send client notification email
+                Mail::to($invoice->client_email)->send(new PaymentReceiptMail($invoice));
+
+                // Send merchant notification email
+                Mail::to($invoice->user->email)->send(new MerchantPaymentReceiptMail($invoice));
                 
                 return response()->json([
                     'success' => true,
