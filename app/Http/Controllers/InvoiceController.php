@@ -2155,12 +2155,6 @@ class InvoiceController extends Controller
                 $invoice->status = 'paid';
                 $invoice->payment_date = now();
                 $invoice->save();
-
-                // Send client notification email
-                Mail::to($invoice->client_email)->send(new PaymentReceiptMail($invoice));
-
-                // Send merchant notification email
-                Mail::to($invoice->user->email)->send(new MerchantPaymentReceiptMail($invoice));
                 
                 return response()->json([
                     'success' => true,
