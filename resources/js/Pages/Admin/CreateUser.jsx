@@ -124,7 +124,7 @@ export default function Create() {
                                 <h3 className="text-md font-medium text-gray-800 mb-2">
                                     Fetch Merchant Information
                                 </h3>
-                                <div className="flex items-end gap-4">
+                                <div className="flex flex-col md:flex-row md:items-end gap-4">
                                     <div className="flex-1">
                                         <InputLabel htmlFor="gateway_id" value="Gateway ID" />
                                         <TextInput
