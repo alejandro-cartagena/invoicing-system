@@ -80,37 +80,34 @@ const GeneralInvoice = () => {
             const base64data = await convertBlobToBase64(pdfBlob);
             
             console.log('Generated PDF for invoice');
-
             console.log("invoiceData", invoiceData);
             
             // Determine which endpoint to use based on whether we're editing or creating
-            let responseData;
+            let response;
             
             if (isEditing && invoiceId) {
                 // Use update-in-nmi endpoint when editing
                 console.log('Updating invoice in NMI merchant portal');
-                const response = await axios.post(route('invoice.update-in-nmi', invoiceId), {
+                response = await axios.post(route('invoice.update-in-nmi', invoiceId), {
                     invoiceData: invoiceData,
                     recipientEmail: recipientEmail,
                     pdfBase64: base64data,
                     invoiceType: 'general'
                 });
-                responseData = response.data;
             } else {
                 // Use send-to-nmi endpoint for new invoices
                 console.log('Sending new invoice to NMI merchant portal');
-                const response = await axios.post(route('invoice.send-to-nmi'), {
+                response = await axios.post(route('invoice.send-to-nmi'), {
                     invoiceData: invoiceData,
                     recipientEmail: recipientEmail,
                     pdfBase64: base64data,
                     invoiceType: 'general'
                 });
-                responseData = response.data;
             }
             
-            console.log('Response from NMI:', responseData);
+            console.log('Response from NMI:', response.data);
             
-            if (responseData.success) {
+            if (response.data.success) {
                 let successMessage = isEditing 
                     ? 'Invoice updated and sent successfully!' 
                     : 'Invoice sent successfully!';
@@ -121,7 +118,7 @@ const GeneralInvoice = () => {
                     router.get(route('user.invoices'));
                 }, 2000); // Wait 2 seconds before redirecting
             } else {
-                toast.error(responseData.message || 'Failed to send invoice');
+                toast.error(response.data.message || 'Failed to send invoice');
             }
         } catch (error) {
             console.error('Error sending invoice:', error);

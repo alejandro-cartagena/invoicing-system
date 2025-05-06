@@ -718,6 +718,9 @@ class InvoiceController extends Controller
             ]);
         }
         
+        // Add NMI invoice ID to the invoice data for the email
+        $invoiceData['nmi_invoice_id'] = $invoice->nmi_invoice_id;
+        
         // Send the email with the decoded PDF content
         Mail::to($validated['recipientEmail'])
             ->send(new SendInvoiceMail(
@@ -1013,20 +1016,64 @@ class InvoiceController extends Controller
                 ], 400);
             }
 
-            // Extract invoice data
+            // Process invoice data using the new function
             $invoiceData = $validated['invoiceData'];
+            $processedData = $this->processInvoiceData($invoiceData, $validated['recipientEmail'], $validated['invoiceType']);
             
-            // Calculate values to store in database
-            $subTotal = 0;
-            $nmiData = [];
+            // Add required fields that aren't in processInvoiceData
+            $processedData['user_id'] = $user->id;
+            $processedData['invoice_type'] = $validated['invoiceType'];
+            
+            // Generate a unique payment token
+            $paymentToken = Str::random(64);
+            
+            // Prepare NMI API request data
+            $nmiData = [
+                'security_key' => $userProfile->private_key,
+                'invoicing' => 'add_invoice',
+                'amount' => number_format($processedData['total'], 2, '.', ''),
+                'email' => $processedData['client_email'],
+                'payment_terms' => 'upon_receipt',
+                'payment_methods_allowed' => 'cc', // Credit card only
+                'order_description' => $invoiceData['notes'] ?? 'Invoice ' . ($invoiceData['invoiceTitle'] ?? ''),
+                'orderid' => $invoiceData['invoiceTitle'] ?? ('INV-' . time()),
+                'tax' => number_format($processedData['tax_amount'], 2, '.', ''),
+                'currency' => 'USD', // Default to USD
+                'subtotal' => number_format($processedData['subtotal'], 2, '.', '')
+            ];
+            
+            // Add customer information if available
+            if (!empty($processedData['first_name'])) {
+                $nmiData['first_name'] = $processedData['first_name'];
+            }
+            if (!empty($processedData['last_name'])) {
+                $nmiData['last_name'] = $processedData['last_name'];
+            }
+            if (!empty($processedData['company_name'])) {
+                $nmiData['company'] = $processedData['company_name'];
+            }
+
+            // Add address information if available
+            if (!empty($processedData['country'])) {
+                $nmiData['country'] = $processedData['country'];
+            }
+            if (!empty($processedData['city'])) {
+                $nmiData['city'] = $processedData['city'];
+            }
+            if (!empty($processedData['state'])) {
+                $nmiData['state'] = $processedData['state'];
+            }
+            if (!empty($processedData['zip'])) {
+                $nmiData['zip'] = $processedData['zip'];
+            }
+
+            // Add line items if present
             if (isset($invoiceData['productLines']) && is_array($invoiceData['productLines'])) {
                 foreach ($invoiceData['productLines'] as $index => $line) {
+                    $itemIndex = $index + 1;
                     $quantity = floatval($line['quantity'] ?? 0);
                     $rate = floatval($line['rate'] ?? 0);
                     $lineTotal = $quantity * $rate;
-                    $subTotal += $lineTotal;
-                    
-                    $itemIndex = $index + 1;
                     
                     // Format 1: item_x notation (most reliable based on NMI docs)
                     $nmiData['item_product_code_' . $itemIndex] = 'ITEM' . $itemIndex;
@@ -1042,188 +1089,7 @@ class InvoiceController extends Controller
                     $nmiData['itemtotalamount' . $itemIndex] = number_format($lineTotal, 2, '.', '');
                 }
                 
-                // Log the line item details for debugging
-                \Log::info('Line item details for NMI:', [
-                    'total_items' => count($invoiceData['productLines']),
-                    'subTotal' => $subTotal,
-                    'line_items' => array_filter($nmiData, function($key) {
-                        return strpos($key, 'item_') === 0 || strpos($key, 'itemdescription') === 0;
-                    }, ARRAY_FILTER_USE_KEY)
-                ]);
-            }
-            
-            // Extract tax rate from tax rate field or tax label
-            $taxRate = 0;
-            $taxAmount = 0;
-            
-            // First try to get tax rate directly from taxRate field
-            if (isset($invoiceData['taxRate']) && is_numeric($invoiceData['taxRate'])) {
-                $taxRate = floatval($invoiceData['taxRate']);
-            }
-            // If taxRate is not available, try to extract from taxLabel
-            else if (isset($invoiceData['taxLabel'])) {
-                preg_match('/(\d+)%/', $invoiceData['taxLabel'], $matches);
-                if (isset($matches[1])) {
-                    $taxRate = floatval($matches[1]);
-                }
-            }
-            
-            // Calculate tax amount if we have a valid tax rate
-            if ($taxRate > 0) {
-                $taxAmount = $subTotal * ($taxRate / 100);
-            }
-            
-            $total = $subTotal + $taxAmount;
-            
-            // Parse dates
-            $invoiceDate = isset($invoiceData['invoiceDate']) && !empty($invoiceData['invoiceDate']) 
-                ? date('Y-m-d', strtotime($invoiceData['invoiceDate'])) 
-                : date('Y-m-d');
-                
-            $dueDate = isset($invoiceData['invoiceDueDate']) && !empty($invoiceData['invoiceDueDate']) 
-                ? date('Y-m-d', strtotime($invoiceData['invoiceDueDate'])) 
-                : date('Y-m-d', strtotime('+30 days'));
-            
-            // Generate a unique payment token
-            $paymentToken = Str::random(64);
-            
-            // Extract client name parts for first_name and last_name
-            $firstName = $invoiceData['firstName'] ?? '';
-            $lastName = $invoiceData['lastName'] ?? '';
-            $companyName = $invoiceData['companyName'] ?? '';
-
-            // Log the raw values to help with debugging
-            \Log::info('Raw name values from invoice data:', [
-                'companyName' => $companyName,
-                'firstName' => $firstName,
-                'lastName' => $lastName
-            ]);
-
-            // Extract address components
-            $country = $invoiceData['country'] ?? $invoiceData['clientCountry'] ?? '';
-            $city = $invoiceData['city'] ?? '';
-            $state = $invoiceData['state'] ?? '';
-            $zip = $invoiceData['zip'] ?? '';
-
-            // Try to extract city, state, zip from clientAddress2 if they're empty
-            if (empty($city) || empty($state) || empty($zip)) {
-                $cityStateZip = $invoiceData['clientAddress2'] ?? '';
-                if (!empty($cityStateZip)) {
-                    // Try to parse "City, State ZIP" format
-                    $parts = explode(',', $cityStateZip);
-                    
-                    // If we have at least city
-                    if (!empty($parts[0]) && empty($city)) {
-                        $city = trim($parts[0]);
-                    }
-                    
-                    // If we have state/zip part
-                    if (!empty($parts[1])) {
-                        $stateZipPart = trim($parts[1]);
-                        
-                        // Try to separate state and zip
-                        preg_match('/([A-Z]{2})\s+(\d+)/', $stateZipPart, $matches);
-                        
-                        if (!empty($matches[1]) && empty($state)) {
-                            $state = $matches[1];
-                        }
-                        
-                        if (!empty($matches[2]) && empty($zip)) {
-                            $zip = $matches[2];
-                        } else {
-                            // Just take numbers as zip if we couldn't match the pattern
-                            $zipMatch = preg_replace('/[^0-9]/', '', $stateZipPart);
-                            if (!empty($zipMatch) && empty($zip)) {
-                                $zip = $zipMatch;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Log the address components
-            \Log::info('Address components:', [
-                'country' => $country,
-                'city' => $city,
-                'state' => $state,
-                'zip' => $zip,
-                'clientAddress' => $invoiceData['clientAddress'] ?? '',
-                'clientAddress2' => $invoiceData['clientAddress2'] ?? ''
-            ]);
-            
-            // Create invoice data array for our database
-            $invoiceCreateData = [
-                'user_id' => $user->id,
-                'invoice_type' => $validated['invoiceType'],
-                'company_name' => $companyName,
-                'client_email' => $validated['recipientEmail'],
-                'first_name' => $firstName,
-                'last_name' => $lastName,
-                'country' => $country,
-                'city' => $city,
-                'state' => $state,
-                'zip' => $zip,
-                'subtotal' => $subTotal,
-                'tax_rate' => $taxRate,
-                'tax_amount' => $taxAmount,
-                'total' => $total,
-                'invoice_date' => $invoiceDate,
-                'due_date' => $dueDate,
-                'status' => 'sent',
-                'invoice_data' => $invoiceData,
-                'payment_token' => $paymentToken,
-            ];
-            
-            // Log the create data to verify fields are being set
-            \Log::info('Invoice create data:', array_merge(
-                array_diff_key($invoiceCreateData, ['invoice_data' => null]),
-                ['invoice_data_keys' => is_array($invoiceData) ? array_keys($invoiceData) : 'not an array']
-            ));
-            
-            // Prepare NMI API request data
-            $nmiData = array_merge($nmiData, [
-                'security_key' => $userProfile->private_key,
-                'invoicing' => 'add_invoice',
-                'amount' => number_format($total, 2, '.', ''),
-                'email' => $validated['recipientEmail'],
-                // Optional fields that we can populate from invoice data
-                'payment_terms' => 'upon_receipt',
-                'payment_methods_allowed' => 'cc', // Credit card only
-                'order_description' => $invoiceData['notes'] ?? 'Invoice ' . ($invoiceData['invoiceTitle'] ?? ''),
-                'orderid' => $invoiceData['invoiceTitle'] ?? ('INV-' . time()),
-                'tax' => number_format($taxAmount, 2, '.', ''),
-                'currency' => 'USD', // Default to USD
-                'item_count' => count($invoiceData['productLines'] ?? []), // Add item count explicitly
-                // Add subtotal to ensure it's properly accounted for
-                'subtotal' => number_format($subTotal, 2, '.', '')
-            ]);
-            
-            // Add customer name information - only add if not empty
-            if (!empty($firstName)) {
-                $nmiData['first_name'] = $firstName;
-            }
-            if (!empty($lastName)) {
-                $nmiData['last_name'] = $lastName;
-            }
-            if (!empty($companyName)) {
-                $nmiData['company'] = $companyName;
-            }
-
-            // Add address information if available
-            if (!empty($invoiceData['clientAddress'])) {
-                $nmiData['address1'] = $invoiceData['clientAddress'];
-            }
-            if (!empty($city)) {
-                $nmiData['city'] = $city;
-            }
-            if (!empty($state)) {
-                $nmiData['state'] = $state;
-            }
-            if (!empty($zip)) {
-                $nmiData['zip'] = $zip;
-            }
-            if (!empty($country)) {
-                $nmiData['country'] = $country;
+                $nmiData['item_count'] = count($invoiceData['productLines']);
             }
             
             // Log the request data (redacting the security key)
@@ -1271,59 +1137,57 @@ class InvoiceController extends Controller
             // Parse the response
             parse_str($response, $responseData);
             
-            // Log the detailed response for debugging
-            \Log::info('NMI Invoice API Response Details', [
-                'http_code' => $httpCode,
-                'raw_response' => $response,
-                'parsed_response' => $responseData,
-                'curl_error' => $curlError,
-                'total_sent' => $total,
-                'line_item_count' => count($invoiceData['productLines'] ?? [])
-            ]);
-            
             // Check if the invoice was created successfully
             if (isset($responseData['response']) && $responseData['response'] == 1) {
                 // Extract invoice_id from the NMI response if available
                 $nmiInvoiceId = $responseData['invoice_id'] ?? null;
                 
-                // Store the NMI invoice ID
-                if ($nmiInvoiceId) {
-                    $invoiceCreateData['nmi_invoice_id'] = $nmiInvoiceId;
-                }
+                // Add NMI invoice ID and payment token to the processed data
+                $processedData['nmi_invoice_id'] = $nmiInvoiceId;
+                $processedData['payment_token'] = $paymentToken;
+                $processedData['status'] = 'sent';
                 
-                // Create a record in our database
-                $invoice = Invoice::create($invoiceCreateData);
+                try {
+                    // Create a record in our database
+                    $invoice = Invoice::create($processedData);
 
-                // Log the successful creation
-                \Log::info('Invoice successfully created in NMI', [
-                    'invoice_id' => $invoice->id,
-                    'nmi_invoice_id' => $nmiInvoiceId,
-                    'total' => $total
-                ]);
+                    // Log the successful creation
+                    \Log::info('Invoice successfully created in NMI', [
+                        'invoice_id' => $invoice->id,
+                        'nmi_invoice_id' => $nmiInvoiceId,
+                        'total' => $processedData['total']
+                    ]);
 
-                $invoiceData['nmi_invoice_id'] = $nmiInvoiceId;
-                if (isset($firstName)) {
-                    $invoiceData['client_first_name'] = $firstName;
+                    // Send the email with the PDF attachment
+                    Mail::to($validated['recipientEmail'])
+                        ->send(new SendInvoiceMail(
+                            $invoiceData,
+                            $user,
+                            $decodedPdf,
+                            $invoice->payment_token,
+                            false,
+                            $validated['invoiceType']
+                        ));
+                    
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Invoice created in merchant portal and email sent successfully',
+                        'invoice_id' => $invoice->id,
+                        'nmi_invoice_id' => $nmiInvoiceId,
+                        'nmi_response' => $responseData
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('Failed to create invoice in database', [
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                        'processed_data' => array_diff_key($processedData, ['invoice_data' => null])
+                    ]);
+                    
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Failed to create invoice in database: ' . $e->getMessage()
+                    ], 500);
                 }
-                
-                // Send the email with the PDF attachment
-                Mail::to($validated['recipientEmail'])
-                    ->send(new SendInvoiceMail(
-                        $invoiceData,
-                        $user,
-                        $decodedPdf,
-                        $invoice->payment_token,
-                        false,
-                        $validated['invoiceType']
-                    ));
-                
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Invoice created in merchant portal and email sent successfully',
-                    'invoice_id' => $invoice->id,
-                    'nmi_invoice_id' => $nmiInvoiceId,
-                    'nmi_response' => $responseData
-                ]);
             } else {
                 // Log the error details
                 \Log::error('Failed to create invoice in NMI merchant portal', [
@@ -1343,7 +1207,13 @@ class InvoiceController extends Controller
             \Log::error('Failed to send invoice to NMI: ' . $e->getMessage(), [
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
+                'request_data' => [
+                    'invoice_type' => $validated['invoiceType'] ?? null,
+                    'recipient_email' => $validated['recipientEmail'] ?? null,
+                    'has_invoice_data' => isset($validated['invoiceData']),
+                    'has_pdf' => isset($validated['pdfBase64'])
+                ]
             ]);
             
             return response()->json([
@@ -1420,23 +1290,6 @@ class InvoiceController extends Controller
                 ], 400);
             }
 
-            // Process the PDF data
-            $pdfContent = $validated['pdfBase64'];
-            if (strpos($pdfContent, 'data:application/pdf;base64,') === 0) {
-                $pdfContent = substr($pdfContent, 28);
-            }
-            
-            // Decode the base64 content
-            $decodedPdf = base64_decode($pdfContent);
-            
-            // Verify it's a valid PDF
-            if (substr($decodedPdf, 0, 4) !== '%PDF') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid PDF content'
-                ], 400);
-            }
-
             // STEP 1: Close the existing invoice in NMI
             $closeInvoiceData = [
                 'security_key' => $userProfile->private_key,
@@ -1501,185 +1354,70 @@ class InvoiceController extends Controller
             }
             
             // STEP 2: Create a new invoice in NMI
-            
-            // Extract invoice data
-            $invoiceData = $validated['invoiceData'];
-            
-            // Calculate values to store in database
-            $subTotal = 0;
-            $nmiData = [];
-            if (isset($invoiceData['productLines']) && is_array($invoiceData['productLines'])) {
-                foreach ($invoiceData['productLines'] as $index => $line) {
+            $nmiData = [
+                'security_key' => $userProfile->private_key,
+                'invoicing' => 'add_invoice',
+                'amount' => number_format($invoice->total, 2, '.', ''),
+                'email' => $validated['recipientEmail'],
+                'payment_terms' => 'upon_receipt',
+                'payment_methods_allowed' => 'cc',
+                'order_description' => $validated['invoiceData']['notes'] ?? 'Invoice ' . ($validated['invoiceData']['invoiceTitle'] ?? ''),
+                'orderid' => $validated['invoiceData']['invoiceTitle'] ?? ('INV-' . time()),
+                'tax' => number_format($invoice->tax_amount, 2, '.', ''),
+                'currency' => 'USD',
+                'subtotal' => number_format($invoice->subtotal, 2, '.', '')
+            ];
+
+            // Add customer information
+            if (!empty($invoice->first_name)) {
+                $nmiData['first_name'] = $invoice->first_name;
+            }
+            if (!empty($invoice->last_name)) {
+                $nmiData['last_name'] = $invoice->last_name;
+            }
+            if (!empty($invoice->company_name)) {
+                $nmiData['company'] = $invoice->company_name;
+            }
+
+            // Add address information
+            if (!empty($invoice->country)) {
+                $nmiData['country'] = $invoice->country;
+            }
+            if (!empty($invoice->city)) {
+                $nmiData['city'] = $invoice->city;
+            }
+            if (!empty($invoice->state)) {
+                $nmiData['state'] = $invoice->state;
+            }
+            if (!empty($invoice->zip)) {
+                $nmiData['zip'] = $invoice->zip;
+            }
+
+            // Add line items
+            if (isset($validated['invoiceData']['productLines']) && is_array($validated['invoiceData']['productLines'])) {
+                foreach ($validated['invoiceData']['productLines'] as $index => $line) {
+                    $itemIndex = $index + 1;
                     $quantity = floatval($line['quantity'] ?? 0);
                     $rate = floatval($line['rate'] ?? 0);
                     $lineTotal = $quantity * $rate;
-                    $subTotal += $lineTotal;
                     
-                    $itemIndex = $index + 1;
-                    
-                    // Format 1: item_x notation (most reliable based on NMI docs)
                     $nmiData['item_product_code_' . $itemIndex] = 'ITEM' . $itemIndex;
                     $nmiData['item_description_' . $itemIndex] = $line['description'] ?? '';
                     $nmiData['item_unit_cost_' . $itemIndex] = number_format($rate, 2, '.', '');
                     $nmiData['item_quantity_' . $itemIndex] = (int)$quantity;
                     $nmiData['item_total_amount_' . $itemIndex] = number_format($lineTotal, 2, '.', '');
-                    
-                    // Format 2: Alternative format
-                    $nmiData['itemdescription' . $itemIndex] = $line['description'] ?? '';
-                    $nmiData['itemunitcost' . $itemIndex] = number_format($rate, 2, '.', '');
-                    $nmiData['itemquantity' . $itemIndex] = (int)$quantity;
-                    $nmiData['itemtotalamount' . $itemIndex] = number_format($lineTotal, 2, '.', '');
                 }
                 
-                // Log the line item details for debugging
-                \Log::info('Line item details for NMI:', [
-                    'total_items' => count($invoiceData['productLines']),
-                    'subTotal' => $subTotal,
-                    'line_items' => array_filter($nmiData, function($key) {
-                        return strpos($key, 'item_') === 0 || strpos($key, 'itemdescription') === 0;
-                    }, ARRAY_FILTER_USE_KEY)
-                ]);
-            }
-            
-            // Extract tax rate from tax rate field or tax label
-            $taxRate = 0;
-            $taxAmount = 0;
-            
-            // First try to get tax rate directly from taxRate field
-            if (isset($invoiceData['taxRate']) && is_numeric($invoiceData['taxRate'])) {
-                $taxRate = floatval($invoiceData['taxRate']);
-            }
-            // If taxRate is not available, try to extract from taxLabel
-            else if (isset($invoiceData['taxLabel'])) {
-                preg_match('/(\d+)%/', $invoiceData['taxLabel'], $matches);
-                if (isset($matches[1])) {
-                    $taxRate = floatval($matches[1]);
-                }
-            }
-            
-            // Calculate tax amount if we have a valid tax rate
-            if ($taxRate > 0) {
-                $taxAmount = $subTotal * ($taxRate / 100);
-            }
-            
-            $total = $subTotal + $taxAmount;
-            
-            // Parse dates
-            $invoiceDate = isset($invoiceData['invoiceDate']) && !empty($invoiceData['invoiceDate']) 
-                ? date('Y-m-d', strtotime($invoiceData['invoiceDate'])) 
-                : date('Y-m-d');
-                
-            $dueDate = isset($invoiceData['invoiceDueDate']) && !empty($invoiceData['invoiceDueDate']) 
-                ? date('Y-m-d', strtotime($invoiceData['invoiceDueDate'])) 
-                : date('Y-m-d', strtotime('+30 days'));
-            
-            // Extract client name parts for first_name and last_name
-            $firstName = $invoiceData['firstName'] ?? '';
-            $lastName = $invoiceData['lastName'] ?? '';
-            $companyName = $invoiceData['companyName'] ?? '';
-
-            // Extract address components
-            $country = $invoiceData['country'] ?? $invoiceData['clientCountry'] ?? '';
-            $city = $invoiceData['city'] ?? '';
-            $state = $invoiceData['state'] ?? '';
-            $zip = $invoiceData['zip'] ?? '';
-
-            // Try to extract city, state, zip from clientAddress2 if they're empty
-            if (empty($city) || empty($state) || empty($zip)) {
-                $cityStateZip = $invoiceData['clientAddress2'] ?? '';
-                if (!empty($cityStateZip)) {
-                    // Try to parse "City, State ZIP" format
-                    $parts = explode(',', $cityStateZip);
-                    
-                    // If we have at least city
-                    if (!empty($parts[0]) && empty($city)) {
-                        $city = trim($parts[0]);
-                    }
-                    
-                    // If we have state/zip part
-                    if (!empty($parts[1])) {
-                        $stateZipPart = trim($parts[1]);
-                        
-                        // Try to separate state and zip
-                        preg_match('/([A-Z]{2})\s+(\d+)/', $stateZipPart, $matches);
-                        
-                        if (!empty($matches[1]) && empty($state)) {
-                            $state = $matches[1];
-                        }
-                        
-                        if (!empty($matches[2]) && empty($zip)) {
-                            $zip = $matches[2];
-                        } else {
-                            // Just take numbers as zip if we couldn't match the pattern
-                            $zipMatch = preg_replace('/[^0-9]/', '', $stateZipPart);
-                            if (!empty($zipMatch) && empty($zip)) {
-                                $zip = $zipMatch;
-                            }
-                        }
-                    }
-                }
+                $nmiData['item_count'] = count($validated['invoiceData']['productLines']);
             }
 
-            // Create a new invoice in NMI using add_invoice
-            $createInvoiceData = array_merge($nmiData, [
-                'security_key' => $userProfile->private_key,
-                'invoicing' => 'add_invoice',
-                'amount' => number_format($total, 2, '.', ''),
-                'email' => $validated['recipientEmail'],
-                'payment_terms' => 'upon_receipt',
-                'payment_methods_allowed' => 'cc', // Credit card only
-                'order_description' => $invoiceData['notes'] ?? 'Invoice ' . ($invoiceData['invoiceTitle'] ?? ''),
-                'tax' => number_format($taxAmount, 2, '.', ''),
-                'currency' => 'USD', // Default to USD
-                'item_count' => count($invoiceData['productLines'] ?? []), // Add item count explicitly
-                'subtotal' => number_format($subTotal, 2, '.', '')
-            ]);
-            
-            // Add customer name information - only add if not empty
-            if (!empty($firstName)) {
-                $createInvoiceData['first_name'] = $firstName;
-            }
-            if (!empty($lastName)) {
-                $createInvoiceData['last_name'] = $lastName;
-            }
-            if (!empty($companyName)) {
-                $createInvoiceData['company'] = $companyName;
-            }
-
-            // Add address information if available
-            if (!empty($invoiceData['clientAddress'])) {
-                $createInvoiceData['address1'] = $invoiceData['clientAddress'];
-            }
-            if (!empty($city)) {
-                $createInvoiceData['city'] = $city;
-            }
-            if (!empty($state)) {
-                $createInvoiceData['state'] = $state;
-            }
-            if (!empty($zip)) {
-                $createInvoiceData['zip'] = $zip;
-            }
-            if (!empty($country)) {
-                $createInvoiceData['country'] = $country;
-            }
-            
-            // Log the request data (redacting the security key)
-            $createLogData = $createInvoiceData;
-            $createLogData['security_key'] = '[REDACTED]';
-            \Log::info('Creating new invoice in NMI merchant portal', $createLogData);
-            
             // Send the request to NMI
             $ch = curl_init('https://secure.nmi.com/api/transact.php');
             curl_setopt($ch, CURLOPT_POST, 1);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($createInvoiceData));
+            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($nmiData));
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
             curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                "accept: application/x-www-form-urlencoded",
-                "content-type: application/x-www-form-urlencoded"
-            ]);
             
-            // Disable SSL verification for local development
             if (app()->environment('local')) {
                 curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
                 curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
@@ -1688,154 +1426,63 @@ class InvoiceController extends Controller
                 curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
             }
             
-            $createResponse = curl_exec($ch);
+            $response = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $curlError = curl_error($ch);
+            $error = curl_error($ch);
             
             curl_close($ch);
             
-            // Log the response
-            \Log::info('NMI Create Invoice API Response', [
-                'http_code' => $httpCode,
-                'response' => $createResponse,
-                'curl_error' => $curlError
-            ]);
-            
-            // Check for cURL errors
-            if ($curlError) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Error connecting to payment gateway: ' . $curlError
-                ], 500);
-            }
-            
             // Parse the response
-            parse_str($createResponse, $createResponseData);
+            parse_str($response, $responseData);
             
-            // Log the detailed response for debugging
-            \Log::info('NMI Create Invoice API Response Details', [
-                'http_code' => $httpCode,
-                'raw_response' => $createResponse,
-                'parsed_response' => $createResponseData,
-                'curl_error' => $curlError,
-                'total_sent' => $total,
-                'line_item_count' => count($invoiceData['productLines'] ?? [])
-            ]);
-            
-            // Check if the invoice was created successfully
-            if (isset($createResponseData['response']) && $createResponseData['response'] == 1) {
-                // Extract invoice_id from the NMI response if available
-                $newNmiInvoiceId = $createResponseData['invoice_id'] ?? null;
+            if (isset($responseData['response']) && $responseData['response'] == 1) {
+                // STEP 3: Update the existing invoice record with the new data
+                $updateData = $this->processInvoiceData(
+                    $validated['invoiceData'], 
+                    $validated['recipientEmail'],
+                    $validated['invoiceType']
+                );
                 
-                if (!$newNmiInvoiceId) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Failed to get new invoice ID from NMI response',
-                        'nmi_response' => $createResponseData
-                    ], 500);
-                }
+                // Add NMI invoice ID and status
+                $updateData['nmi_invoice_id'] = $responseData['invoice_id'];
+                $updateData['status'] = 'sent';
                 
-                // STEP 3: Update the existing invoice record in our database with the new NMI invoice ID
-                $invoice->update([
-                    'client_email' => $validated['recipientEmail'],
-                    'subtotal' => $subTotal,
-                    'tax_rate' => $taxRate,
-                    'tax_amount' => $taxAmount,
-                    'total' => $total,
-                    'invoice_date' => $invoiceDate,
-                    'due_date' => $dueDate,
-                    'invoice_data' => $invoiceData,
-                    'nmi_invoice_id' => $newNmiInvoiceId,
-                    // Also update address info
-                    'first_name' => $firstName,
-                    'last_name' => $lastName,
-                    'company_name' => $companyName,
-                    'country' => $country,
-                    'city' => $city,
-                    'state' => $state,
-                    'zip' => $zip,
-                ]);
-                
-                \Log::info('Updated existing invoice record with new NMI invoice ID', [
-                    'invoice_id' => $invoice->id,
-                    'old_nmi_invoice_id' => $invoice->nmi_invoice_id,
-                    'new_nmi_invoice_id' => $newNmiInvoiceId
-                ]);
-                
-                // STEP 4: Optionally, send a new invoice notification
-                $sendInvoiceData = [
-                    'security_key' => $userProfile->private_key,
-                    'invoicing' => 'send_invoice',
-                    'invoice_id' => $newNmiInvoiceId
-                ];
-                
-                // Log the send invoice request (redacting the security key)
-                $sendLogData = $sendInvoiceData;
-                $sendLogData['security_key'] = '[REDACTED]';
-                \Log::info('Sending updated invoice from NMI', $sendLogData);
-                
-                // Send the request to NMI to send the invoice
-                $ch = curl_init('https://secure.nmi.com/api/transact.php');
-                curl_setopt($ch, CURLOPT_POST, 1);
-                curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($sendInvoiceData));
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-                curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-                curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                    "accept: application/x-www-form-urlencoded",
-                    "content-type: application/x-www-form-urlencoded"
-                ]);
-                
-                // SSL verification settings
-                if (app()->environment('local')) {
-                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-                    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-                } else {
-                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
-                    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-                }
-                
-                $sendResponse = curl_exec($ch);
-                curl_close($ch);
-                
-                // Log the send invoice response
-                \Log::info('NMI Send Invoice Response', [
-                    'response' => $sendResponse
-                ]);
-                
-                // Send the email with the updated PDF attachment through our system as well
+                // Generate a new payment token to invalidate old payment links
+                $updateData['payment_token'] = Str::random(64);
+
+                // Update the existing invoice
+                $invoice->update($updateData);
+
+                // Add NMI invoice ID to the invoice data for the email
+                $validated['invoiceData']['nmi_invoice_id'] = $responseData['invoice_id'];
+
+                // Send the email with the PDF attachment
                 Mail::to($validated['recipientEmail'])
                     ->send(new SendInvoiceMail(
-                        $invoiceData,
+                        $validated['invoiceData'],
                         $user,
-                        $decodedPdf,
-                        $invoice->payment_token,
-                        true,
+                        base64_decode($validated['pdfBase64']),
+                        $updateData['payment_token'], // Use the new payment token
+                        false,
                         $validated['invoiceType']
                     ));
-                
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Invoice updated in merchant portal and email sent successfully',
                     'invoice_id' => $invoice->id,
                     'old_nmi_invoice_id' => $invoice->nmi_invoice_id,
-                    'new_nmi_invoice_id' => $newNmiInvoiceId,
-                    'nmi_response' => $createResponseData
+                    'new_nmi_invoice_id' => $responseData['invoice_id'],
+                    'nmi_response' => $responseData
                 ]);
             } else {
-                // Log the error details
-                \Log::error('Failed to create new invoice in NMI merchant portal', [
-                    'response_code' => $createResponseData['response'] ?? 'unknown',
-                    'response_text' => $createResponseData['responsetext'] ?? 'No response text',
-                    'raw_response' => $createResponse,
-                    'sent_data' => $createLogData
-                ]);
-                
                 return response()->json([
                     'success' => false,
-                    'message' => $createResponseData['responsetext'] ?? 'Failed to create invoice in merchant portal',
-                    'nmi_response' => $createResponseData
+                    'message' => $responseData['responsetext'] ?? 'Failed to update invoice in NMI',
+                    'nmi_response' => $responseData
                 ], 400);
             }
+
         } catch (\Exception $e) {
             \Log::error('Failed to update invoice in NMI: ' . $e->getMessage(), [
                 'file' => $e->getFile(),
@@ -2232,5 +1879,137 @@ class InvoiceController extends Controller
                 'message' => 'Error retrieving invoice: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Process invoice data and calculate all necessary values
+     * 
+     * @param array $invoiceData
+     * @param string $recipientEmail
+     * @param string $invoiceType
+     * @return array
+     */
+    private function processInvoiceData(array $invoiceData, string $recipientEmail, string $invoiceType = 'general'): array
+    {
+        // Calculate values to store in database
+        $subTotal = 0;
+        if (isset($invoiceData['productLines']) && is_array($invoiceData['productLines'])) {
+            foreach ($invoiceData['productLines'] as $line) {
+                $quantity = floatval($line['quantity'] ?? 0);
+                $rate = floatval($line['rate'] ?? 0);
+                $subTotal += $quantity * $rate;
+            }
+        }
+        
+        // Extract tax rate from tax rate field or tax label
+        $taxRate = 0;
+        $taxAmount = 0;
+        
+        // First try to get tax rate directly from taxRate field
+        if (isset($invoiceData['taxRate']) && is_numeric($invoiceData['taxRate'])) {
+            $taxRate = floatval($invoiceData['taxRate']);
+        }
+        // If taxRate is not available, try to extract from taxLabel
+        else if (isset($invoiceData['taxLabel'])) {
+            preg_match('/(\d+)%/', $invoiceData['taxLabel'], $matches);
+            if (isset($matches[1])) {
+                $taxRate = floatval($matches[1]);
+            }
+        }
+        
+        // Calculate tax amount if we have a valid tax rate
+        if ($taxRate > 0) {
+            $taxAmount = $subTotal * ($taxRate / 100);
+        }
+        
+        $total = $subTotal + $taxAmount;
+        
+        // Parse dates
+        $invoiceDate = isset($invoiceData['invoiceDate']) && !empty($invoiceData['invoiceDate']) 
+            ? date('Y-m-d', strtotime($invoiceData['invoiceDate'])) 
+            : date('Y-m-d');
+            
+        $dueDate = isset($invoiceData['invoiceDueDate']) && !empty($invoiceData['invoiceDueDate']) 
+            ? date('Y-m-d', strtotime($invoiceData['invoiceDueDate'])) 
+            : date('Y-m-d', strtotime('+30 days'));
+
+        // Extract client name parts for first_name and last_name
+        $firstName = $invoiceData['firstName'] ?? '';
+        $lastName = $invoiceData['lastName'] ?? '';
+        $companyName = $invoiceData['companyName'] ?? '';
+
+        // Extract address components
+        $country = $invoiceData['country'] ?? $invoiceData['clientCountry'] ?? '';
+        $city = $invoiceData['city'] ?? '';
+        $state = $invoiceData['state'] ?? '';
+        $zip = $invoiceData['zip'] ?? '';
+
+        // Try to extract city, state, zip from clientAddress2 if they're empty
+        if (empty($city) || empty($state) || empty($zip)) {
+            $cityStateZip = $invoiceData['clientAddress2'] ?? '';
+            if (!empty($cityStateZip)) {
+                // Try to parse "City, State ZIP" format
+                $parts = explode(',', $cityStateZip);
+                
+                // If we have at least city
+                if (!empty($parts[0]) && empty($city)) {
+                    $city = trim($parts[0]);
+                }
+                
+                // If we have state/zip part
+                if (!empty($parts[1])) {
+                    $stateZipPart = trim($parts[1]);
+                    
+                    // Try to separate state and zip
+                    preg_match('/([A-Z]{2})\s+(\d+)/', $stateZipPart, $matches);
+                    
+                    if (!empty($matches[1]) && empty($state)) {
+                        $state = $matches[1];
+                    }
+                    
+                    if (!empty($matches[2]) && empty($zip)) {
+                        $zip = $matches[2];
+                    } else {
+                        // Just take numbers as zip if we couldn't match the pattern
+                        $zipMatch = preg_replace('/[^0-9]/', '', $stateZipPart);
+                        if (!empty($zipMatch) && empty($zip)) {
+                            $zip = $zipMatch;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Base data array
+        $data = [
+            'client_email' => $recipientEmail,
+            'subtotal' => $subTotal,
+            'tax_rate' => $taxRate,
+            'tax_amount' => $taxAmount,
+            'total' => $total,
+            'invoice_date' => $invoiceDate,
+            'due_date' => $dueDate,
+            'invoice_data' => $invoiceData,
+            'first_name' => $firstName,
+            'last_name' => $lastName,
+            'company_name' => $companyName,
+            'country' => $country,
+            'city' => $city,
+            'state' => $state,
+            'zip' => $zip,
+        ];
+
+        // Add real estate specific fields if this is a real estate invoice
+        if ($invoiceType === 'real_estate') {
+            $data = array_merge($data, [
+                'property_address' => $invoiceData['propertyAddress'] ?? '',
+                'title_number' => $invoiceData['titleNumber'] ?? '',
+                'buyer_name' => $invoiceData['buyerName'] ?? '',
+                'seller_name' => $invoiceData['sellerName'] ?? '',
+                'agent_name' => $invoiceData['agentName'] ?? '',
+            ]);
+        }
+
+        return $data;
     }
 }
