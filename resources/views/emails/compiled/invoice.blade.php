@@ -201,7 +201,6 @@
                         <div class="mobile-only" style="margin:0px auto;max-width:560px;">
                           <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;">
                             <tbody>
-                            @foreach($invoiceData['productLines'] as $item) @if(isset($item['description']) && $item['description'])
                               <tr>
                                 <td style="direction:ltr;font-size:0px;padding:10px;text-align:center;">
                                   <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td align="left" class="" width="560px" ><![endif]-->
@@ -221,7 +220,6 @@
 </td></tr></table></td></tr></table><![endif]-->
                                 </td>
                               </tr>
-                              @endif @endforeach
                             </tbody>
                           </table>
                         </div>
@@ -260,13 +258,11 @@
                       <td align="center" style="font-size:0px;padding:10px 25px;word-break:break-word;">
                         <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse:separate;line-height:100%;">
                           <tbody>
-                            @if(isset($bitcoinPaymentUrl))
                             <tr>
                               <td align="center" bgcolor="#f7931a" role="presentation" style="border:none;border-radius:3px;cursor:auto;mso-padding-alt:10px 25px;background:#f7931a;" valign="middle">
                                 <a href="{{ $bitcoinPaymentUrl }}" style="display:inline-block;background:#f7931a;color:white;font-family:Helvetica, Arial, sans-serif;font-size:16px;font-weight:normal;line-height:120%;margin:0;text-decoration:none;text-transform:none;padding:10px 25px;mso-padding-alt:0px;border-radius:3px;" target="_blank"> Pay with Bitcoin </a>
                               </td>
                             </tr>
-                            @endif
                           </tbody>
                         </table>
                       </td>

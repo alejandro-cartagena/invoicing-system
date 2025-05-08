@@ -196,7 +196,6 @@
                         <div class="mobile-only" style="margin:0px auto;max-width:560px;">
                           <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;">
                             <tbody>
-                            @foreach($invoiceData['productLines'] as $item) @if(isset($item['description']) && $item['description'])
                               <tr>
                                 <td style="direction:ltr;font-size:0px;padding:10px;text-align:center;">
                                   <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td align="left" class="" width="560px" ><![endif]-->
@@ -218,7 +217,6 @@
 </td></tr></table></td></tr></table><![endif]-->
                                 </td>
                               </tr>
-                              @endif @endforeach
                             </tbody>
                           </table>
                         </div>
