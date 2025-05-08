@@ -25,6 +25,12 @@ return new class extends Migration
             });
         }
 
+        if (!Schema::hasColumn('user_profiles', 'gateway_id')) {
+            Schema::table('user_profiles', function (Blueprint $table) {
+                $table->string('gateway_id')->nullable()->after('merchant_id');
+            });
+        }
+
         // Get all user profiles with unencrypted private keys
         $profiles = UserProfile::whereNotNull('private_key')->get();
         

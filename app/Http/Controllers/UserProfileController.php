@@ -64,7 +64,14 @@ class UserProfileController extends Controller
 
             \Log::info('User created', ['user_id' => $user->id]);
 
-            // Create the user profile
+            // Generate API keys for the merchant first
+            $apiKeys = $this->generateMerchantApiKeys($validated['gateway_id']);
+            
+            if (!$apiKeys['success']) {
+                throw new \Exception('Failed to generate API keys: ' . ($apiKeys['message'] ?? 'Unknown error'));
+            }
+
+            // Create the user profile with the API keys
             $profile = $user->profile()->create([
                 'business_name' => $validated['business_name'],
                 'address' => $validated['address'],
@@ -73,6 +80,8 @@ class UserProfileController extends Controller
                 'first_name' => $validated['first_name'],
                 'last_name' => $validated['last_name'],
                 'gateway_id' => $validated['gateway_id'],
+                'private_key' => $apiKeys['private_key'],
+                'public_key' => $apiKeys['public_key']
             ]);
 
             \Log::info('User profile created', ['profile_id' => $profile->id]);
@@ -96,7 +105,7 @@ class UserProfileController extends Controller
 
             \Log::info('User creation completed successfully');
 
-            return redirect()->route('admin.users.index')
+            return redirect()->route('admin.users.view', ['user' => $user->id])
                 ->with('success', 'User created successfully.');
         } catch (\Illuminate\Validation\ValidationException $e) {
             \Log::error('Validation error during user creation', [

@@ -14,7 +14,8 @@ class UserProfile extends Model
         'first_name',
         'last_name',
         'public_key',
-        'private_key'
+        'private_key',
+        'gateway_id'
     ];
 
     /**
