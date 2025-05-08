@@ -12,6 +12,19 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // First ensure both columns exist
+        if (!Schema::hasColumn('user_profiles', 'public_key')) {
+            Schema::table('user_profiles', function (Blueprint $table) {
+                $table->string('public_key')->nullable()->after('merchant_id');
+            });
+        }
+
+        if (!Schema::hasColumn('user_profiles', 'private_key')) {
+            Schema::table('user_profiles', function (Blueprint $table) {
+                $table->string('private_key')->nullable()->after('public_key');
+            });
+        }
+
         // Get all user profiles with unencrypted private keys
         $profiles = UserProfile::whereNotNull('private_key')->get();
         

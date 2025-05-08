@@ -14,8 +14,12 @@ class AddApiKeysToUserProfilesTable extends Migration
     public function up()
     {
         Schema::table('user_profiles', function (Blueprint $table) {
-            $table->string('public_key')->nullable()->after('merchant_id');
-            $table->string('private_key')->nullable()->after('public_key');
+            if (!Schema::hasColumn('user_profiles', 'public_key')) {
+                $table->string('public_key')->nullable()->after('merchant_id');
+            }
+            if (!Schema::hasColumn('user_profiles', 'private_key')) {
+                $table->string('private_key')->nullable()->after('public_key');
+            }
         });
     }
 
