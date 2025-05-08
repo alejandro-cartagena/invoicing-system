@@ -17,6 +17,35 @@ class UserProfile extends Model
         'private_key'
     ];
 
+    /**
+     * The attributes that should be encrypted.
+     *
+     * @var array
+     */
+    protected $encrypted = ['private_key'];
+
+    /**
+     * Get the encrypted private key.
+     *
+     * @param  string  $value
+     * @return string
+     */
+    public function getPrivateKeyAttribute($value)
+    {
+        return $value ? decrypt($value) : null;
+    }
+
+    /**
+     * Set the encrypted private key.
+     *
+     * @param  string  $value
+     * @return void
+     */
+    public function setPrivateKeyAttribute($value)
+    {
+        $this->attributes['private_key'] = $value ? encrypt($value) : null;
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);
