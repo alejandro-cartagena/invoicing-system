@@ -435,7 +435,7 @@ export default function EditUser({ user }) {
                                     </div>
                                 )}
 
-                                {(!beadCredentials || showBeadForm) && (
+                                {showBeadForm && (
                                     <form onSubmit={handleBeadSubmit} className="mt-4 space-y-4">
                                         <div>
                                             <InputLabel htmlFor="bead_merchant_id" value="Bead Merchant ID" />
