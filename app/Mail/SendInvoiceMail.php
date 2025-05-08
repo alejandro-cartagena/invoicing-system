@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use App\Models\User;
 use App\Models\UserProfile;
+use App\Models\BeadCredential;
+
 class SendInvoiceMail extends Mailable
 {
     use Queueable, SerializesModels;
@@ -82,7 +84,12 @@ class SendInvoiceMail extends Mailable
         
         if ($this->paymentToken) {
             $creditCardPaymentUrl = URL::signedRoute('invoice.pay.credit-card', ['token' => $this->paymentToken]);
-            $bitcoinPaymentUrl = URL::signedRoute('invoice.pay.bitcoin', ['token' => $this->paymentToken]);
+            
+            // Only generate Bitcoin payment URL if user has Bead credentials
+            $hasBeadCredentials = BeadCredential::where('user_id', $this->user->id)->exists();
+            if ($hasBeadCredentials) {
+                $bitcoinPaymentUrl = URL::signedRoute('invoice.pay.bitcoin', ['token' => $this->paymentToken]);
+            }
         }
         
         $businessName = $this->user->profile ? $this->user->profile->business_name : $this->user->name;
