@@ -54,6 +54,7 @@ class BeadCredentialController extends Controller
 
         return response()->json([
             'credentials' => [
+                'id' => $credentials->id,
                 'merchant_id' => $credentials->merchant_id,
                 'terminal_id' => $credentials->terminal_id,
                 'username' => $credentials->username,

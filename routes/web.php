@@ -71,6 +71,19 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('/admin/generate-merchant-api-keys/{gateway_id}', [UserProfileController::class, 'generateMerchantApiKeysOnly'])
         ->middleware(['auth', 'admin'])
         ->name('admin.generate-merchant-api-keys');
+
+    // Add route for getting Bead credentials
+    Route::get('/admin/users/{user}/bead-credentials', [BeadCredentialController::class, 'getCredentials'])
+        ->middleware(['auth', 'admin'])
+        ->name('admin.users.bead-credentials');
+
+    // Add route for storing Bead credentials
+    Route::post('/admin/bead-credentials', [BeadCredentialController::class, 'store'])
+        ->name('admin.bead-credentials.store');
+
+    // Add route for updating Bead credentials
+    Route::put('/admin/bead-credentials/{id}', [BeadCredentialController::class, 'update'])
+        ->name('admin.bead-credentials.update');
 });
 
 
@@ -80,7 +93,6 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     // Bead Credentials Routes
-    Route::post('/bead-credentials', [BeadCredentialController::class, 'store'])->name('bead-credentials.store');
     Route::put('/bead-credentials/{id}', [BeadCredentialController::class, 'update'])->name('bead-credentials.update');
 });
 
