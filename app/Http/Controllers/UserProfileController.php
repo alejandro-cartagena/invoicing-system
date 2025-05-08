@@ -17,16 +17,40 @@ class UserProfileController extends Controller
 {
     protected $nmiService;
 
+    /**
+     * Constructor for UserProfileController
+     * 
+     * Injects the NMI service dependency for payment gateway operations.
+     * 
+     * @param NmiService $nmiService The NMI payment gateway service
+     */
     public function __construct(NmiService $nmiService)
     {
         $this->nmiService = $nmiService;
     }
 
+    /**
+     * Display the form for creating a new user
+     * 
+     * Renders the user creation page for administrators.
+     * 
+     * @return \Inertia\Response Renders the user creation form
+     */
     public function create()
     {
         return Inertia::render('Admin/CreateUser');
     }
 
+    /**
+     * Store a newly created user in the database
+     * 
+     * Validates user input, creates a new user account with profile information,
+     * generates API keys for the payment gateway, and optionally creates
+     * Bead cryptocurrency credentials if requested.
+     * 
+     * @param Request $request Contains user details, profile information, and optional Bead credentials
+     * @return \Illuminate\Http\RedirectResponse Redirects to the user view page on success
+     */
     public function store(Request $request)
     {
         \Log::info('Starting user creation process', ['request_data' => $request->all()]);
@@ -125,9 +149,13 @@ class UserProfileController extends Controller
 
     /**
      * Generate public and private API keys for a merchant
-     *
-     * @param string $gatewayId
-     * @return array
+     * 
+     * Checks for existing API keys first, then creates new keys if needed.
+     * Creates keys sequentially (private key first, then public key) to avoid
+     * race conditions and duplicate key generation.
+     * 
+     * @param string $gatewayId The gateway ID for the merchant
+     * @return array Contains success status, public/private keys, and status message
      */
     public function generateMerchantApiKeys($gatewayId)
     {
@@ -256,6 +284,14 @@ class UserProfileController extends Controller
         }
     }
 
+    /**
+     * Display a listing of all users
+     * 
+     * Retrieves all users with 'user' type, loads their profiles,
+     * and formats the data for display in the admin dashboard.
+     * 
+     * @return \Inertia\Response Renders the users list view
+     */
     public function index()
     {
         $users = User::with('profile')
@@ -278,6 +314,14 @@ class UserProfileController extends Controller
         ]);
     }
 
+    /**
+     * Remove the specified user from the database
+     * 
+     * Deletes a user and their associated profile (via cascade).
+     * 
+     * @param User $user The user to be deleted
+     * @return \Illuminate\Http\RedirectResponse Redirects back with success/error message
+     */
     public function destroy(User $user)
     {
         try {
@@ -292,6 +336,14 @@ class UserProfileController extends Controller
         }
     }
 
+    /**
+     * Display detailed information for a specific user
+     * 
+     * Retrieves user and profile information and formats it for display.
+     * 
+     * @param User $user The user to view
+     * @return \Inertia\Response Renders the user detail view
+     */
     public function view(User $user)
     {
         $userData = [
@@ -312,6 +364,15 @@ class UserProfileController extends Controller
         ]);
     }
 
+    /**
+     * Update the specified user in the database
+     * 
+     * Validates and updates both user and profile information.
+     * 
+     * @param Request $request Contains updated user and profile information
+     * @param User $user The user to be updated
+     * @return \Illuminate\Http\RedirectResponse Redirects to users list with success message
+     */
     public function update(Request $request, User $user)
     {
         $request->validate([
@@ -346,6 +407,14 @@ class UserProfileController extends Controller
             ->with('message', 'User updated successfully');
     }
 
+    /**
+     * Fetch merchant information from the NMI gateway
+     * 
+     * Retrieves merchant details using the gateway ID.
+     * 
+     * @param string $gatewayId The gateway ID to look up
+     * @return \Illuminate\Http\JsonResponse Merchant information or error message
+     */
     public function fetchMerchantInfo($gatewayId)
     {
         try {
@@ -377,8 +446,11 @@ class UserProfileController extends Controller
     /**
      * Generate API keys for a merchant gateway ID and return them
      * 
-     * @param string $gatewayId
-     * @return \Illuminate\Http\JsonResponse
+     * Verifies the merchant exists before attempting to generate keys.
+     * Used as an API endpoint for key generation requests.
+     * 
+     * @param string $gatewayId The gateway ID for the merchant
+     * @return \Illuminate\Http\JsonResponse Generated API keys or error message
      */
     public function generateMerchantApiKeysOnly($gatewayId)
     {
@@ -447,8 +519,11 @@ class UserProfileController extends Controller
     /**
      * Generate API keys for an existing user
      * 
-     * @param User $user
-     * @return \Illuminate\Http\JsonResponse
+     * Checks if the user has a valid merchant ID and doesn't already have keys,
+     * then generates and saves new API keys to the user's profile.
+     * 
+     * @param User $user The user to generate keys for
+     * @return \Illuminate\Http\JsonResponse Generated API keys or error message
      */
     public function generateApiKeys(User $user)
     {
@@ -534,8 +609,10 @@ class UserProfileController extends Controller
     /**
      * Check if a merchant ID already exists in the database
      * 
-     * @param string $merchantId
-     * @return \Illuminate\Http\JsonResponse
+     * Verifies whether a merchant ID is already in use by another user.
+     * 
+     * @param string $merchantId The merchant ID to check
+     * @return \Illuminate\Http\JsonResponse Existence status and message
      */
     public function checkMerchantExists($merchantId)
     {

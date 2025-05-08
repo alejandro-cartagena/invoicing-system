@@ -22,6 +22,15 @@ use App\Models\BeadCredential;
 
 class InvoiceController extends Controller
 {
+    /**
+     * Send an invoice via email to a recipient
+     * 
+     * This method validates the invoice data, creates a PDF, stores the invoice in the database,
+     * and sends an email to the recipient with the invoice attached.
+     * 
+     * @param Request $request Contains invoice data, PDF content, recipient email, and invoice type
+     * @return \Illuminate\Http\JsonResponse Success/failure message and invoice ID
+     */
     public function sendEmail(Request $request)
     {
         try {
@@ -217,9 +226,12 @@ class InvoiceController extends Controller
     }
     
     /**
-     * Display a listing of the invoices.
-     *
-     * @return \Inertia\Response
+     * Display a listing of all invoices for the authenticated user
+     * 
+     * This method retrieves all invoices for the current user, updates statuses for overdue invoices,
+     * and formats dates before returning the data to the view.
+     * 
+     * @return \Inertia\Response Renders the invoices list view with invoice data
      */
     public function index()
     {
@@ -275,6 +287,15 @@ class InvoiceController extends Controller
         ]);
     }
 
+    /**
+     * Display the credit card payment page for an invoice
+     * 
+     * This method finds an invoice by its payment token and renders the credit card payment page
+     * if the invoice is not already paid or closed.
+     * 
+     * @param string $token The unique payment token for the invoice
+     * @return \Inertia\Response Renders the credit card payment page with invoice data
+     */
     public function showCreditCardPayment(string $token)
     {
         $invoice = Invoice::where('payment_token', $token)
@@ -288,6 +309,15 @@ class InvoiceController extends Controller
         ]);
     }
 
+    /**
+     * Display the Bitcoin payment page for an invoice
+     * 
+     * This method finds an invoice by its payment token and renders the Bitcoin payment page
+     * if the invoice is not already paid or closed.
+     * 
+     * @param string $token The unique payment token for the invoice
+     * @return \Inertia\Response Renders the Bitcoin payment page with invoice data
+     */
     public function showBitcoinPayment(string $token)
     {
         $invoice = Invoice::where('payment_token', $token)
@@ -301,10 +331,13 @@ class InvoiceController extends Controller
     }
 
     /**
-     * Process credit card payment using NMI token
+     * Process a credit card payment using NMI payment gateway
      * 
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * This method validates the payment data, sends a payment request to the NMI API,
+     * updates the invoice status if payment is successful, and sends confirmation emails.
+     * 
+     * @param Request $request Contains payment token, invoice ID, amount, and customer details
+     * @return \Illuminate\Http\JsonResponse Payment status and transaction details
      */
     public function processCreditCardPayment(Request $request)
     {
@@ -459,6 +492,16 @@ class InvoiceController extends Controller
         }
     }
 
+    /**
+     * Check the status of a Bead cryptocurrency payment
+     * 
+     * This method validates the tracking ID, finds the associated invoice,
+     * checks the payment status via the Bead API, and updates the invoice status
+     * if the payment has been completed.
+     * 
+     * @param Request $request Contains the tracking ID for the Bead payment
+     * @return \Illuminate\Http\JsonResponse Payment status information and invoice details
+     */
     public function getBeadPaymentStatus(Request $request) {
         try {
             // Validate the request
@@ -510,6 +553,16 @@ class InvoiceController extends Controller
         }
     }
 
+    /**
+     * Create a new cryptocurrency payment for an invoice
+     * 
+     * This method validates the payment request, checks for existing payments,
+     * creates a new payment via the Bead API, and updates the invoice with
+     * the payment tracking information.
+     * 
+     * @param Request $request Contains token, invoice ID, and payment amount
+     * @return \Illuminate\Http\JsonResponse Payment status and URL for the payment gateway
+     */
     public function createCryptoPayment(Request $request)
     {
         try {
@@ -644,6 +697,15 @@ class InvoiceController extends Controller
         }
     }
 
+    /**
+     * Delete an invoice
+     * 
+     * This method verifies that the invoice belongs to the authenticated user
+     * before deleting it from the database.
+     * 
+     * @param Invoice $invoice The invoice to be deleted
+     * @return \Illuminate\Http\RedirectResponse Redirects to the invoices list with success message
+     */
     public function destroy(Invoice $invoice)
     {
         // Check if the invoice belongs to the authenticated user
@@ -657,6 +719,16 @@ class InvoiceController extends Controller
         return redirect()->route('user.invoices')->with('success', 'Invoice deleted successfully');
     }
 
+    /**
+     * Resend an existing invoice to a recipient
+     * 
+     * This method verifies ownership, checks if the invoice can be resent,
+     * validates the request data, and sends the invoice via email to the recipient.
+     * 
+     * @param Invoice $invoice The invoice to resend
+     * @param Request $request Contains PDF content, recipient email, and real estate fields if applicable
+     * @return \Illuminate\Http\JsonResponse Success/failure message
+     */
     public function resend(Invoice $invoice, Request $request)
     {
         // Check if the invoice belongs to the authenticated user
@@ -758,7 +830,15 @@ class InvoiceController extends Controller
     }
 
     /**
-     * Resend an invoice after editing by deleting the old one and creating a new one.
+     * Resend an invoice after editing by creating a new invoice and deleting the old one
+     * 
+     * This method validates the request data, checks if the invoice can be edited,
+     * creates a new invoice with the updated information, sends an email to the recipient,
+     * and deletes the old invoice.
+     * 
+     * @param Request $request Contains invoice data, PDF content, recipient email, and real estate fields if applicable
+     * @param Invoice $invoice The original invoice to be replaced
+     * @return \Illuminate\Http\JsonResponse Success/failure message and new invoice ID
      */
     public function resendAfterEdit(Request $request, Invoice $invoice)
     {
@@ -923,7 +1003,13 @@ class InvoiceController extends Controller
     }
 
     /**
-     * Show the form for editing the specified invoice.
+     * Show the form for editing the specified invoice
+     * 
+     * This method verifies ownership, checks if the invoice can be edited,
+     * and renders the appropriate edit form based on invoice type.
+     * 
+     * @param Invoice $invoice The invoice to be edited
+     * @return \Inertia\Response Renders the edit form with invoice data
      */
     public function edit(Invoice $invoice)
     {
@@ -1226,9 +1312,13 @@ class InvoiceController extends Controller
     /**
      * Update invoice in NMI merchant portal by closing the old invoice and creating a new one
      * 
-     * @param Request $request
-     * @param Invoice $invoice
-     * @return \Illuminate\Http\JsonResponse
+     * This method validates the request, closes the existing invoice in NMI,
+     * creates a new invoice with updated information, updates the database record,
+     * and sends an email to the recipient.
+     * 
+     * @param Request $request Contains invoice data, PDF content, and recipient email
+     * @param Invoice $invoice The invoice to be updated
+     * @return \Illuminate\Http\JsonResponse Success/failure message and updated invoice details
      */
     public function updateInvoiceInNmi(Request $request, Invoice $invoice)
     {
@@ -1499,9 +1589,13 @@ class InvoiceController extends Controller
 
     /**
      * Close an invoice instead of deleting it
-     *
-     * @param Invoice $invoice
-     * @return \Illuminate\Http\JsonResponse
+     * 
+     * This method verifies ownership, checks if the invoice is already closed,
+     * closes the invoice in the NMI system if it has an NMI invoice ID,
+     * and updates the invoice status in the database.
+     * 
+     * @param Invoice $invoice The invoice to be closed
+     * @return \Illuminate\Http\JsonResponse Success/failure message and updated invoice
      */
     public function closeInvoice(Invoice $invoice)
     {
@@ -1634,10 +1728,13 @@ class InvoiceController extends Controller
     }
 
     /**
-     * Show an invoice in read-only mode.
-     *
-     * @param Invoice $invoice
-     * @return \Inertia\Response
+     * Show an invoice in read-only mode
+     * 
+     * This method verifies that the invoice belongs to the authenticated user
+     * before displaying it in a read-only view.
+     * 
+     * @param Invoice $invoice The invoice to be displayed
+     * @return \Inertia\Response Renders the view-only invoice page
      */
     public function show(Invoice $invoice)
     {
@@ -1653,6 +1750,11 @@ class InvoiceController extends Controller
 
     /**
      * Test Bead API Authentication
+     * 
+     * This method attempts to authenticate with the Bead API
+     * and returns the authentication status.
+     * 
+     * @return \Illuminate\Http\JsonResponse Authentication status and token information
      */
     public function testBeadAuth()
     {
@@ -1682,6 +1784,13 @@ class InvoiceController extends Controller
 
     /**
      * Handle Bead payment webhook
+     * 
+     * This method processes incoming webhook notifications from the Bead payment system,
+     * verifies the payment status, updates the invoice if payment is completed,
+     * and sends confirmation emails.
+     * 
+     * @param Request $request Contains tracking ID and payment status information
+     * @return \Illuminate\Http\JsonResponse Payment verification status
      */
     public function handleBeadWebhook(Request $request)
     {
@@ -1757,6 +1866,16 @@ class InvoiceController extends Controller
         }
     }
 
+    /**
+     * Verify the status of a Bead payment
+     * 
+     * This method checks the current status of a payment via the Bead API,
+     * updates the invoice status if payment is completed, and returns
+     * the current payment status.
+     * 
+     * @param Request $request Contains tracking ID and optional status
+     * @return \Illuminate\Http\JsonResponse Payment status and invoice details
+     */
     public function verifyBeadPayment(Request $request)
     {
         try {
@@ -1840,9 +1959,12 @@ class InvoiceController extends Controller
 
     /**
      * Get an invoice by its NMI invoice ID
-     *
-     * @param string $nmiInvoiceId
-     * @return \Illuminate\Http\JsonResponse
+     * 
+     * This method finds an invoice using the NMI invoice ID instead of the primary key,
+     * parses the invoice data if needed, and returns the invoice information.
+     * 
+     * @param string $nmiInvoiceId The NMI invoice ID to search for
+     * @return \Illuminate\Http\JsonResponse Invoice details and parsed invoice data
      */
     public function getByNmiInvoiceId(string $nmiInvoiceId)
     {
@@ -1884,10 +2006,14 @@ class InvoiceController extends Controller
     /**
      * Process invoice data and calculate all necessary values
      * 
-     * @param array $invoiceData
-     * @param string $recipientEmail
-     * @param string $invoiceType
-     * @return array
+     * This method calculates subtotal, tax amount, and total from product lines,
+     * extracts dates, client information, and address details from invoice data,
+     * and adds real estate specific fields for real estate invoices.
+     * 
+     * @param array $invoiceData The raw invoice data containing product lines and other information
+     * @param string $recipientEmail The email address of the invoice recipient
+     * @param string $invoiceType The type of invoice (general or real_estate)
+     * @return array Processed invoice data with calculated values
      */
     private function processInvoiceData(array $invoiceData, string $recipientEmail, string $invoiceType = 'general'): array
     {

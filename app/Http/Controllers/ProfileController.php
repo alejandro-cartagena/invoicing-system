@@ -14,7 +14,13 @@ use Inertia\Response;
 class ProfileController extends Controller
 {
     /**
-     * Display the user's profile form.
+     * Display the user's profile form
+     * 
+     * Renders the profile edit page with information about whether email verification
+     * is required and any status messages from previous operations.
+     * 
+     * @param Request $request The HTTP request containing the authenticated user
+     * @return Response Renders the profile edit page with necessary data
      */
     public function edit(Request $request): Response
     {
@@ -25,7 +31,14 @@ class ProfileController extends Controller
     }
 
     /**
-     * Update the user's profile information.
+     * Update the user's profile information
+     * 
+     * Validates and saves changes to the user's profile data. If the email address
+     * is changed, the email_verified_at timestamp is reset to null, requiring
+     * the user to verify their new email address.
+     * 
+     * @param ProfileUpdateRequest $request Custom form request that handles validation
+     * @return RedirectResponse Redirects back to the profile edit page
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
@@ -41,7 +54,13 @@ class ProfileController extends Controller
     }
 
     /**
-     * Delete the user's account.
+     * Delete the user's account
+     * 
+     * Validates the current password, logs the user out, deletes their account,
+     * invalidates their session, and regenerates the CSRF token for security.
+     * 
+     * @param Request $request The HTTP request containing the authenticated user
+     * @return RedirectResponse Redirects to the home page after account deletion
      */
     public function destroy(Request $request): RedirectResponse
     {

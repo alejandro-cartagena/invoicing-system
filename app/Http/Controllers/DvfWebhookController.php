@@ -12,8 +12,12 @@ class DvfWebhookController extends Controller
     /**
      * Handle incoming webhook from DVF Solutions (NMI)
      *
-     * @param Request $request
-     * @return \Illuminate\Http\Response
+     * Processes incoming webhook notifications from the NMI payment gateway.
+     * Verifies the webhook signature for security, parses the webhook body,
+     * and routes to the appropriate handler based on the transaction type.
+     *
+     * @param Request $request The HTTP request containing webhook data and headers
+     * @return \Illuminate\Http\Response JSON response indicating success or failure
      */
     public function handle(Request $request)
     {
@@ -98,11 +102,14 @@ class DvfWebhookController extends Controller
     /**
      * Verify that the webhook signature is valid
      *
-     * @param string $webhookBody
-     * @param string $signingKey
-     * @param string $nonce
-     * @param string $sig
-     * @return bool
+     * Validates the webhook signature using HMAC SHA-256 to ensure the webhook
+     * was sent by the legitimate payment gateway and hasn't been tampered with.
+     *
+     * @param string $webhookBody The raw webhook request body
+     * @param string $signingKey The secret key used for signature verification
+     * @param string $nonce A unique value included in the signature to prevent replay attacks
+     * @param string $sig The signature to verify
+     * @return bool True if signature is valid, false otherwise
      */
     private function webhookIsVerified($webhookBody, $signingKey, $nonce, $sig)
     {
@@ -112,8 +119,12 @@ class DvfWebhookController extends Controller
     /**
      * Handle a transaction.sale webhook
      *
-     * @param array $webhook
-     * @return \Illuminate\Http\Response
+     * Processes successful payment notifications, updates the corresponding invoice
+     * to paid status, and records the transaction ID. For failed transactions,
+     * logs the failure details without changing the invoice status.
+     *
+     * @param array $webhook The parsed webhook data containing transaction details
+     * @return \Illuminate\Http\Response JSON response indicating processing result
      */
     private function handleTransactionSale($webhook)
     {
@@ -184,8 +195,11 @@ class DvfWebhookController extends Controller
     /**
      * Handle a transaction.refund webhook
      *
-     * @param array $webhook
-     * @return \Illuminate\Http\Response
+     * Processes refund notifications by locating the original transaction
+     * using the transaction ID and updating the invoice status to refunded.
+     *
+     * @param array $webhook The parsed webhook data containing refund details
+     * @return \Illuminate\Http\Response JSON response indicating processing result
      */
     private function handleTransactionRefund($webhook)
     {
@@ -228,8 +242,12 @@ class DvfWebhookController extends Controller
     /**
      * Handle a transaction.void webhook
      *
-     * @param array $webhook
-     * @return \Illuminate\Http\Response
+     * Processes void notifications by locating the original transaction
+     * using the transaction ID and updating the invoice status to voided.
+     * Voided transactions are those that were canceled before settlement.
+     *
+     * @param array $webhook The parsed webhook data containing void details
+     * @return \Illuminate\Http\Response JSON response indicating processing result
      */
     private function handleTransactionVoid($webhook)
     {

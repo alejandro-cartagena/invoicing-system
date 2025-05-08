@@ -10,6 +10,16 @@ use Illuminate\Support\Facades\Validator;
 
 class BeadCredentialController extends Controller
 {
+    /**
+     * Store new Bead cryptocurrency payment credentials
+     * 
+     * Validates and stores new Bead credentials for a user, including merchant ID,
+     * terminal ID, username, password, and onboarding status. The password is
+     * automatically encrypted via a model mutator before storage.
+     * 
+     * @param Request $request Contains user ID and Bead credential details
+     * @return \Illuminate\Http\JsonResponse Created credentials or validation errors
+     */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -44,6 +54,15 @@ class BeadCredentialController extends Controller
         ], 201);
     }
 
+    /**
+     * Retrieve Bead credentials for a specific user
+     * 
+     * Fetches the Bead cryptocurrency payment credentials for the specified user.
+     * The password is automatically decrypted via a model accessor when retrieved.
+     * 
+     * @param int $userId The ID of the user whose credentials to retrieve
+     * @return \Illuminate\Http\JsonResponse Credentials or not found message
+     */
     public function getCredentials($userId)
     {
         $credentials = BeadCredential::where('user_id', $userId)->first();
@@ -66,6 +85,17 @@ class BeadCredentialController extends Controller
         ]);
     }
 
+    /**
+     * Update existing Bead credentials
+     * 
+     * Validates and updates Bead cryptocurrency payment credentials for a specific record.
+     * The password is handled separately to ensure proper encryption via the model mutator.
+     * Other fields are updated using mass assignment.
+     * 
+     * @param Request $request Contains fields to update
+     * @param int $id The ID of the credential record to update
+     * @return \Illuminate\Http\JsonResponse Updated credentials or validation errors
+     */
     public function update(Request $request, $id)
     {
         $validator = Validator::make($request->all(), [
