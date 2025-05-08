@@ -142,7 +142,7 @@ class BeadPaymentService
 
             $requestedAmount = floatval($amount);
             
-            $redirectUrl = env('APP_URL');
+            $redirectUrl = config('app.url');
             
             // Use merchant_id from credentials
             $payload = [
