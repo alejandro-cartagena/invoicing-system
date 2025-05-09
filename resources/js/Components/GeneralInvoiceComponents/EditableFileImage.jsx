@@ -72,7 +72,6 @@ const EditableFileImage = ({
           
           // Compress the image
           const compressedFile = await imageCompression(file, options)
-          console.log(`Compressed from ${(file.size / (1024 * 1024)).toFixed(2)}MB to ${(compressedFile.size / (1024 * 1024)).toFixed(2)}MB`)
           
           // If still too large after compression
           if (compressedFile.size > MAX_IMAGE_SIZE_BYTES) {

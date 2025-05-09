@@ -133,10 +133,6 @@ const Invoices = ({ invoices: initialInvoices }) => {
             confirmButtonText: 'Yes, close it!'
         }).then((result) => {
             if (result.isConfirmed) {
-                // Log the NMI invoice ID if available
-                if (nmiInvoiceId) {
-                    console.log(`Closing invoice with NMI ID: ${nmiInvoiceId}`);
-                }
                 
                 axios.post(route('user.invoice.close', invoiceId))
                     .then(response => {

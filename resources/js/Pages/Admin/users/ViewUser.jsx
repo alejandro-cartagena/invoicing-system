@@ -54,13 +54,11 @@ export default function EditUser({ user }) {
         setLoadingBeadCredentials(true);
         try {
             const response = await axios.get(route('admin.users.bead-credentials', { user: user.id }));
-            console.log('Bead credentials response:', response.data); // Debug log
             setBeadCredentials(response.data.credentials);
             setBeadCredentialsError('');
         } catch (error) {
             // Only set error for actual errors, not for 404 (no credentials)
             if (error.response?.status !== 404) {
-                console.error('Error fetching Bead credentials:', error);
                 setBeadCredentialsError('Failed to fetch Bead credentials');
             }
             setBeadCredentials(null);
@@ -104,22 +102,17 @@ export default function EditUser({ user }) {
     const generateApiKeys = async () => {
         setGeneratingKeys(true);
         setApiKeyError('');
-        console.log('Starting API key generation process');
 
         try {
             // Use the merchant_id as the gateway_id
             const gatewayId = data.merchant_id;
-            console.log('Using gateway ID:', gatewayId);
             
             // Generate keys using the dedicated endpoint that checks for existing keys
             // and only creates new ones if necessary
             try {
-                console.log('Calling primary endpoint: admin.users.generate-api-keys');
                 const userKeysResponse = await axios.post(route('admin.users.generate-api-keys', { user: user.id }));
-                console.log('Response from primary endpoint:', userKeysResponse.data);
                 
                 if (userKeysResponse.data && userKeysResponse.data.success) {
-                    console.log('Successfully obtained keys from primary endpoint');
                     // Keys were either retrieved or generated - update UI
                     setApiKeys({
                         publicKey: userKeysResponse.data.public_key,
@@ -137,16 +130,12 @@ export default function EditUser({ user }) {
                     return;
                 }
             } catch (userKeysError) {
-                console.error('Error from admin.users.generate-api-keys endpoint:', userKeysError);
-                
                 // If keys already exist, update UI accordingly
                 if (userKeysError.response?.data?.error === 'API keys already exist for this user') {
-                    console.log('Keys already exist for this user');
                     setHasExistingKeys(true);
                     
                     // If keys were returned in the error response, show them
                     if (userKeysError.response.data.public_key && userKeysError.response.data.private_key) {
-                        console.log('Using existing keys returned in the response');
                         setApiKeys({
                             publicKey: userKeysError.response.data.public_key,
                             privateKey: userKeysError.response.data.private_key
@@ -159,22 +148,14 @@ export default function EditUser({ user }) {
                 setApiKeyError(userKeysError.response?.data?.error || 'Failed to generate API keys');
             }
             
-            // Only reach this point if the primary method failed for a reason other than "keys already exist"
-            console.log('Primary endpoint failed, trying fallback method');
-            
             // Fallback method: Generate keys via the merchant keys endpoint
-            console.log('Calling fallback endpoint: admin.generate-merchant-api-keys');
             const response = await axios.post(route('admin.generate-merchant-api-keys', { 
                 gateway_id: gatewayId 
             }));
-
-            console.log('Response from fallback endpoint:', response.data);
             
             if (response.data.success) {
                 const publicKey = response.data.public_key || '';
                 const privateKey = response.data.private_key || '';
-                
-                console.log('Keys obtained from fallback endpoint, updating form data');
                 
                 // Update the form data with the new keys
                 setData({
@@ -184,11 +165,9 @@ export default function EditUser({ user }) {
                 });
                 
                 // Save the updated user data to the database
-                console.log('Saving keys to database');
                 patch(route('admin.users.update', user.id), {
                     preserveScroll: true,
                     onSuccess: () => {
-                        console.log('Successfully saved keys to database');
                         // Set the keys in the state for display
                         setApiKeys({
                             publicKey: publicKey,
@@ -199,12 +178,9 @@ export default function EditUser({ user }) {
                 });
                 
             } else {
-                console.error('Fallback endpoint failed:', response.data.message);
                 setApiKeyError(response.data.message || 'Failed to generate API keys');
             }
         } catch (error) {
-            console.error('Error generating API keys:', error);
-            console.error('Error response:', error.response?.data);
             setApiKeyError(
                 error.response?.data?.message || error.response?.data?.error || 
                 'An error occurred while generating API keys'
@@ -220,7 +196,6 @@ export default function EditUser({ user }) {
         
         try {
             if (isEditingBead) {
-                console.log('Updating credentials with ID:', beadCredentials.id); // Debug log
                 // Update existing credentials
                 const response = await axios.put(route('admin.bead-credentials.update', { id: beadCredentials.id }), {
                     merchant_id: beadData.merchant_id,
@@ -257,7 +232,6 @@ export default function EditUser({ user }) {
                 }
             }
         } catch (error) {
-            console.error('Error saving Bead credentials:', error);
             if (error.response?.data?.errors) {
                 // Handle validation errors
                 Object.keys(error.response.data.errors).forEach(key => {
@@ -270,7 +244,6 @@ export default function EditUser({ user }) {
     };
 
     const handleEditBead = () => {
-        console.log('Edit button clicked, current credentials:', beadCredentials); // Debug log
         clearBeadErrors(); // Clear any previous errors
         // Pre-fill the form with existing credentials
         setBeadData({

@@ -43,32 +43,14 @@ export default function Create() {
             setMerchantFetchError('Please fetch a valid merchant before creating a user.');
             return;
         }
-
-        // Log the data being submitted
-        console.log('Submitting form data:', data);
         
         // Ensure the gateway_id and merchant_id match before submission
         const formData = {
             ...data,
             merchant_id: data.gateway_id, // Enforce merchant_id to be the same as gateway_id
         };
-
-        // Log the final form data
-        console.log('Final form data being submitted:', formData);
         
-        post(route('admin.users.store'), formData, {
-            onSuccess: (response) => {
-                console.log('Success response:', response);
-                // You can add any success handling here
-            },
-            onError: (errors) => {
-                console.log('Submission errors:', errors);
-                // You can add any error handling here
-            },
-            onFinish: () => {
-                console.log('Form submission finished');
-            }
-        });
+        post(route('admin.users.store'), formData);
     };
     
     // Function to fetch merchant information
@@ -97,7 +79,6 @@ export default function Create() {
                         return;
                     }
                 } catch (error) {
-                    console.error('Error checking existing merchant:', error);
                     // Continue with merchant data fetch even if check fails
                 }
                 
@@ -122,7 +103,6 @@ export default function Create() {
                 setMerchantFetchError(response.data.message || 'Could not fetch merchant information');
             }
         } catch (error) {
-            console.error('Error fetching merchant:', error);
             setMerchantFetchError(
                 error.response?.data?.message || 
                 'Failed to fetch merchant information. Please check the Gateway ID and try again.'

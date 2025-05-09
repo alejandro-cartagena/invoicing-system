@@ -76,14 +76,11 @@ const RealEstateInvoice = () => {
             // Convert to base64
             const base64data = await convertBlobToBase64(pdfBlob);
 
-            console.log("invoiceData", invoiceData);
-
             // Determine which endpoint to use based on whether we're editing or creating
             let endpoint, responseData;
             
             if (isEditing && invoiceId) {
                 // Use replace endpoint when editing
-                console.log('Updating real estate invoice in NMI merchant portal');
                 const response = await axios.post(route('invoice.replace', invoiceId), {
                     invoiceData: invoiceData,
                     recipientEmail: recipientEmail,
@@ -98,7 +95,6 @@ const RealEstateInvoice = () => {
                 responseData = response.data;
             } else {
                 // Use send-to-nmi endpoint for new invoices
-                console.log('Sending new real estate invoice to NMI merchant portal');
                 const response = await axios.post(route('invoice.send-invoice'), {
                     invoiceData: invoiceData,
                     recipientEmail: recipientEmail,
@@ -112,8 +108,6 @@ const RealEstateInvoice = () => {
                 });
                 responseData = response.data;
             }
-            
-            console.log('Response from NMI:', responseData);
 
             if (responseData.success) {
                 let successMessage = isEditing 
@@ -130,9 +124,6 @@ const RealEstateInvoice = () => {
                 throw new Error(responseData.message || 'Failed to send invoice');
             }
         } catch (error) {
-            console.error('Full error object:', error);
-            console.error('Error response data:', error.response?.data);
-            
             let errorMessage = 'Failed to send invoice';
             
             // Check for specific error types
@@ -145,10 +136,6 @@ const RealEstateInvoice = () => {
                     errorMessage = 'The invoice contains images that are too large. Please reduce image sizes and try again.';
                 } else {
                     errorMessage = error.response.data.message;
-                }
-                
-                if (error.response.data.debug_info) {
-                    console.error('Debug info:', error.response.data.debug_info);
                 }
             }
             

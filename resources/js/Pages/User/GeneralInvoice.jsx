@@ -68,7 +68,6 @@ const GeneralInvoice = () => {
             setSending(true);
             
             // Generate PDF
-            console.log('Generating PDF for invoice');
             const pdfBlob = await generatePDF(invoiceData);
             
             // Check PDF size
@@ -79,15 +78,11 @@ const GeneralInvoice = () => {
             // Convert to base64
             const base64data = await convertBlobToBase64(pdfBlob);
             
-            console.log('Generated PDF for invoice');
-            console.log("invoiceData", invoiceData);
-            
             // Determine which endpoint to use based on whether we're editing or creating
             let response;
             
             if (isEditing && invoiceId) {
                 // Use replace endpoint when editing
-                console.log('Updating invoice in NMI merchant portal');
                 response = await axios.post(route('invoice.replace', invoiceId), {
                     invoiceData: invoiceData,
                     recipientEmail: recipientEmail,
@@ -96,7 +91,6 @@ const GeneralInvoice = () => {
                 });
             } else {
                 // Use send-to-nmi endpoint for new invoices
-                console.log('Sending new invoice to NMI merchant portal');
                 response = await axios.post(route('invoice.send-invoice'), {
                     invoiceData: invoiceData,
                     recipientEmail: recipientEmail,
@@ -104,8 +98,6 @@ const GeneralInvoice = () => {
                     invoiceType: 'general'
                 });
             }
-            
-            console.log('Response from NMI:', response.data);
             
             if (response.data.success) {
                 let successMessage = isEditing 
@@ -121,8 +113,6 @@ const GeneralInvoice = () => {
                 toast.error(response.data.message || 'Failed to send invoice');
             }
         } catch (error) {
-            console.error('Error sending invoice:', error);
-            
             let errorMessage = 'Failed to process invoice';
             
             // Check for specific error types
@@ -135,14 +125,6 @@ const GeneralInvoice = () => {
                     errorMessage = 'The invoice contains images that are too large. Please reduce image sizes and try again.';
                 } else {
                     errorMessage = error.response.data.message;
-                }
-                
-                if (error.response.data.debug_info) {
-                    console.error('Debug info:', error.response.data.debug_info);
-                }
-
-                if (error.response.data.nmi_response) {
-                    console.error('NMI response:', error.response.data.nmi_response);
                 }
             } else if (error.message) {
                 errorMessage = error.message;

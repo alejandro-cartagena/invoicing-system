@@ -19,8 +19,6 @@ const Download = ({ data, setData }) => {
     saveTemplate(data)
   }
 
-  // console.log("Data:", data);
-
   return (
     <>
       {/* Mobile-only buttons */}
