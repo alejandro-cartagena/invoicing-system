@@ -5,6 +5,50 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * Invoice Model
+ * 
+ * This model represents an invoice in the system and handles the complete invoice lifecycle:
+ * - Creation and management of invoices (both general and real estate)
+ * - Integration with NMI payment gateway for credit card processing
+ * - Integration with Bead for cryptocurrency payments
+ * - Invoice status tracking (sent, paid, closed, overdue)
+ * - Payment token generation and validation
+ * 
+ * Key Features:
+ * - Supports multiple payment methods (credit card via NMI, cryptocurrency via Bead)
+ * - Handles both general and real estate invoice types
+ * - Tracks payment status and transaction details
+ * - Manages invoice lifecycle from creation to payment
+ * 
+ * Relationships:
+ * - Belongs to a User (merchant)
+ * - Has payment processing details through NMI and Bead
+ * 
+ * @property int $id
+ * @property int $user_id
+ * @property string $client_email
+ * @property float $total
+ * @property float $subtotal
+ * @property float $tax_rate
+ * @property float $tax_amount
+ * @property string $status
+ * @property string $payment_token
+ * @property string|null $nmi_invoice_id
+ * @property string|null $bead_payment_id
+ * @property string|null $bead_payment_url
+ * @property string $invoice_type
+ * @property array $invoice_data
+ * @property \Carbon\Carbon $invoice_date
+ * @property \Carbon\Carbon $due_date
+ * @property \Carbon\Carbon|null $payment_date
+ * @property \Carbon\Carbon $created_at
+ * @property \Carbon\Carbon $updated_at
+ * 
+ * @property-read User $user
+ * @property-read UserProfile $userProfile
+ */
+
 class Invoice extends Model
 {
     use HasFactory;

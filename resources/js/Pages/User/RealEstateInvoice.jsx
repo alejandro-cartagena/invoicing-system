@@ -82,9 +82,9 @@ const RealEstateInvoice = () => {
             let endpoint, responseData;
             
             if (isEditing && invoiceId) {
-                // Use update-in-nmi endpoint when editing
+                // Use replace endpoint when editing
                 console.log('Updating real estate invoice in NMI merchant portal');
-                const response = await axios.post(route('invoice.update-in-nmi', invoiceId), {
+                const response = await axios.post(route('invoice.replace', invoiceId), {
                     invoiceData: invoiceData,
                     recipientEmail: recipientEmail,
                     pdfBase64: base64data,
@@ -99,7 +99,7 @@ const RealEstateInvoice = () => {
             } else {
                 // Use send-to-nmi endpoint for new invoices
                 console.log('Sending new real estate invoice to NMI merchant portal');
-                const response = await axios.post(route('invoice.send-to-nmi'), {
+                const response = await axios.post(route('invoice.send-invoice'), {
                     invoiceData: invoiceData,
                     recipientEmail: recipientEmail,
                     pdfBase64: base64data,

@@ -22,7 +22,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 // Add this route for verifying Bead payment status
-Route::post('/verify-payment', [InvoiceController::class, 'verifyBeadPayment']);
+Route::post('/bead/verify-payment', [InvoiceController::class, 'verifyBeadPayment']);
 
 // Webhook routes - no CSRF protection by default in API routes
 Route::post('/dvf/webhook', [DvfWebhookController::class, 'handle']);

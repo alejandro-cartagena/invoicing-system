@@ -11,6 +11,18 @@ use App\Http\Controllers\PaymentNotificationController;
 use App\Http\Controllers\DvfWebhookController;
 use App\Http\Controllers\BeadCredentialController;
 
+/*
+|--------------------------------------------------------------------------
+| Public and Authenticated User Routes
+|--------------------------------------------------------------------------
+|
+| These routes handle the main application flow:
+| - Guest users are directed to the login page at the root URL
+| - Admin users can access their dashboard at /admin/dashboard 
+| - Authenticated users can access their dashboard and invoice creation pages
+| All routes use Inertia.js for rendering the frontend components
+*/
+
 Route::get('/', function () {
     return Inertia::render('Auth/Login', [
         'canResetPassword' => Route::has('password.request'),
@@ -87,126 +99,169 @@ Route::middleware(['auth', 'admin'])->group(function () {
 });
 
 
+/*
+|--------------------------------------------------------------------------
+| Authentication and Profile Routes
+|--------------------------------------------------------------------------
+|
+| These routes handle user profile management and authentication:
+| - Authenticated users can edit, update and delete their profiles
+| - Users can manage their Bead payment credentials
+| All routes require authentication via the auth middleware
+*/
+
 Route::middleware(['auth'])->group(function () {
+    // Profile Management
     Route::get('profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-    // Bead Credentials Routes
+    // Bead Credentials Management
     Route::put('/bead-credentials/{id}', [BeadCredentialController::class, 'update'])->name('bead-credentials.update');
 });
 
-// Send general invoice email
-Route::post('/invoice/send-email', [InvoiceController::class, 'sendEmail'])
-    ->middleware(['auth'])
-    ->name('user.invoice.send-email');
 
-// Route for sending invoice to NMI merchant portal
-Route::post('/invoice/send-to-nmi', [InvoiceController::class, 'sendInvoiceToNmi'])
-    ->middleware(['auth', 'verified'])
-    ->name('invoice.send-to-nmi');
+/*
+|--------------------------------------------------------------------------
+| Invoice Management Routes
+|--------------------------------------------------------------------------
+|
+| These routes handle invoice operations for authenticated users:
+| - Viewing and downloading invoices
+| - Creating and sending new invoices
+| - Editing existing invoices
+| - Invoice actions like closing and resending
+| All routes require authentication via the auth middleware
+*/
 
-// Payment routes (these will be accessed via email links)
-Route::get('/invoice/pay/{token}/credit-card', [InvoiceController::class, 'showCreditCardPayment'])
-    ->name('invoice.pay.credit-card');
+Route::middleware(['auth'])->group(function () {
+    // Invoice Listing and Viewing
+    Route::get('/invoices', [InvoiceController::class, 'index'])->name('user.invoices');
+    Route::get('/invoice/view/{invoice}', [InvoiceController::class, 'show'])->name('user.invoice.view');
+    Route::get('/invoice/download/{invoice}', [InvoiceController::class, 'download'])->name('user.invoice.download');
+
+    // Invoice Creation and Sending
+    Route::post('/invoice/send-invoice', [InvoiceController::class, 'sendInvoice'])
+        ->middleware(['verified'])
+        ->name('invoice.send-invoice');
+
+    // Invoice Editing
+    Route::get('/general-invoice/edit/{invoice}', [InvoiceController::class, 'edit'])->name('user.general-invoice.edit');
+    Route::get('/real-estate-invoice/edit/{invoice}', [InvoiceController::class, 'edit'])->name('user.real-estate-invoice.edit');
+    Route::post('/invoice/{invoice}/resend-after-edit', [InvoiceController::class, 'resendAfterEdit'])->name('user.invoice.resend-after-edit');
+    Route::post('/invoice/{invoice}/replace', [InvoiceController::class, 'replaceInvoice'])
+        ->middleware(['verified'])
+        ->name('invoice.replace');
+
+    // Invoice Actions
+    Route::delete('/invoice/{invoice}', [InvoiceController::class, 'destroy'])->name('user.invoice.destroy');
+    Route::post('/invoice/{invoice}/resend', [InvoiceController::class, 'resendInvoice'])->name('user.invoice.resend');
+    Route::post('/invoice/{invoice}/close', [InvoiceController::class, 'closeInvoice'])->name('user.invoice.close');
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Payment Processing Routes
+|--------------------------------------------------------------------------
+|
+| These routes handle payment processing for authenticated users:
+| - Creating crypto and credit card payments
+| - Verifying payment status
+| All routes require authentication via the auth middleware
+*/
+
+Route::middleware(['auth'])->group(function () {
+    // Payment Creation
+    Route::post('/invoice/create-crypto-payment', [InvoiceController::class, 'createCryptoPayment'])->name('invoice.create.crypto-payment');
+    Route::post('/invoice/process-credit-card', [InvoiceController::class, 'processCreditCardPayment'])->name('invoice.process.credit-card');
     
-Route::get('/invoice/pay/{token}/bitcoin', [InvoiceController::class, 'showBitcoinPayment'])
-    ->name('invoice.pay.bitcoin');
+    // Payment Status Verification
+    Route::get('/verify-bead-payment-status', [InvoiceController::class, 'getBeadPaymentStatus'])->name('verify.bead.payment.status');
+});
 
-// Payment processing routes
-Route::post('/invoice/process-credit-card', [InvoiceController::class, 'processCreditCardPayment'])
-    ->name('invoice.process.credit-card');
-    
-Route::post('/invoice/create-crypto-payment', [InvoiceController::class, 'createCryptoPayment'])
-    ->name('invoice.create.crypto-payment');
 
-Route::get('/verify-bead-payment-status', [InvoiceController::class, 'getBeadPaymentStatus'])
-    ->name('verify.bead.payment.status');
+/*
+|--------------------------------------------------------------------------
+| Public Payment Routes
+|--------------------------------------------------------------------------
+|
+| These routes handle payment processing for invoice recipients:
+| - Credit card payments via NMI gateway
+| - Bitcoin payments via Bead integration
+| Routes are accessed via secure tokens sent in invoice emails
+*/
 
-// Invoice listing page
-Route::get('/invoices', [InvoiceController::class, 'index'])
-    ->middleware(['auth'])
-    ->name('user.invoices');
+Route::get('/invoice/pay/{token}/credit-card', [InvoiceController::class, 'showCreditCardPayment'])->name('invoice.pay.credit-card');
+Route::get('/invoice/pay/{token}/bitcoin', [InvoiceController::class, 'showBitcoinPayment'])->name('invoice.pay.bitcoin');
 
-// Add these routes for invoice actions
-Route::delete('/invoice/{invoice}', [InvoiceController::class, 'destroy'])
-    ->middleware(['auth'])
-    ->name('user.invoice.destroy');
 
-Route::post('/invoice/{invoice}/resend', [InvoiceController::class, 'resend'])
-    ->middleware(['auth'])
-    ->name('user.invoice.resend');
 
-Route::get('/invoice/download/{invoice}', [InvoiceController::class, 'download'])
-    ->middleware(['auth'])
-    ->name('user.invoice.download');
+/*
+|--------------------------------------------------------------------------
+| Payment Success and Notification Routes
+|--------------------------------------------------------------------------
+|
+| These routes handle payment success pages and notifications:
+| - Payment success page for completed transactions
+| - Payment notification handling
+| - DVF webhook processing
+| Routes are accessed after payment completion or by payment providers
+*/
 
-// Add this new route for resending after edit
-Route::post('/invoice/{invoice}/resend-after-edit', [InvoiceController::class, 'resendAfterEdit'])
-    ->middleware(['auth'])
-    ->name('user.invoice.resend-after-edit');
-
-// Add this route for editing a general invoice
-Route::get('/general-invoice/edit/{invoice}', [InvoiceController::class, 'edit'])
-    ->middleware(['auth'])
-    ->name('user.general-invoice.edit');
-
-// Add this route for editing a real estate invoice
-Route::get('/real-estate-invoice/edit/{invoice}', [InvoiceController::class, 'edit'])
-    ->middleware(['auth'])
-    ->name('user.real-estate-invoice.edit');
-
-// Add this route for updating an invoice in NMI
-Route::post('/invoice/{invoice}/update-in-nmi', [InvoiceController::class, 'updateInvoiceInNmi'])
-    ->middleware(['auth', 'verified'])
-    ->name('invoice.update-in-nmi');
-
-// Add this route for closing invoices
-Route::post('/invoice/{invoice}/close', [InvoiceController::class, 'closeInvoice'])
-    ->middleware(['auth'])
-    ->name('user.invoice.close');
-
-// Add this route for viewing invoice details
-Route::get('/invoice/view/{invoice}', [InvoiceController::class, 'show'])
-    ->middleware(['auth'])
-    ->name('user.invoice.view');
-
-// Add this route for testing Bead API authentication
-Route::get('/test-bead-auth', [InvoiceController::class, 'testBeadAuth'])
-    ->middleware(['auth'])
-    ->name('test.bead.auth');
-
-// Add this route for testing Bead API
-Route::get('/test-bead-api-status', function () {
-    try {
-        $beadService = new App\Services\BeadPaymentService();
-        $token = $beadService->getAccessToken();
-        
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Successfully authenticated with Bead API',
-            'token_length' => strlen($token),
-            'terminal_id' => $beadService->getTerminalId()
-        ]);
-    } catch (\Exception $e) {
-        return response()->json([
-            'status' => 'error',
-            'message' => $e->getMessage()
-        ], 500);
-    }
-})->name('test.bead.api');
-
-// Add this route for Bead payment success
+// Payment success page
 Route::get('/payment-success', function () {
     return Inertia::render('Payment/PaymentSuccess');
 })->name('payment.success');
 
+// Payment notification handling
 Route::post('/payment-notification', [PaymentNotificationController::class, 'store'])
     ->name('payment.notification');
+
+// DVF webhook processing
+Route::post('/dvf/webhook', [DvfWebhookController::class, 'handle'])
+    ->name('dvf.webhook');
 
 // Add this route for getting invoice by NMI invoice ID
 Route::get('/invoice/nmi/{nmiInvoiceId}', [InvoiceController::class, 'getByNmiInvoiceId'])
     ->name('user.invoice.get-by-nmi-id');
     
+
+/*
+|--------------------------------------------------------------------------
+| Testing Routes
+|--------------------------------------------------------------------------
+|
+| These routes are used for testing Bead API integration:
+| - Testing authentication with Bead API
+| - Checking API status and connectivity
+| Routes require authentication via auth middleware
+*/
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/test-bead-auth', [InvoiceController::class, 'testBeadAuth'])
+        ->name('test.bead.auth');
+
+    Route::get('/test-bead-api-status', function () {
+        try {
+            $beadService = new App\Services\BeadPaymentService();
+            $token = $beadService->getAccessToken();
+            
+            return response()->json([
+                'status' => 'success', 
+                'message' => 'Successfully authenticated with Bead API',
+                'token_length' => strlen($token),
+                'terminal_id' => $beadService->getTerminalId()
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    })->name('test.bead.api');
+});
+
+
 require __DIR__.'/auth.php';
 

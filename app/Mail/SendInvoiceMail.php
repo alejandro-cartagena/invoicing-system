@@ -29,7 +29,14 @@ class SendInvoiceMail extends Mailable
     public $invoiceType;
 
     /**
-     * Create a new message instance.
+     * Create a new invoice email instance.
+     * 
+     * @param array $invoiceData The invoice data including product lines, tax rate, etc.
+     * @param User $user The merchant/user sending the invoice
+     * @param string $pdfContent The generated PDF content of the invoice
+     * @param string $paymentToken Unique token for secure payment URL generation
+     * @param bool $isUpdate Whether this is an updated invoice (default: false)
+     * @param string $invoiceType Type of invoice ('general' or 'real_estate', default: 'general')
      */
     public function __construct($invoiceData, User $user, $pdfContent, $paymentToken, $isUpdate = false, $invoiceType = 'general')
     {
@@ -42,7 +49,14 @@ class SendInvoiceMail extends Mailable
     }
 
     /**
-     * Get the message envelope.
+     * Configure the email envelope (sender, subject, reply-to).
+     * 
+     * Sets up the email metadata including:
+     * - From address (system email)
+     * - Subject line (includes business name and update status)
+     * - Reply-to address (merchant's email)
+     * 
+     * @return \Illuminate\Mail\Mailables\Envelope
      */
     public function envelope(): Envelope
     {
@@ -74,7 +88,14 @@ class SendInvoiceMail extends Mailable
     }
 
     /**
-     * Get the message content definition.
+     * Define the email content and view data.
+     * 
+     * Prepares the email content including:
+     * - Generates secure payment URLs for credit card and Bitcoin
+     * - Calculates invoice totals (subtotal, tax, total)
+     * - Passes all necessary data to the email template
+     * 
+     * @return \Illuminate\Mail\Mailables\Content
      */
     public function content(): Content
     {
@@ -126,8 +147,12 @@ class SendInvoiceMail extends Mailable
     }
 
     /**
-     * Get the attachments for the message.
-     *
+     * Define the email attachments.
+     * 
+     * Attaches the invoice PDF with a formatted filename that includes:
+     * - Invoice title (sanitized)
+     * - Current date
+     * 
      * @return array<int, \Illuminate\Mail\Mailables\Attachment>
      */
     public function attachments(): array

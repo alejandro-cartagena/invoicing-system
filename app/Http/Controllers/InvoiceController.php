@@ -22,208 +22,6 @@ use App\Models\BeadCredential;
 
 class InvoiceController extends Controller
 {
-    /**
-     * Send an invoice via email to a recipient
-     * 
-     * This method validates the invoice data, creates a PDF, stores the invoice in the database,
-     * and sends an email to the recipient with the invoice attached.
-     * 
-     * @param Request $request Contains invoice data, PDF content, recipient email, and invoice type
-     * @return \Illuminate\Http\JsonResponse Success/failure message and invoice ID
-     */
-    public function sendEmail(Request $request)
-    {
-        try {
-            $validated = $request->validate([
-                'invoiceData' => 'required|array',
-                'pdfBase64' => 'required|string',
-                'recipientEmail' => 'required|email',
-                'invoiceType' => 'required|in:general,real_estate',
-                // Validate real estate fields if invoice type is real_estate
-                'propertyAddress' => 'required_if:invoiceType,real_estate',
-                'titleNumber' => 'required_if:invoiceType,real_estate',
-                'buyerName' => 'required_if:invoiceType,real_estate',
-                'sellerName' => 'required_if:invoiceType,real_estate',
-                'agentName' => 'required_if:invoiceType,real_estate',
-            ]);
-
-            // Check PDF size before processing
-            $pdfContent = $validated['pdfBase64'];
-            if (strpos($pdfContent, 'data:application/pdf;base64,') === 0) {
-                $pdfContent = substr($pdfContent, 28);
-            }
-            
-            // Calculate approximate size of the PDF
-            $pdfSize = strlen($pdfContent) * 3 / 4; // Base64 to binary size approximation
-            $maxSize = 8 * 1024 * 1024; // 8MB limit
-            
-            if ($pdfSize > $maxSize) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'PDF file is too large. Maximum size is 8MB. Current size is approximately ' . 
-                        round($pdfSize / (1024 * 1024), 2) . 'MB. Try removing large images from your invoice.'
-                ], 413); // 413 Payload Too Large
-            }
-            
-            // Get the authenticated user
-            $user = Auth::user();
-            if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'User not authenticated'
-                ], 401);
-            }
-
-            // Decode the base64 content
-            $decodedPdf = base64_decode($pdfContent);
-            
-            // Verify it's a valid PDF (check for PDF signature)
-            if (substr($decodedPdf, 0, 4) !== '%PDF') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid PDF content'
-                ], 400);
-            }
-
-            // Extract invoice data
-            $invoiceData = $validated['invoiceData'];
-            
-            // If this is a real estate invoice, ensure the real estate fields are included in invoiceData
-            if ($validated['invoiceType'] === 'real_estate') {
-                $invoiceData = array_merge($invoiceData, [
-                    'propertyAddress' => $validated['propertyAddress'],
-                    'titleNumber' => $validated['titleNumber'],
-                    'buyerName' => $validated['buyerName'],
-                    'sellerName' => $validated['sellerName'],
-                    'agentName' => $validated['agentName']
-                ]);
-            }
-            
-            // Calculate values to store in database
-            $subTotal = 0;
-            if (isset($invoiceData['productLines']) && is_array($invoiceData['productLines'])) {
-                foreach ($invoiceData['productLines'] as $line) {
-                    $quantity = floatval($line['quantity'] ?? 0);
-                    $rate = floatval($line['rate'] ?? 0);
-                    $subTotal += $quantity * $rate;
-                }
-            }
-            
-            // Extract tax rate from tax rate field or tax label
-            $taxRate = 0;
-            $taxAmount = 0;
-            
-            // First try to get tax rate directly from taxRate field
-            if (isset($invoiceData['taxRate']) && is_numeric($invoiceData['taxRate'])) {
-                $taxRate = floatval($invoiceData['taxRate']);
-            }
-            // If taxRate is not available, try to extract from taxLabel
-            else if (isset($invoiceData['taxLabel'])) {
-                preg_match('/(\d+)%/', $invoiceData['taxLabel'], $matches);
-                if (isset($matches[1])) {
-                    $taxRate = floatval($matches[1]);
-                }
-            }
-            
-            // Calculate tax amount if we have a valid tax rate
-            if ($taxRate > 0) {
-                $taxAmount = $subTotal * ($taxRate / 100);
-            }
-            
-            $total = $subTotal + $taxAmount;
-            
-            // Add calculated values to invoice data for PDF generation
-            $invoiceData['_calculatedSubTotal'] = $subTotal;
-            $invoiceData['_calculatedTax'] = $taxAmount;
-            $invoiceData['_calculatedTotal'] = $total;
-            $invoiceData['taxRate'] = $taxRate; // Add the actual tax rate
-            
-            // Parse dates
-            $invoiceDate = isset($invoiceData['invoiceDate']) && !empty($invoiceData['invoiceDate']) 
-                ? date('Y-m-d', strtotime($invoiceData['invoiceDate'])) 
-                : date('Y-m-d');
-                
-            $dueDate = isset($invoiceData['invoiceDueDate']) && !empty($invoiceData['invoiceDueDate']) 
-                ? date('Y-m-d', strtotime($invoiceData['invoiceDueDate'])) 
-                : date('Y-m-d', strtotime('+30 days'));
-
-            // Generate a unique payment token
-            $paymentToken = Str::random(64);
-            
-            // Create invoice data array
-            $invoiceCreateData = [
-                'user_id' => $user->id,
-                'invoice_type' => $validated['invoiceType'],
-                'company_name' => $invoiceData['companyName'] ?? 'Client',
-                'client_email' => $validated['recipientEmail'],
-                'subtotal' => $subTotal,
-                'tax_rate' => $taxRate,
-                'tax_amount' => $taxAmount,
-                'total' => $total,
-                'invoice_date' => $invoiceDate,
-                'due_date' => $dueDate,
-                'status' => 'sent',
-                'invoice_data' => $invoiceData,
-                'payment_token' => $paymentToken,
-            ];
-            
-            // Save invoice to database
-            $invoice = Invoice::create($invoiceCreateData);
-
-            // Send the email with the PDF attachment
-            Mail::to($validated['recipientEmail'])
-                ->send(new SendInvoiceMail(
-                    $invoiceData,
-                    $user,
-                    $decodedPdf,
-                    $invoice->payment_token,
-                    false,
-                    $validated['invoiceType']
-                ));
-
-            // Send receipt email to customer
-            Mail::to($invoice->client_email)->send(new PaymentReceiptMail($invoice));
-            // Send merchant notification email
-            Mail::to($invoice->user->email)->send(new MerchantPaymentReceiptMail($invoice));
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Invoice sent successfully',
-                'invoice_id' => $invoice->id
-            ]);
-        } catch (\Exception $e) {
-            // Check for specific database packet size errors
-            if (strpos($e->getMessage(), 'max_allowed_packet') !== false || 
-                strpos($e->getMessage(), 'SQLSTATE[08S01]') !== false) {
-                
-                Log::error('Database packet size exceeded: ' . $e->getMessage(), [
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine()
-                ]);
-                
-                return response()->json([
-                    'success' => false,
-                    'message' => 'The invoice contains images that are too large. Please reduce image sizes and try again. Maximum allowed size is 1MB per image.',
-                    'error_type' => 'file_size_exceeded'
-                ], 413);
-            }
-            
-            Log::error('Failed to send invoice: ' . $e->getMessage(), [
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to send invoice: ' . $e->getMessage(),
-                'debug_info' => [
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine()
-                ]
-            ], 500);
-        }
-    }
     
     /**
      * Display a listing of all invoices for the authenticated user
@@ -287,769 +85,40 @@ class InvoiceController extends Controller
         ]);
     }
 
-    /**
-     * Display the credit card payment page for an invoice
-     * 
-     * This method finds an invoice by its payment token and renders the credit card payment page
-     * if the invoice is not already paid or closed.
-     * 
-     * @param string $token The unique payment token for the invoice
-     * @return \Inertia\Response Renders the credit card payment page with invoice data
-     */
-    public function showCreditCardPayment(string $token)
-    {
-        $invoice = Invoice::where('payment_token', $token)
-            ->whereNotIn('status', ['paid', 'closed'])
-            ->firstOrFail();
-            
-        return Inertia::render('Payment/CreditCard', [
-            'invoice' => $invoice,
-            'token' => $token,
-            'nmi_invoice_id' => $invoice->nmi_invoice_id
-        ]);
-    }
-
-    /**
-     * Display the Bitcoin payment page for an invoice
-     * 
-     * This method finds an invoice by its payment token and renders the Bitcoin payment page
-     * if the invoice is not already paid or closed.
-     * 
-     * @param string $token The unique payment token for the invoice
-     * @return \Inertia\Response Renders the Bitcoin payment page with invoice data
-     */
-    public function showBitcoinPayment(string $token)
-    {
-        $invoice = Invoice::where('payment_token', $token)
-            ->whereNotIn('status', ['paid', 'closed'])
-            ->firstOrFail();
-            
-        return Inertia::render('Payment/Bitcoin', [
-            'invoice' => $invoice,
-            'token' => $token
-        ]);
-    }
-
-    /**
-     * Process a credit card payment using NMI payment gateway
-     * 
-     * This method validates the payment data, sends a payment request to the NMI API,
-     * updates the invoice status if payment is successful, and sends confirmation emails.
-     * 
-     * @param Request $request Contains payment token, invoice ID, amount, and customer details
-     * @return \Illuminate\Http\JsonResponse Payment status and transaction details
-     */
-    public function processCreditCardPayment(Request $request)
-    {
-        try {
-            // Validate the request
-            $validated = $request->validate([
-                'token' => 'required|string',
-                'invoiceId' => 'required|string',
-                'amount' => 'required|numeric',
-                'firstName' => 'required|string',
-                'lastName' => 'required|string',
-                'address' => 'required|string',
-                'city' => 'required|string',
-                'state' => 'required|string',
-                'zip' => 'required|string',
-                'phone' => 'required|string',
-            ]);
-
-            // Get the invoice by NMI invoice ID instead of primary key
-            $invoice = Invoice::where('nmi_invoice_id', $validated['invoiceId'])->firstOrFail();
-            
-            // Get the user's profile for the API key
-            $user = User::findOrFail($invoice->user_id);
-            $userProfile = UserProfile::where('user_id', $user->id)->firstOrFail();
-            
-            if (empty($userProfile->private_key)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No API private key found for this account.'
-                ], 400);
-            }
-
-            // Prepare NMI API request for a sale transaction
-            $saleData = [
-                'security_key' => $userProfile->private_key,
-                'type' => 'sale',
-                'payment_token' => $validated['token'], // The token from Collect.js
-                'amount' => $validated['amount'],
-                'orderid' => $validated['invoiceId'],
-                'first_name' => $validated['firstName'],
-                'last_name' => $validated['lastName'],
-                'address1' => $validated['address'],
-                'city' => $validated['city'],
-                'state' => $validated['state'],
-                'zip' => $validated['zip'],
-                'phone' => $validated['phone'],
-                'currency' => 'USD',
-                'tax' => number_format($invoice->tax_amount, 2, '.', ''),
-                'customer_id' => $invoice->client_email
-            ];
-            
-            // Log the request data (redacting the security key)
-            $logData = $saleData;
-            $logData['security_key'] = '[REDACTED]';
-            \Log::info('Processing credit card payment via NMI', $logData);
-            
-            // Send the request to NMI
-            $ch = curl_init('https://secure.nmi.com/api/transact.php');
-            curl_setopt($ch, CURLOPT_POST, 1);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($saleData));
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                "accept: application/x-www-form-urlencoded",
-                "content-type: application/x-www-form-urlencoded"
-            ]);
-            
-            // SSL verification settings
-            if (app()->environment('local')) {
-                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-            } else {
-                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
-                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-            }
-            
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $curlError = curl_error($ch);
-            
-            curl_close($ch);
-            
-            // Log the response
-            \Log::info('NMI Payment API Response', [
-                'http_code' => $httpCode,
-                'response' => $response,
-                'curl_error' => $curlError
-            ]);
-            
-            // Check for cURL errors
-            if ($curlError) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Error connecting to payment gateway: ' . $curlError
-                ], 500);
-            }
-            
-            // Parse the response
-            parse_str($response, $responseData);
-            
-            // Check if the payment was successful (response code 1 = approved)
-            if (isset($responseData['response']) && $responseData['response'] == 1) {
-                // Update the invoice as paid
-                $invoice->update([
-                    'status' => 'paid',
-                    'payment_date' => now(),
-                    'transaction_id' => $responseData['transactionid'] ?? null,
-                ]);
-                
-                // Send receipt email to customer
-                Mail::to($invoice->client_email)->send(new PaymentReceiptMail($invoice));
-                // Send merchant notification email
-                Mail::to($invoice->user->email)->send(new MerchantPaymentReceiptMail($invoice));
-                
-                // Dispatch payment notification event
-                $notificationData = [
-                    'invoice_id' => $invoice->id,
-                    'nmi_invoice_id' => $invoice->nmi_invoice_id,
-                    'client_email' => $invoice->client_email,
-                    'amount' => $validated['amount'],
-                    'transaction_id' => $responseData['transactionid'] ?? null,
-                    'authorization_code' => $responseData['authcode'] ?? null,
-                    'status' => 'success',
-                    'payment_date' => now()->toDateTimeString(),
-                ];
-                event(new \App\Events\PaymentNotification($notificationData));
-                
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Payment processed successfully',
-                    'transaction_id' => $responseData['transactionid'] ?? null,
-                    'authorization_code' => $responseData['authcode'] ?? null,
-                ]);
-            } else {
-                // Payment failed
-                return response()->json([
-                    'success' => false,
-                    'message' => $responseData['responsetext'] ?? 'Payment processing failed',
-                    'code' => $responseData['response'] ?? null,
-                ]);
-            }
-        } catch (\Exception $e) {
-            \Log::error('Payment processing error: ' . $e->getMessage(), [
-                'exception' => $e,
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred while processing your payment: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Check the status of a Bead cryptocurrency payment
-     * 
-     * This method validates the tracking ID, finds the associated invoice,
-     * checks the payment status via the Bead API, and updates the invoice status
-     * if the payment has been completed.
-     * 
-     * @param Request $request Contains the tracking ID for the Bead payment
-     * @return \Illuminate\Http\JsonResponse Payment status information and invoice details
-     */
-    public function getBeadPaymentStatus(Request $request) {
-        try {
-            // Validate the request
-            $validated = $request->validate([
-                'trackingId' => 'required|string'
-            ]);
-
-            // Find the invoice using the tracking ID (bead_payment_id)
-            $invoice = Invoice::where('bead_payment_id', $validated['trackingId'])->first();
-            
-            if (!$invoice) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invoice not found for this tracking ID'
-                ], 404);
-            }
-
-            // Initialize BeadPaymentService and get status
-            $beadService = new BeadPaymentService();
-            $statusResponse = $beadService->checkPaymentStatus($validated['trackingId']);
-
-            // Update invoice status if payment is completed (status code 2)
-            if (isset($statusResponse['data']['status_code']) && $statusResponse['data']['status_code'] === 2) {
-                $invoice->status = 'paid';
-                $invoice->payment_date = now();
-                $invoice->save();
-            }
-
-            // Return the status information with invoice details
-            return response()->json([
-                'success' => true,
-                'data' => array_merge($statusResponse['data'], [
-                    'invoice_id' => $invoice->id,
-                    'tracking_id' => $validated['trackingId']
-                ])
-            ]);
-
-        } catch (\Exception $e) {
-            \Log::error('Failed to get Bead payment status: ' . $e->getMessage(), [
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to get payment status: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Create a new cryptocurrency payment for an invoice
-     * 
-     * This method validates the payment request, checks for existing payments,
-     * creates a new payment via the Bead API, and updates the invoice with
-     * the payment tracking information.
-     * 
-     * @param Request $request Contains token, invoice ID, and payment amount
-     * @return \Illuminate\Http\JsonResponse Payment status and URL for the payment gateway
-     */
-    public function createCryptoPayment(Request $request)
-    {
-        try {
-            $validated = $request->validate([
-                'token' => 'required|string',
-                'invoiceId' => 'required|integer',
-                'amount' => 'required|numeric|min:0.01',
-            ]);
-
-            // Find the invoice
-            $invoice = Invoice::findOrFail($validated['invoiceId']);
-
-            // Get the user's Bead credentials
-            $beadCredentials = BeadCredential::where('user_id', $invoice->user_id)->first();
-            
-            if (!$beadCredentials) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No Bead credentials found for this user.'
-                ], 400);
-            }
-
-            // Check if the invoice already has a bead_payment_id
-            if ($invoice->bead_payment_id) {
-                $beadService = new BeadPaymentService($beadCredentials);
-                try {
-                    $paymentData = $beadService->checkPaymentStatus($invoice->bead_payment_id);
-                    Log::info('Retrieved existing Bead payment status', [
-                        'invoice_id' => $invoice->id,
-                        'bead_payment_id' => $invoice->bead_payment_id,
-                        'status' => $paymentData
-                    ]);
-
-                    return response()->json([
-                        'success' => true,
-                        'has_existing_payment' => true,
-                        'message' => 'Retrieved existing payment status',
-                        'payment_url' => $invoice->bead_payment_url,
-                        'payment_data' => $paymentData,
-                    ]);
-                } catch (Exception $e) {
-                    Log::error('Failed to check existing payment status', [
-                        'error' => $e->getMessage(),
-                        'bead_payment_id' => $invoice->bead_payment_id
-                    ]);
-                    // Continue with new payment if status check fails
-                }
-            }
-
-            // Check if the invoice is already paid
-            if ($invoice->status === 'paid') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'This invoice has already been paid.'
-                ], 400);
-            }
-
-            $beadService = new BeadPaymentService($beadCredentials);
-            
-            try {
-                Log::info('Creating crypto payment for invoice', [
-                    'nmi_invoice_id' => $invoice->nmi_invoice_id,
-                    'amount' => $validated['amount']
-                ]);
-
-                // Use nmi_invoice_id as the reference
-                $reference = $invoice->nmi_invoice_id;
-                
-                $paymentResponse = $beadService->createCryptoPayment(
-                    $validated['amount'],
-                    'USD',
-                    $reference, // Using nmi_invoice_id as reference
-                    'Invoice payment for ' . $reference
-                );
-
-                // Log the successful response
-                Log::info('Received payment response from Bead', [
-                    'payment_id' => $paymentResponse['trackingId'] ?? null,
-                    'payment_url' => $paymentResponse['paymentUrls'][0]['url'] ?? null,
-                    'reference_used' => $reference
-                ]);
-
-                // Store the Bead payment ID in the invoice
-                $invoice->update([
-                    'bead_payment_id' => $paymentResponse['trackingId'] ?? null,
-                    'payment_method' => 'crypto',
-                    'status' => 'pending', // Update status to pending
-                    'bead_payment_url' => $paymentResponse['paymentUrls'][0]['url'] ?? null
-                ]);
-
-                // Format the response for the frontend
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Crypto payment initiated',
-                    'payment_data' => [
-                        'trackingId' => $paymentResponse['trackingId'] ?? null,
-                        'paymentUrl' => $paymentResponse['paymentUrls'][0]['url'] ?? null
-                    ]
-                ]);
-
-            } catch (Exception $e) {
-                $errorMessage = $e->getMessage();
-                $statusCode = 500;
-                
-                // Check if the error message contains a 403 (Forbidden) reference
-                if (strpos($errorMessage, '403') !== false) {
-                    $errorMessage = "The Bead payment system returned a 403 Forbidden error. This typically means the terminal doesn't have permission to process crypto payments. Please contact support and provide these details: Terminal ID: {$beadService->getTerminalId()}, Invoice Id: {$invoice->nmi_invoice_id}";
-                    $statusCode = 403;
-                }
-                
-                Log::error('Failed to create crypto payment', [
-                    'error' => $errorMessage,
-                    'trace' => $e->getTraceAsString()
-                ]);
-                
-                return response()->json([
-                    'success' => false,
-                    'message' => $errorMessage
-                ], $statusCode);
-            }
-        } catch (\Exception $e) {
-            Log::error('Payment processing error: ' . $e->getMessage(), [
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred while processing your payment: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Delete an invoice
+            /**
+     * Show an invoice in read-only mode
      * 
      * This method verifies that the invoice belongs to the authenticated user
-     * before deleting it from the database.
+     * before displaying it in a read-only view.
      * 
-     * @param Invoice $invoice The invoice to be deleted
-     * @return \Illuminate\Http\RedirectResponse Redirects to the invoices list with success message
+     * @param Invoice $invoice The invoice to be displayed
+     * @return \Inertia\Response Renders the view-only invoice page
      */
-    public function destroy(Invoice $invoice)
+    public function show(Invoice $invoice)
     {
         // Check if the invoice belongs to the authenticated user
         if ($invoice->user_id !== Auth::id()) {
             abort(403, 'Unauthorized action.');
         }
         
-        // Delete the invoice
-        $invoice->delete();
-        
-        return redirect()->route('user.invoices')->with('success', 'Invoice deleted successfully');
-    }
-
-    /**
-     * Resend an existing invoice to a recipient
-     * 
-     * This method verifies ownership, checks if the invoice can be resent,
-     * validates the request data, and sends the invoice via email to the recipient.
-     * 
-     * @param Invoice $invoice The invoice to resend
-     * @param Request $request Contains PDF content, recipient email, and real estate fields if applicable
-     * @return \Illuminate\Http\JsonResponse Success/failure message
-     */
-    public function resend(Invoice $invoice, Request $request)
-    {
-        // Check if the invoice belongs to the authenticated user
-        if ($invoice->user_id !== Auth::id()) {
-            abort(403, 'Unauthorized action.');
-        }
-        
-        // Check if the invoice is paid or closed
-        if ($invoice->status === 'paid' || $invoice->status === 'closed') {
-            return redirect()->route('user.invoices')
-                ->with('error', 'Paid or closed invoices cannot be resent.');
-        }
-
-        // Validate the request
-        $validated = $request->validate([
-            'pdfBase64' => 'required|string',
-            'recipientEmail' => 'required|email',
-            // Add validation for real estate fields if it's a real estate invoice
-            'propertyAddress' => 'required_if:invoiceType,real_estate',
-            'titleNumber' => 'required_if:invoiceType,real_estate',
-            'buyerName' => 'required_if:invoiceType,real_estate',
-            'sellerName' => 'required_if:invoiceType,real_estate',
-            'agentName' => 'required_if:invoiceType,real_estate',
-        ]);
-
-        // Get the authenticated user
-        $user = Auth::user();
-        if (!$user) {
-            return redirect()->route('user.invoices')
-                ->with('error', 'User not authenticated');
-        }
-
-        // Clean the PDF content (remove data:application/pdf;base64, prefix)
-        $pdfContent = $validated['pdfBase64'];
-        if (strpos($pdfContent, 'data:application/pdf;base64,') === 0) {
-            $pdfContent = substr($pdfContent, 28);
-        }
-        
-        // Decode the base64 content
-        $decodedPdf = base64_decode($pdfContent);
-        
-        // Verify it's a valid PDF (check for PDF signature)
-        if (substr($decodedPdf, 0, 4) !== '%PDF') {
-            return redirect()->route('user.invoices')
-                ->with('error', 'Invalid PDF content');
-        }
-
-        // Get the invoice data
-        $invoiceData = $invoice->invoice_data;
-        
-        // If this is a real estate invoice, ensure the fields are included
-        if ($invoice->invoice_type === 'real_estate') {
-            $invoiceData = array_merge($invoiceData, [
-                'propertyAddress' => $validated['propertyAddress'] ?? $invoice->property_address,
-                'titleNumber' => $validated['titleNumber'] ?? $invoice->title_number,
-                'buyerName' => $validated['buyerName'] ?? $invoice->buyer_name,
-                'sellerName' => $validated['sellerName'] ?? $invoice->seller_name,
-                'agentName' => $validated['agentName'] ?? $invoice->agent_name
-            ]);
-        }
-        
-        // Add NMI invoice ID to the invoice data for the email
-        $invoiceData['nmi_invoice_id'] = $invoice->nmi_invoice_id;
-        
-        // Send the email with the decoded PDF content
-        Mail::to($validated['recipientEmail'])
-            ->send(new SendInvoiceMail(
-                $invoiceData,
-                $user,
-                $decodedPdf,
-                $invoice->payment_token,
-                false,
-                $invoice->invoice_type
-            ));
-        
-            return response()->json([
-                'success' => true,
-                'message' => 'Invoice resent successfully'
-            ]);
-    }
-
-    public function download(Invoice $invoice)
-    {
-        // Check if the invoice belongs to the authenticated user
-        if ($invoice->user_id !== Auth::id()) {
-            abort(403, 'Unauthorized action.');
-        }
-
-        // Parse the invoice_data JSON if it's stored as a string
-        $invoiceData = is_string($invoice->invoice_data) 
-            ? json_decode($invoice->invoice_data, true) 
-            : $invoice->invoice_data;
-
-        return response()->json([
-            'success' => true,
-            'invoice' => $invoice,
-            'invoiceData' => $invoiceData
+        return Inertia::render('User/ViewInvoice', [
+            'invoice' => $invoice
         ]);
     }
 
     /**
-     * Resend an invoice after editing by creating a new invoice and deleting the old one
+     * Create and send an invoice to a customer
      * 
-     * This method validates the request data, checks if the invoice can be edited,
-     * creates a new invoice with the updated information, sends an email to the recipient,
-     * and deletes the old invoice.
+     * This method handles the complete invoice creation and sending process:
+     * - Creates the invoice in the NMI merchant portal
+     * - Stores the invoice in the local database
+     * - Sends an email to the recipient with payment options
+     *   (credit card via NMI and cryptocurrency if available)
      * 
-     * @param Request $request Contains invoice data, PDF content, recipient email, and real estate fields if applicable
-     * @param Invoice $invoice The original invoice to be replaced
-     * @return \Illuminate\Http\JsonResponse Success/failure message and new invoice ID
+     * @param Request $request Contains invoice data, recipient email, PDF content, and invoice type
+     * @return \Illuminate\Http\JsonResponse Success/failure response with invoice details
      */
-    public function resendAfterEdit(Request $request, Invoice $invoice)
-    {
-        try {
-            // Check if the invoice is paid or closed
-            if ($invoice->status === 'paid' || $invoice->status === 'closed') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Paid or closed invoices cannot be edited or resent.'
-                ], 403);
-            }
-            
-            $validated = $request->validate([
-                'invoiceData' => 'required|array',
-                'pdfBase64' => 'required|string',
-                'recipientEmail' => 'required|email',
-                // Add validation for real estate fields if it's a real estate invoice
-                'propertyAddress' => 'required_if:invoiceType,real_estate',
-                'titleNumber' => 'required_if:invoiceType,real_estate',
-                'buyerName' => 'required_if:invoiceType,real_estate',
-                'sellerName' => 'required_if:invoiceType,real_estate',
-                'agentName' => 'required_if:invoiceType,real_estate',
-            ]);
-
-            // Get the authenticated user
-            $user = Auth::user();
-            if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'User not authenticated'
-                ], 401);
-            }
-
-            // Clean the PDF content (remove data:application/pdf;base64, prefix)
-            $pdfContent = $validated['pdfBase64'];
-            if (strpos($pdfContent, 'data:application/pdf;base64,') === 0) {
-                $pdfContent = substr($pdfContent, 28);
-            }
-            
-            // Decode the base64 content
-            $decodedPdf = base64_decode($pdfContent);
-            
-            // Verify it's a valid PDF (check for PDF signature)
-            if (substr($decodedPdf, 0, 4) !== '%PDF') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid PDF content'
-                ], 400);
-            }
-
-            // Extract invoice data
-            $invoiceData = $validated['invoiceData'];
-            
-            // If this is a real estate invoice, ensure the real estate fields are included in invoiceData
-            if ($invoice->invoice_type === 'real_estate') {
-                $invoiceData = array_merge($invoiceData, [
-                    'propertyAddress' => $validated['propertyAddress'],
-                    'titleNumber' => $validated['titleNumber'],
-                    'buyerName' => $validated['buyerName'],
-                    'sellerName' => $validated['sellerName'],
-                    'agentName' => $validated['agentName']
-                ]);
-            }
-            
-            // Calculate values to store in database
-            $subTotal = 0;
-            if (isset($invoiceData['productLines']) && is_array($invoiceData['productLines'])) {
-                foreach ($invoiceData['productLines'] as $line) {
-                    $quantity = floatval($line['quantity'] ?? 0);
-                    $rate = floatval($line['rate'] ?? 0);
-                    $subTotal += $quantity * $rate;
-                }
-            }
-            
-            // Extract tax rate from tax rate field or tax label
-            $taxRate = 0;
-            $taxAmount = 0;
-            
-            // First try to get tax rate directly from taxRate field
-            if (isset($invoiceData['taxRate']) && is_numeric($invoiceData['taxRate'])) {
-                $taxRate = floatval($invoiceData['taxRate']);
-            }
-            // If taxRate is not available, try to extract from taxLabel
-            else if (isset($invoiceData['taxLabel'])) {
-                preg_match('/(\d+)%/', $invoiceData['taxLabel'], $matches);
-                if (isset($matches[1])) {
-                    $taxRate = floatval($matches[1]);
-                }
-            }
-            
-            // Calculate tax amount if we have a valid tax rate
-            if ($taxRate > 0) {
-                $taxAmount = $subTotal * ($taxRate / 100);
-            }
-            
-            $total = $subTotal + $taxAmount;
-            
-            // Parse dates
-            $invoiceDate = isset($invoiceData['invoiceDate']) && !empty($invoiceData['invoiceDate']) 
-                ? date('Y-m-d', strtotime($invoiceData['invoiceDate'])) 
-                : date('Y-m-d');
-                
-            $dueDate = isset($invoiceData['invoiceDueDate']) && !empty($invoiceData['invoiceDueDate']) 
-                ? date('Y-m-d', strtotime($invoiceData['invoiceDueDate'])) 
-                : date('Y-m-d', strtotime('+30 days'));
-
-            // Generate a unique payment token
-            $paymentToken = Str::random(64);
-            
-            // Create a new invoice
-            $newInvoice = Invoice::create([
-                'user_id' => $user->id,
-                'invoice_type' => $invoice->invoice_type,
-                'company_name' => $invoiceData['companyName'] ?? 'Client',
-                'client_email' => $validated['recipientEmail'],
-                'subtotal' => $subTotal,
-                'tax_rate' => $taxRate,
-                'tax_amount' => $taxAmount,
-                'total' => $total,
-                'invoice_date' => $invoiceDate,
-                'due_date' => $dueDate,
-                'status' => 'sent',
-                'invoice_data' => $invoiceData,
-                'payment_token' => $paymentToken,
-            ]);
-
-            // Send the email with the PDF attachment
-            Mail::to($validated['recipientEmail'])
-                ->send(new SendInvoiceMail(
-                    $invoiceData, // Now includes real estate fields
-                    $user,
-                    $decodedPdf,
-                    $newInvoice->payment_token,
-                    true,
-                    $invoice->invoice_type
-                ));
-            
-            // Delete the old invoice after successfully creating the new one
-            $invoice->delete();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Invoice updated, sent to customer, and old invoice deleted successfully',
-                'invoice_id' => $newInvoice->id
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Failed to resend invoice after edit: ' . $e->getMessage(), [
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to resend invoice: ' . $e->getMessage(),
-                'debug_info' => [
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine()
-                ]
-            ], 500);
-        }
-    }
-
-    /**
-     * Show the form for editing the specified invoice
-     * 
-     * This method verifies ownership, checks if the invoice can be edited,
-     * and renders the appropriate edit form based on invoice type.
-     * 
-     * @param Invoice $invoice The invoice to be edited
-     * @return \Inertia\Response Renders the edit form with invoice data
-     */
-    public function edit(Invoice $invoice)
-    {
-        // Check if the invoice belongs to the authenticated user
-        if ($invoice->user_id !== Auth::id()) {
-            abort(403, 'Unauthorized action.');
-        }
-
-        // Add this check to prevent editing paid or closed invoices
-        if ($invoice->status === 'paid' || $invoice->status === 'closed') {
-            return redirect()->route('user.invoice.view', $invoice->id)
-                ->with('error', 'Paid or closed invoices cannot be edited.');
-        }
-
-        if ($invoice->invoice_type === 'real_estate') {
-            return Inertia::render('User/RealEstateInvoice', [
-                'invoiceData' => $invoice->invoice_data,
-                'recipientEmail' => $invoice->client_email,
-                'invoiceId' => $invoice->id,
-                'isEditing' => true,
-            ]);
-        }
-        else {
-            // Return the GeneralInvoice page with the invoice data
-            return Inertia::render('User/GeneralInvoice', [
-                'invoiceData' => $invoice->invoice_data,
-                'recipientEmail' => $invoice->client_email,
-                'invoiceId' => $invoice->id,
-                'isEditing' => true,
-            ]);
-        }
-    }
-
-    /**
-     * Send invoice to NMI merchant portal
-     * 
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function sendInvoiceToNmi(Request $request)
+    public function sendInvoice(Request $request)
     {
         try {
             $validated = $request->validate([
@@ -1310,6 +379,365 @@ class InvoiceController extends Controller
     }
 
     /**
+     * Resend an existing invoice to a recipient
+     * 
+     * This method verifies ownership, checks if the invoice can be resent,
+     * validates the request data, and sends the invoice via email to the recipient.
+     * 
+     * @param Invoice $invoice The invoice to resend
+     * @param Request $request Contains PDF content, recipient email, and real estate fields if applicable
+     * @return \Illuminate\Http\JsonResponse Success/failure message
+     */
+    public function resendInvoice(Invoice $invoice, Request $request)
+    {
+        // Check if the invoice belongs to the authenticated user
+        if ($invoice->user_id !== Auth::id()) {
+            abort(403, 'Unauthorized action.');
+        }
+        
+        // Check if the invoice is paid or closed
+        if ($invoice->status === 'paid' || $invoice->status === 'closed') {
+            return redirect()->route('user.invoices')
+                ->with('error', 'Paid or closed invoices cannot be resent.');
+        }
+
+        // Validate the request
+        $validated = $request->validate([
+            'pdfBase64' => 'required|string',
+            'recipientEmail' => 'required|email',
+            // Add validation for real estate fields if it's a real estate invoice
+            'propertyAddress' => 'required_if:invoiceType,real_estate',
+            'titleNumber' => 'required_if:invoiceType,real_estate',
+            'buyerName' => 'required_if:invoiceType,real_estate',
+            'sellerName' => 'required_if:invoiceType,real_estate',
+            'agentName' => 'required_if:invoiceType,real_estate',
+        ]);
+
+        // Get the authenticated user
+        $user = Auth::user();
+        if (!$user) {
+            return redirect()->route('user.invoices')
+                ->with('error', 'User not authenticated');
+        }
+
+        // Clean the PDF content (remove data:application/pdf;base64, prefix)
+        $pdfContent = $validated['pdfBase64'];
+        if (strpos($pdfContent, 'data:application/pdf;base64,') === 0) {
+            $pdfContent = substr($pdfContent, 28);
+        }
+        
+        // Decode the base64 content
+        $decodedPdf = base64_decode($pdfContent);
+        
+        // Verify it's a valid PDF (check for PDF signature)
+        if (substr($decodedPdf, 0, 4) !== '%PDF') {
+            return redirect()->route('user.invoices')
+                ->with('error', 'Invalid PDF content');
+        }
+
+        // Get the invoice data
+        $invoiceData = $invoice->invoice_data;
+        
+        // If this is a real estate invoice, ensure the fields are included
+        if ($invoice->invoice_type === 'real_estate') {
+            $invoiceData = array_merge($invoiceData, [
+                'propertyAddress' => $validated['propertyAddress'] ?? $invoice->property_address,
+                'titleNumber' => $validated['titleNumber'] ?? $invoice->title_number,
+                'buyerName' => $validated['buyerName'] ?? $invoice->buyer_name,
+                'sellerName' => $validated['sellerName'] ?? $invoice->seller_name,
+                'agentName' => $validated['agentName'] ?? $invoice->agent_name
+            ]);
+        }
+        
+        // Add NMI invoice ID to the invoice data for the email
+        $invoiceData['nmi_invoice_id'] = $invoice->nmi_invoice_id;
+        
+        // Send the email with the decoded PDF content
+        Mail::to($validated['recipientEmail'])
+            ->send(new SendInvoiceMail(
+                $invoiceData,
+                $user,
+                $decodedPdf,
+                $invoice->payment_token,
+                false,
+                $invoice->invoice_type
+            ));
+        
+            return response()->json([
+                'success' => true,
+                'message' => 'Invoice resent successfully'
+            ]);
+    }
+
+    /**
+     * Delete an invoice
+     * 
+     * This method verifies that the invoice belongs to the authenticated user
+     * before deleting it from the database.
+     * 
+     * @param Invoice $invoice The invoice to be deleted
+     * @return \Illuminate\Http\RedirectResponse Redirects to the invoices list with success message
+     */
+    public function destroy(Invoice $invoice)
+    {
+        // Check if the invoice belongs to the authenticated user
+        if ($invoice->user_id !== Auth::id()) {
+            abort(403, 'Unauthorized action.');
+        }
+        
+        // Delete the invoice
+        $invoice->delete();
+        
+        return redirect()->route('user.invoices')->with('success', 'Invoice deleted successfully');
+    }
+
+    /**
+     * Download invoice data for the authenticated user
+     * 
+     * This method verifies ownership of the invoice and returns the invoice data
+     * in JSON format. It handles both string and array formats of invoice_data,
+     * ensuring proper JSON decoding when needed.
+     * 
+     * @param Invoice $invoice The invoice to download
+     * @return \Illuminate\Http\JsonResponse JSON response containing invoice details and parsed invoice data
+     * @throws \Illuminate\Auth\Access\AuthorizationException If user doesn't own the invoice
+     */
+    public function download(Invoice $invoice)
+    {
+        // Check if the invoice belongs to the authenticated user
+        if ($invoice->user_id !== Auth::id()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        // Parse the invoice_data JSON if it's stored as a string
+        $invoiceData = is_string($invoice->invoice_data) 
+            ? json_decode($invoice->invoice_data, true) 
+            : $invoice->invoice_data;
+
+        return response()->json([
+            'success' => true,
+            'invoice' => $invoice,
+            'invoiceData' => $invoiceData
+        ]);
+    }
+
+    /**
+     * Show the form for editing the specified invoice
+     * 
+     * This method verifies ownership, checks if the invoice can be edited,
+     * and renders the appropriate edit form based on invoice type.
+     * 
+     * @param Invoice $invoice The invoice to be edited
+     * @return \Inertia\Response Renders the edit form with invoice data
+     */
+    public function edit(Invoice $invoice)
+    {
+        // Check if the invoice belongs to the authenticated user
+        if ($invoice->user_id !== Auth::id()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        // Add this check to prevent editing paid or closed invoices
+        if ($invoice->status === 'paid' || $invoice->status === 'closed') {
+            return redirect()->route('user.invoice.view', $invoice->id)
+                ->with('error', 'Paid or closed invoices cannot be edited.');
+        }
+
+        if ($invoice->invoice_type === 'real_estate') {
+            return Inertia::render('User/RealEstateInvoice', [
+                'invoiceData' => $invoice->invoice_data,
+                'recipientEmail' => $invoice->client_email,
+                'invoiceId' => $invoice->id,
+                'isEditing' => true,
+            ]);
+        }
+        else {
+            // Return the GeneralInvoice page with the invoice data
+            return Inertia::render('User/GeneralInvoice', [
+                'invoiceData' => $invoice->invoice_data,
+                'recipientEmail' => $invoice->client_email,
+                'invoiceId' => $invoice->id,
+                'isEditing' => true,
+            ]);
+        }
+    }
+
+    /**
+     * Resend an invoice after editing by creating a new invoice and deleting the old one
+     * 
+     * This method validates the request data, checks if the invoice can be edited,
+     * creates a new invoice with the updated information, sends an email to the recipient,
+     * and deletes the old invoice.
+     * 
+     * @param Request $request Contains invoice data, PDF content, recipient email, and real estate fields if applicable
+     * @param Invoice $invoice The original invoice to be replaced
+     * @return \Illuminate\Http\JsonResponse Success/failure message and new invoice ID
+     */
+    public function resendAfterEdit(Request $request, Invoice $invoice)
+    {
+        try {
+            // Check if the invoice is paid or closed
+            if ($invoice->status === 'paid' || $invoice->status === 'closed') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Paid or closed invoices cannot be edited or resent.'
+                ], 403);
+            }
+            
+            $validated = $request->validate([
+                'invoiceData' => 'required|array',
+                'pdfBase64' => 'required|string',
+                'recipientEmail' => 'required|email',
+                // Add validation for real estate fields if it's a real estate invoice
+                'propertyAddress' => 'required_if:invoiceType,real_estate',
+                'titleNumber' => 'required_if:invoiceType,real_estate',
+                'buyerName' => 'required_if:invoiceType,real_estate',
+                'sellerName' => 'required_if:invoiceType,real_estate',
+                'agentName' => 'required_if:invoiceType,real_estate',
+            ]);
+
+            // Get the authenticated user
+            $user = Auth::user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User not authenticated'
+                ], 401);
+            }
+
+            // Clean the PDF content (remove data:application/pdf;base64, prefix)
+            $pdfContent = $validated['pdfBase64'];
+            if (strpos($pdfContent, 'data:application/pdf;base64,') === 0) {
+                $pdfContent = substr($pdfContent, 28);
+            }
+            
+            // Decode the base64 content
+            $decodedPdf = base64_decode($pdfContent);
+            
+            // Verify it's a valid PDF (check for PDF signature)
+            if (substr($decodedPdf, 0, 4) !== '%PDF') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid PDF content'
+                ], 400);
+            }
+
+            // Extract invoice data
+            $invoiceData = $validated['invoiceData'];
+            
+            // If this is a real estate invoice, ensure the real estate fields are included in invoiceData
+            if ($invoice->invoice_type === 'real_estate') {
+                $invoiceData = array_merge($invoiceData, [
+                    'propertyAddress' => $validated['propertyAddress'],
+                    'titleNumber' => $validated['titleNumber'],
+                    'buyerName' => $validated['buyerName'],
+                    'sellerName' => $validated['sellerName'],
+                    'agentName' => $validated['agentName']
+                ]);
+            }
+            
+            // Calculate values to store in database
+            $subTotal = 0;
+            if (isset($invoiceData['productLines']) && is_array($invoiceData['productLines'])) {
+                foreach ($invoiceData['productLines'] as $line) {
+                    $quantity = floatval($line['quantity'] ?? 0);
+                    $rate = floatval($line['rate'] ?? 0);
+                    $subTotal += $quantity * $rate;
+                }
+            }
+            
+            // Extract tax rate from tax rate field or tax label
+            $taxRate = 0;
+            $taxAmount = 0;
+            
+            // First try to get tax rate directly from taxRate field
+            if (isset($invoiceData['taxRate']) && is_numeric($invoiceData['taxRate'])) {
+                $taxRate = floatval($invoiceData['taxRate']);
+            }
+            // If taxRate is not available, try to extract from taxLabel
+            else if (isset($invoiceData['taxLabel'])) {
+                preg_match('/(\d+)%/', $invoiceData['taxLabel'], $matches);
+                if (isset($matches[1])) {
+                    $taxRate = floatval($matches[1]);
+                }
+            }
+            
+            // Calculate tax amount if we have a valid tax rate
+            if ($taxRate > 0) {
+                $taxAmount = $subTotal * ($taxRate / 100);
+            }
+            
+            $total = $subTotal + $taxAmount;
+            
+            // Parse dates
+            $invoiceDate = isset($invoiceData['invoiceDate']) && !empty($invoiceData['invoiceDate']) 
+                ? date('Y-m-d', strtotime($invoiceData['invoiceDate'])) 
+                : date('Y-m-d');
+                
+            $dueDate = isset($invoiceData['invoiceDueDate']) && !empty($invoiceData['invoiceDueDate']) 
+                ? date('Y-m-d', strtotime($invoiceData['invoiceDueDate'])) 
+                : date('Y-m-d', strtotime('+30 days'));
+
+            // Generate a unique payment token
+            $paymentToken = Str::random(64);
+            
+            // Create a new invoice
+            $newInvoice = Invoice::create([
+                'user_id' => $user->id,
+                'invoice_type' => $invoice->invoice_type,
+                'company_name' => $invoiceData['companyName'] ?? 'Client',
+                'client_email' => $validated['recipientEmail'],
+                'subtotal' => $subTotal,
+                'tax_rate' => $taxRate,
+                'tax_amount' => $taxAmount,
+                'total' => $total,
+                'invoice_date' => $invoiceDate,
+                'due_date' => $dueDate,
+                'status' => 'sent',
+                'invoice_data' => $invoiceData,
+                'payment_token' => $paymentToken,
+            ]);
+
+            // Send the email with the PDF attachment
+            Mail::to($validated['recipientEmail'])
+                ->send(new SendInvoiceMail(
+                    $invoiceData, // Now includes real estate fields
+                    $user,
+                    $decodedPdf,
+                    $newInvoice->payment_token,
+                    true,
+                    $invoice->invoice_type
+                ));
+            
+            // Delete the old invoice after successfully creating the new one
+            $invoice->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Invoice updated, sent to customer, and old invoice deleted successfully',
+                'invoice_id' => $newInvoice->id
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to resend invoice after edit: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to resend invoice: ' . $e->getMessage(),
+                'debug_info' => [
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine()
+                ]
+            ], 500);
+        }
+    }
+
+ 
+
+    /**
      * Update invoice in NMI merchant portal by closing the old invoice and creating a new one
      * 
      * This method validates the request, closes the existing invoice in NMI,
@@ -1320,7 +748,7 @@ class InvoiceController extends Controller
      * @param Invoice $invoice The invoice to be updated
      * @return \Illuminate\Http\JsonResponse Success/failure message and updated invoice details
      */
-    public function updateInvoiceInNmi(Request $request, Invoice $invoice)
+    public function replaceInvoice(Request $request, Invoice $invoice)
     {
         try {
             // Check if the invoice is paid or closed
@@ -1728,27 +1156,598 @@ class InvoiceController extends Controller
     }
 
     /**
-     * Show an invoice in read-only mode
+     * Get an invoice by its NMI invoice ID
      * 
-     * This method verifies that the invoice belongs to the authenticated user
-     * before displaying it in a read-only view.
+     * This method finds an invoice using the NMI invoice ID instead of the primary key,
+     * parses the invoice data if needed, and returns the invoice information.
      * 
-     * @param Invoice $invoice The invoice to be displayed
-     * @return \Inertia\Response Renders the view-only invoice page
+     * @param string $nmiInvoiceId The NMI invoice ID to search for
+     * @return \Illuminate\Http\JsonResponse Invoice details and parsed invoice data
      */
-    public function show(Invoice $invoice)
+    public function getByNmiInvoiceId(string $nmiInvoiceId)
     {
-        // Check if the invoice belongs to the authenticated user
-        if ($invoice->user_id !== Auth::id()) {
-            abort(403, 'Unauthorized action.');
+        try {
+            // Find the invoice by NMI invoice ID
+            $invoice = Invoice::where('nmi_invoice_id', $nmiInvoiceId)->first();
+            
+            if (!$invoice) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invoice not found with the provided NMI invoice ID'
+                ], 404);
+            }
+            
+            // Parse the invoice_data JSON if it's stored as a string
+            $invoiceData = is_string($invoice->invoice_data) 
+                ? json_decode($invoice->invoice_data, true) 
+                : $invoice->invoice_data;
+            
+            return response()->json([
+                'success' => true,
+                'invoice' => $invoice,
+                'invoiceData' => $invoiceData
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to retrieve invoice by NMI ID: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Error retrieving invoice: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Process invoice data and calculate all necessary values
+     * 
+     * This method calculates subtotal, tax amount, and total from product lines,
+     * extracts dates, client information, and address details from invoice data,
+     * and adds real estate specific fields for real estate invoices.
+     * 
+     * @param array $invoiceData The raw invoice data containing product lines and other information
+     * @param string $recipientEmail The email address of the invoice recipient
+     * @param string $invoiceType The type of invoice (general or real_estate)
+     * @return array Processed invoice data with calculated values
+     */
+    private function processInvoiceData(array $invoiceData, string $recipientEmail, string $invoiceType = 'general'): array
+    {
+        // Calculate values to store in database
+        $subTotal = 0;
+        if (isset($invoiceData['productLines']) && is_array($invoiceData['productLines'])) {
+            foreach ($invoiceData['productLines'] as $line) {
+                $quantity = floatval($line['quantity'] ?? 0);
+                $rate = floatval($line['rate'] ?? 0);
+                $subTotal += $quantity * $rate;
+            }
         }
         
-        return Inertia::render('User/ViewInvoice', [
-            'invoice' => $invoice
+        // Extract tax rate from tax rate field or tax label
+        $taxRate = 0;
+        $taxAmount = 0;
+        
+        // First try to get tax rate directly from taxRate field
+        if (isset($invoiceData['taxRate']) && is_numeric($invoiceData['taxRate'])) {
+            $taxRate = floatval($invoiceData['taxRate']);
+        }
+        // If taxRate is not available, try to extract from taxLabel
+        else if (isset($invoiceData['taxLabel'])) {
+            preg_match('/(\d+)%/', $invoiceData['taxLabel'], $matches);
+            if (isset($matches[1])) {
+                $taxRate = floatval($matches[1]);
+            }
+        }
+        
+        // Calculate tax amount if we have a valid tax rate
+        if ($taxRate > 0) {
+            $taxAmount = $subTotal * ($taxRate / 100);
+        }
+        
+        $total = $subTotal + $taxAmount;
+        
+        // Parse dates
+        $invoiceDate = isset($invoiceData['invoiceDate']) && !empty($invoiceData['invoiceDate']) 
+            ? date('Y-m-d', strtotime($invoiceData['invoiceDate'])) 
+            : date('Y-m-d');
+            
+        $dueDate = isset($invoiceData['invoiceDueDate']) && !empty($invoiceData['invoiceDueDate']) 
+            ? date('Y-m-d', strtotime($invoiceData['invoiceDueDate'])) 
+            : date('Y-m-d', strtotime('+30 days'));
+
+        // Extract client name parts for first_name and last_name
+        $firstName = $invoiceData['firstName'] ?? '';
+        $lastName = $invoiceData['lastName'] ?? '';
+        $companyName = $invoiceData['companyName'] ?? '';
+
+        // Extract address components
+        $country = $invoiceData['country'] ?? $invoiceData['clientCountry'] ?? '';
+        $city = $invoiceData['city'] ?? '';
+        $state = $invoiceData['state'] ?? '';
+        $zip = $invoiceData['zip'] ?? '';
+
+        // Try to extract city, state, zip from clientAddress2 if they're empty
+        if (empty($city) || empty($state) || empty($zip)) {
+            $cityStateZip = $invoiceData['clientAddress2'] ?? '';
+            if (!empty($cityStateZip)) {
+                // Try to parse "City, State ZIP" format
+                $parts = explode(',', $cityStateZip);
+                
+                // If we have at least city
+                if (!empty($parts[0]) && empty($city)) {
+                    $city = trim($parts[0]);
+                }
+                
+                // If we have state/zip part
+                if (!empty($parts[1])) {
+                    $stateZipPart = trim($parts[1]);
+                    
+                    // Try to separate state and zip
+                    preg_match('/([A-Z]{2})\s+(\d+)/', $stateZipPart, $matches);
+                    
+                    if (!empty($matches[1]) && empty($state)) {
+                        $state = $matches[1];
+                    }
+                    
+                    if (!empty($matches[2]) && empty($zip)) {
+                        $zip = $matches[2];
+                    } else {
+                        // Just take numbers as zip if we couldn't match the pattern
+                        $zipMatch = preg_replace('/[^0-9]/', '', $stateZipPart);
+                        if (!empty($zipMatch) && empty($zip)) {
+                            $zip = $zipMatch;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Base data array
+        $data = [
+            'client_email' => $recipientEmail,
+            'subtotal' => $subTotal,
+            'tax_rate' => $taxRate,
+            'tax_amount' => $taxAmount,
+            'total' => $total,
+            'invoice_date' => $invoiceDate,
+            'due_date' => $dueDate,
+            'invoice_data' => $invoiceData,
+            'first_name' => $firstName,
+            'last_name' => $lastName,
+            'company_name' => $companyName,
+            'country' => $country,
+            'city' => $city,
+            'state' => $state,
+            'zip' => $zip,
+        ];
+
+        // Add real estate specific fields if this is a real estate invoice
+        if ($invoiceType === 'real_estate') {
+            $data = array_merge($data, [
+                'property_address' => $invoiceData['propertyAddress'] ?? '',
+                'title_number' => $invoiceData['titleNumber'] ?? '',
+                'buyer_name' => $invoiceData['buyerName'] ?? '',
+                'seller_name' => $invoiceData['sellerName'] ?? '',
+                'agent_name' => $invoiceData['agentName'] ?? '',
+            ]);
+        }
+
+        return $data;
+    }
+
+    /**
+     * Display the credit card payment page for an invoice
+     * 
+     * This method finds an invoice by its payment token and renders the credit card payment page
+     * if the invoice is not already paid or closed.
+     * 
+     * @param string $token The unique payment token for the invoice
+     * @return \Inertia\Response Renders the credit card payment page with invoice data
+     */
+    public function showCreditCardPayment(string $token)
+    {
+        $invoice = Invoice::where('payment_token', $token)
+            ->whereNotIn('status', ['paid', 'closed'])
+            ->firstOrFail();
+            
+        return Inertia::render('Payment/CreditCard', [
+            'invoice' => $invoice,
+            'token' => $token,
+            'nmi_invoice_id' => $invoice->nmi_invoice_id
         ]);
     }
 
     /**
+     * Process a credit card payment using NMI payment gateway
+     * 
+     * This method validates the payment data, sends a payment request to the NMI API,
+     * updates the invoice status if payment is successful, and sends confirmation emails.
+     * 
+     * @param Request $request Contains payment token, invoice ID, amount, and customer details
+     * @return \Illuminate\Http\JsonResponse Payment status and transaction details
+     */
+    public function processCreditCardPayment(Request $request)
+    {
+        try {
+            // Validate the request
+            $validated = $request->validate([
+                'token' => 'required|string',
+                'invoiceId' => 'required|string',
+                'amount' => 'required|numeric',
+                'firstName' => 'required|string',
+                'lastName' => 'required|string',
+                'address' => 'required|string',
+                'city' => 'required|string',
+                'state' => 'required|string',
+                'zip' => 'required|string',
+                'phone' => 'required|string',
+            ]);
+
+            // Get the invoice by NMI invoice ID instead of primary key
+            $invoice = Invoice::where('nmi_invoice_id', $validated['invoiceId'])->firstOrFail();
+            
+            // Get the user's profile for the API key
+            $user = User::findOrFail($invoice->user_id);
+            $userProfile = UserProfile::where('user_id', $user->id)->firstOrFail();
+            
+            if (empty($userProfile->private_key)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No API private key found for this account.'
+                ], 400);
+            }
+
+            // Prepare NMI API request for a sale transaction
+            $saleData = [
+                'security_key' => $userProfile->private_key,
+                'type' => 'sale',
+                'payment_token' => $validated['token'], // The token from Collect.js
+                'amount' => $validated['amount'],
+                'orderid' => $validated['invoiceId'],
+                'first_name' => $validated['firstName'],
+                'last_name' => $validated['lastName'],
+                'address1' => $validated['address'],
+                'city' => $validated['city'],
+                'state' => $validated['state'],
+                'zip' => $validated['zip'],
+                'phone' => $validated['phone'],
+                'currency' => 'USD',
+                'tax' => number_format($invoice->tax_amount, 2, '.', ''),
+                'customer_id' => $invoice->client_email
+            ];
+            
+            // Log the request data (redacting the security key)
+            $logData = $saleData;
+            $logData['security_key'] = '[REDACTED]';
+            \Log::info('Processing credit card payment via NMI', $logData);
+            
+            // Send the request to NMI
+            $ch = curl_init('https://secure.nmi.com/api/transact.php');
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($saleData));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                "accept: application/x-www-form-urlencoded",
+                "content-type: application/x-www-form-urlencoded"
+            ]);
+            
+            // SSL verification settings
+            if (app()->environment('local')) {
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            } else {
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 1);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+            }
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            
+            curl_close($ch);
+            
+            // Log the response
+            \Log::info('NMI Payment API Response', [
+                'http_code' => $httpCode,
+                'response' => $response,
+                'curl_error' => $curlError
+            ]);
+            
+            // Check for cURL errors
+            if ($curlError) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error connecting to payment gateway: ' . $curlError
+                ], 500);
+            }
+            
+            // Parse the response
+            parse_str($response, $responseData);
+            
+            // Check if the payment was successful (response code 1 = approved)
+            if (isset($responseData['response']) && $responseData['response'] == 1) {
+                // Update the invoice as paid
+                $invoice->update([
+                    'status' => 'paid',
+                    'payment_date' => now(),
+                    'transaction_id' => $responseData['transactionid'] ?? null,
+                ]);
+                
+                // Send receipt email to customer
+                Mail::to($invoice->client_email)->send(new PaymentReceiptMail($invoice));
+                // Send merchant notification email
+                Mail::to($invoice->user->email)->send(new MerchantPaymentReceiptMail($invoice));
+                
+                // Dispatch payment notification event
+                $notificationData = [
+                    'invoice_id' => $invoice->id,
+                    'nmi_invoice_id' => $invoice->nmi_invoice_id,
+                    'client_email' => $invoice->client_email,
+                    'amount' => $validated['amount'],
+                    'transaction_id' => $responseData['transactionid'] ?? null,
+                    'authorization_code' => $responseData['authcode'] ?? null,
+                    'status' => 'success',
+                    'payment_date' => now()->toDateTimeString(),
+                ];
+                event(new \App\Events\PaymentNotification($notificationData));
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Payment processed successfully',
+                    'transaction_id' => $responseData['transactionid'] ?? null,
+                    'authorization_code' => $responseData['authcode'] ?? null,
+                ]);
+            } else {
+                // Payment failed
+                return response()->json([
+                    'success' => false,
+                    'message' => $responseData['responsetext'] ?? 'Payment processing failed',
+                    'code' => $responseData['response'] ?? null,
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Payment processing error: ' . $e->getMessage(), [
+                'exception' => $e,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while processing your payment: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Display the Bitcoin payment page for an invoice
+     * 
+     * This method finds an invoice by its payment token and renders the Bitcoin payment page
+     * if the invoice is not already paid or closed.
+     * 
+     * @param string $token The unique payment token for the invoice
+     * @return \Inertia\Response Renders the Bitcoin payment page with invoice data
+     */
+    public function showBitcoinPayment(string $token)
+    {
+        $invoice = Invoice::where('payment_token', $token)
+            ->whereNotIn('status', ['paid', 'closed'])
+            ->firstOrFail();
+            
+        return Inertia::render('Payment/Bitcoin', [
+            'invoice' => $invoice,
+            'token' => $token
+        ]);
+    }
+
+    /**
+     * Create a new cryptocurrency payment for an invoice
+     * 
+     * This method validates the payment request, checks for existing payments,
+     * creates a new payment via the Bead API, and updates the invoice with
+     * the payment tracking information.
+     * 
+     * @param Request $request Contains token, invoice ID, and payment amount
+     * @return \Illuminate\Http\JsonResponse Payment status and URL for the payment gateway
+     */
+    public function createCryptoPayment(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'token' => 'required|string',
+                'invoiceId' => 'required|integer',
+                'amount' => 'required|numeric|min:0.01',
+            ]);
+
+            // Find the invoice
+            $invoice = Invoice::findOrFail($validated['invoiceId']);
+
+            // Get the user's Bead credentials
+            $beadCredentials = BeadCredential::where('user_id', $invoice->user_id)->first();
+            
+            if (!$beadCredentials) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No Bead credentials found for this user.'
+                ], 400);
+            }
+
+            // Check if the invoice already has a bead_payment_id
+            if ($invoice->bead_payment_id) {
+                $beadService = new BeadPaymentService($beadCredentials);
+                try {
+                    $paymentData = $beadService->checkPaymentStatus($invoice->bead_payment_id);
+                    Log::info('Retrieved existing Bead payment status', [
+                        'invoice_id' => $invoice->id,
+                        'bead_payment_id' => $invoice->bead_payment_id,
+                        'status' => $paymentData
+                    ]);
+
+                    return response()->json([
+                        'success' => true,
+                        'has_existing_payment' => true,
+                        'message' => 'Retrieved existing payment status',
+                        'payment_url' => $invoice->bead_payment_url,
+                        'payment_data' => $paymentData,
+                    ]);
+                } catch (Exception $e) {
+                    Log::error('Failed to check existing payment status', [
+                        'error' => $e->getMessage(),
+                        'bead_payment_id' => $invoice->bead_payment_id
+                    ]);
+                    // Continue with new payment if status check fails
+                }
+            }
+
+            // Check if the invoice is already paid
+            if ($invoice->status === 'paid') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This invoice has already been paid.'
+                ], 400);
+            }
+
+            $beadService = new BeadPaymentService($beadCredentials);
+            
+            try {
+                Log::info('Creating crypto payment for invoice', [
+                    'nmi_invoice_id' => $invoice->nmi_invoice_id,
+                    'amount' => $validated['amount']
+                ]);
+
+                // Use nmi_invoice_id as the reference
+                $reference = $invoice->nmi_invoice_id;
+                
+                $paymentResponse = $beadService->createCryptoPayment(
+                    $validated['amount'],
+                    'USD',
+                    $reference, // Using nmi_invoice_id as reference
+                    'Invoice payment for ' . $reference
+                );
+
+                // Log the successful response
+                Log::info('Received payment response from Bead', [
+                    'payment_id' => $paymentResponse['trackingId'] ?? null,
+                    'payment_url' => $paymentResponse['paymentUrls'][0]['url'] ?? null,
+                    'reference_used' => $reference
+                ]);
+
+                // Store the Bead payment ID in the invoice
+                $invoice->update([
+                    'bead_payment_id' => $paymentResponse['trackingId'] ?? null,
+                    'payment_method' => 'crypto',
+                    'status' => 'pending', // Update status to pending
+                    'bead_payment_url' => $paymentResponse['paymentUrls'][0]['url'] ?? null
+                ]);
+
+                // Format the response for the frontend
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Crypto payment initiated',
+                    'payment_data' => [
+                        'trackingId' => $paymentResponse['trackingId'] ?? null,
+                        'paymentUrl' => $paymentResponse['paymentUrls'][0]['url'] ?? null
+                    ]
+                ]);
+
+            } catch (Exception $e) {
+                $errorMessage = $e->getMessage();
+                $statusCode = 500;
+                
+                // Check if the error message contains a 403 (Forbidden) reference
+                if (strpos($errorMessage, '403') !== false) {
+                    $errorMessage = "The Bead payment system returned a 403 Forbidden error. This typically means the terminal doesn't have permission to process crypto payments. Please contact support and provide these details: Terminal ID: {$beadService->getTerminalId()}, Invoice Id: {$invoice->nmi_invoice_id}";
+                    $statusCode = 403;
+                }
+                
+                Log::error('Failed to create crypto payment', [
+                    'error' => $errorMessage,
+                    'trace' => $e->getTraceAsString()
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => $errorMessage
+                ], $statusCode);
+            }
+        } catch (\Exception $e) {
+            Log::error('Payment processing error: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while processing your payment: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Check the status of a Bead cryptocurrency payment
+     * 
+     * This method validates the tracking ID, finds the associated invoice,
+     * checks the payment status via the Bead API, and updates the invoice status
+     * if the payment has been completed.
+     * 
+     * @param Request $request Contains the tracking ID for the Bead payment
+     * @return \Illuminate\Http\JsonResponse Payment status information and invoice details
+     */
+    public function getBeadPaymentStatus(Request $request) {
+        try {
+            // Validate the request
+            $validated = $request->validate([
+                'trackingId' => 'required|string'
+            ]);
+
+            // Find the invoice using the tracking ID (bead_payment_id)
+            $invoice = Invoice::where('bead_payment_id', $validated['trackingId'])->first();
+            
+            if (!$invoice) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invoice not found for this tracking ID'
+                ], 404);
+            }
+
+            // Initialize BeadPaymentService and get status
+            $beadService = new BeadPaymentService();
+            $statusResponse = $beadService->checkPaymentStatus($validated['trackingId']);
+
+            // Update invoice status if payment is completed (status code 2)
+            if (isset($statusResponse['data']['status_code']) && $statusResponse['data']['status_code'] === 2) {
+                $invoice->status = 'paid';
+                $invoice->payment_date = now();
+                $invoice->save();
+            }
+
+            // Return the status information with invoice details
+            return response()->json([
+                'success' => true,
+                'data' => array_merge($statusResponse['data'], [
+                    'invoice_id' => $invoice->id,
+                    'tracking_id' => $validated['trackingId']
+                ])
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to get Bead payment status: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to get payment status: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+        /**
      * Test Bead API Authentication
      * 
      * This method attempts to authenticate with the Bead API
@@ -1957,185 +1956,5 @@ class InvoiceController extends Controller
         }
     }
 
-    /**
-     * Get an invoice by its NMI invoice ID
-     * 
-     * This method finds an invoice using the NMI invoice ID instead of the primary key,
-     * parses the invoice data if needed, and returns the invoice information.
-     * 
-     * @param string $nmiInvoiceId The NMI invoice ID to search for
-     * @return \Illuminate\Http\JsonResponse Invoice details and parsed invoice data
-     */
-    public function getByNmiInvoiceId(string $nmiInvoiceId)
-    {
-        try {
-            // Find the invoice by NMI invoice ID
-            $invoice = Invoice::where('nmi_invoice_id', $nmiInvoiceId)->first();
-            
-            if (!$invoice) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invoice not found with the provided NMI invoice ID'
-                ], 404);
-            }
-            
-            // Parse the invoice_data JSON if it's stored as a string
-            $invoiceData = is_string($invoice->invoice_data) 
-                ? json_decode($invoice->invoice_data, true) 
-                : $invoice->invoice_data;
-            
-            return response()->json([
-                'success' => true,
-                'invoice' => $invoice,
-                'invoiceData' => $invoiceData
-            ]);
-        } catch (\Exception $e) {
-            \Log::error('Failed to retrieve invoice by NMI ID: ' . $e->getMessage(), [
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Error retrieving invoice: ' . $e->getMessage()
-            ], 500);
-        }
-    }
 
-    /**
-     * Process invoice data and calculate all necessary values
-     * 
-     * This method calculates subtotal, tax amount, and total from product lines,
-     * extracts dates, client information, and address details from invoice data,
-     * and adds real estate specific fields for real estate invoices.
-     * 
-     * @param array $invoiceData The raw invoice data containing product lines and other information
-     * @param string $recipientEmail The email address of the invoice recipient
-     * @param string $invoiceType The type of invoice (general or real_estate)
-     * @return array Processed invoice data with calculated values
-     */
-    private function processInvoiceData(array $invoiceData, string $recipientEmail, string $invoiceType = 'general'): array
-    {
-        // Calculate values to store in database
-        $subTotal = 0;
-        if (isset($invoiceData['productLines']) && is_array($invoiceData['productLines'])) {
-            foreach ($invoiceData['productLines'] as $line) {
-                $quantity = floatval($line['quantity'] ?? 0);
-                $rate = floatval($line['rate'] ?? 0);
-                $subTotal += $quantity * $rate;
-            }
-        }
-        
-        // Extract tax rate from tax rate field or tax label
-        $taxRate = 0;
-        $taxAmount = 0;
-        
-        // First try to get tax rate directly from taxRate field
-        if (isset($invoiceData['taxRate']) && is_numeric($invoiceData['taxRate'])) {
-            $taxRate = floatval($invoiceData['taxRate']);
-        }
-        // If taxRate is not available, try to extract from taxLabel
-        else if (isset($invoiceData['taxLabel'])) {
-            preg_match('/(\d+)%/', $invoiceData['taxLabel'], $matches);
-            if (isset($matches[1])) {
-                $taxRate = floatval($matches[1]);
-            }
-        }
-        
-        // Calculate tax amount if we have a valid tax rate
-        if ($taxRate > 0) {
-            $taxAmount = $subTotal * ($taxRate / 100);
-        }
-        
-        $total = $subTotal + $taxAmount;
-        
-        // Parse dates
-        $invoiceDate = isset($invoiceData['invoiceDate']) && !empty($invoiceData['invoiceDate']) 
-            ? date('Y-m-d', strtotime($invoiceData['invoiceDate'])) 
-            : date('Y-m-d');
-            
-        $dueDate = isset($invoiceData['invoiceDueDate']) && !empty($invoiceData['invoiceDueDate']) 
-            ? date('Y-m-d', strtotime($invoiceData['invoiceDueDate'])) 
-            : date('Y-m-d', strtotime('+30 days'));
-
-        // Extract client name parts for first_name and last_name
-        $firstName = $invoiceData['firstName'] ?? '';
-        $lastName = $invoiceData['lastName'] ?? '';
-        $companyName = $invoiceData['companyName'] ?? '';
-
-        // Extract address components
-        $country = $invoiceData['country'] ?? $invoiceData['clientCountry'] ?? '';
-        $city = $invoiceData['city'] ?? '';
-        $state = $invoiceData['state'] ?? '';
-        $zip = $invoiceData['zip'] ?? '';
-
-        // Try to extract city, state, zip from clientAddress2 if they're empty
-        if (empty($city) || empty($state) || empty($zip)) {
-            $cityStateZip = $invoiceData['clientAddress2'] ?? '';
-            if (!empty($cityStateZip)) {
-                // Try to parse "City, State ZIP" format
-                $parts = explode(',', $cityStateZip);
-                
-                // If we have at least city
-                if (!empty($parts[0]) && empty($city)) {
-                    $city = trim($parts[0]);
-                }
-                
-                // If we have state/zip part
-                if (!empty($parts[1])) {
-                    $stateZipPart = trim($parts[1]);
-                    
-                    // Try to separate state and zip
-                    preg_match('/([A-Z]{2})\s+(\d+)/', $stateZipPart, $matches);
-                    
-                    if (!empty($matches[1]) && empty($state)) {
-                        $state = $matches[1];
-                    }
-                    
-                    if (!empty($matches[2]) && empty($zip)) {
-                        $zip = $matches[2];
-                    } else {
-                        // Just take numbers as zip if we couldn't match the pattern
-                        $zipMatch = preg_replace('/[^0-9]/', '', $stateZipPart);
-                        if (!empty($zipMatch) && empty($zip)) {
-                            $zip = $zipMatch;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Base data array
-        $data = [
-            'client_email' => $recipientEmail,
-            'subtotal' => $subTotal,
-            'tax_rate' => $taxRate,
-            'tax_amount' => $taxAmount,
-            'total' => $total,
-            'invoice_date' => $invoiceDate,
-            'due_date' => $dueDate,
-            'invoice_data' => $invoiceData,
-            'first_name' => $firstName,
-            'last_name' => $lastName,
-            'company_name' => $companyName,
-            'country' => $country,
-            'city' => $city,
-            'state' => $state,
-            'zip' => $zip,
-        ];
-
-        // Add real estate specific fields if this is a real estate invoice
-        if ($invoiceType === 'real_estate') {
-            $data = array_merge($data, [
-                'property_address' => $invoiceData['propertyAddress'] ?? '',
-                'title_number' => $invoiceData['titleNumber'] ?? '',
-                'buyer_name' => $invoiceData['buyerName'] ?? '',
-                'seller_name' => $invoiceData['sellerName'] ?? '',
-                'agent_name' => $invoiceData['agentName'] ?? '',
-            ]);
-        }
-
-        return $data;
-    }
 }

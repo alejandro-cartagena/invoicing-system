@@ -86,9 +86,9 @@ const GeneralInvoice = () => {
             let response;
             
             if (isEditing && invoiceId) {
-                // Use update-in-nmi endpoint when editing
+                // Use replace endpoint when editing
                 console.log('Updating invoice in NMI merchant portal');
-                response = await axios.post(route('invoice.update-in-nmi', invoiceId), {
+                response = await axios.post(route('invoice.replace', invoiceId), {
                     invoiceData: invoiceData,
                     recipientEmail: recipientEmail,
                     pdfBase64: base64data,
@@ -97,7 +97,7 @@ const GeneralInvoice = () => {
             } else {
                 // Use send-to-nmi endpoint for new invoices
                 console.log('Sending new invoice to NMI merchant portal');
-                response = await axios.post(route('invoice.send-to-nmi'), {
+                response = await axios.post(route('invoice.send-invoice'), {
                     invoiceData: invoiceData,
                     recipientEmail: recipientEmail,
                     pdfBase64: base64data,
