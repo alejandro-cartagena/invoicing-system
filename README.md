@@ -27,6 +27,74 @@ A comprehensive invoice management system that allows merchants to create, send,
 - **PDF Generation**: DomPDF
 - **Real-time Updates**: Pusher
 
+## API Integrations
+
+### Payment Processing APIs
+
+#### NMI (Network Merchants Inc.)
+- **Documentation**: 
+   - [NMI API Documentation](https://docs.nmi.com/reference/getting-started)
+   - [DVF Integration Portal](https://dvfsolutions.transactiongateway.com/merchants/resources/integration/integration_portal.php?tid=581c667d67acba28d1d0017dbed4a607)
+- **Features**:
+  - Credit card processing
+  - Payment tokenization
+  - Transaction management
+  - Webhook notifications
+  - Customer vault management
+
+#### Bead
+- **Documentation**: 
+  - [Bead Developer Portal](https://developers.bead.xyz/)
+  - [Bead API Reference](https://api.test.devs.beadpay.io/apidocs/index.html)
+- **Features**:
+  - Cryptocurrency payment processing
+  - Digital wallet integration
+  - Merchant onboarding
+  - Transaction reporting
+  - Settlement management
+
+
+### API Configuration
+Each API requires specific configuration in your `.env` file:
+
+```env
+# NMI Configuration
+NMI_API_KEY=
+
+# Bead Configuration
+BEAD_API_URL=
+BEAD_AUTH_URL=
+
+```
+
+For detailed API integration documentation and implementation details, please refer to the `/docs` directory.
+
+## Project Structure
+
+### Backend Structure (`/app`)
+- `Http/Controllers/` - All application controllers
+- `Http/Middleware/` - Custom middleware
+- `Mail/` - Email classes and templates
+- `Models/` - Eloquent models
+- `Services/` - Business logic and external service integrations
+- `Events/` - Event classes
+- `Providers/` - Service providers
+
+### Frontend Structure (`/resources`)
+- `js/` - React components and frontend logic
+  - `Components/` - Reusable React components
+  - `Pages/` - Page components
+  - `Layouts/` - Layout components
+- `css/` - Stylesheets
+- `views/` - Blade templates
+- `mjml/` - Email templates in MJML format
+
+### Routes
+- `routes/web.php` - Web routes
+- `routes/api.php` - API routes
+
+For detailed documentation about the codebase structure and development guidelines, please refer to the `/docs` directory.
+
 ## Prerequisites
 
 Before you begin, ensure you have the following installed:
