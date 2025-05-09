@@ -196,6 +196,7 @@
                         <div class="mobile-only" style="margin:0px auto;max-width:560px;">
                           <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;">
                             <tbody>
+                            @foreach($invoiceData['productLines'] as $item) @if(isset($item['description']) && $item['description'])
                               <tr>
                                 <td style="direction:ltr;font-size:0px;padding:10px;text-align:center;">
                                   <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td align="left" class="" width="560px" ><![endif]-->
@@ -215,6 +216,35 @@
                                   </p>
                                   <!--[if mso | IE]><table align="center" border="0" cellpadding="0" cellspacing="0" style="border-top:solid 4px #ecedee;font-size:1px;margin:0px auto;width:490px;" role="presentation" width="490px" ><tr><td style="height:0;line-height:0;"> &nbsp;
 </td></tr></table></td></tr></table><![endif]-->
+                                </td>
+                              </tr>
+                              @endif @endforeach
+                            </tbody>
+                          </table>
+                        </div>
+                        <!--[if mso | IE]></td></tr></table><![endif]-->
+                      </td>
+                    </tr>
+                    <tr>
+                      <td align="center" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                        <p style="border-top:solid 4px #eeeeee;font-size:1px;margin:0px auto;width:100%;">
+                        </p>
+                        <!--[if mso | IE]><table align="center" border="0" cellpadding="0" cellspacing="0" style="border-top:solid 4px #eeeeee;font-size:1px;margin:0px auto;width:510px;" role="presentation" width="510px" ><tr><td style="height:0;line-height:0;"> &nbsp;
+</td></tr></table><![endif]-->
+                      </td>
+                    </tr>
+                    <!-- Totals Section -->
+                    <tr>
+                      <td style="font-size:0px;padding:10px;word-break:break-word;">
+                        <!--[if mso | IE]><table align="center" border="0" cellpadding="0" cellspacing="0" class="" role="presentation" style="width:560px;" width="560" ><tr><td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;"><![endif]-->
+                        <div style="margin:0px auto;max-width:560px;">
+                          <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;">
+                            <tbody>
+                              <tr>
+                                <td style="direction:ltr;font-size:0px;padding:10px;text-align:center;">
+                                  <!--[if mso | IE]><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td align="left" class="" width="560px" ><![endif]-->
+                                  <div style="font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:1;text-align:left;color:#000000;"><strong>Subtotal:</strong> {{ $invoiceData['currency'] ?? '$' }}{{ number_format($invoice->subtotal, 2) }}<br /> @if($invoice->tax_amount > 0) <strong>Tax ({{ $invoice->tax_rate }}%):</strong> {{ $invoiceData['currency'] ?? '$' }}{{ number_format($invoice->tax_amount, 2) }}<br /> @endif <strong>Total:</strong> {{ $invoiceData['currency'] ?? '$' }}{{ number_format($invoice->total, 2) }}</div>
+                                  <!--[if mso | IE]></td></tr></table><![endif]-->
                                 </td>
                               </tr>
                             </tbody>

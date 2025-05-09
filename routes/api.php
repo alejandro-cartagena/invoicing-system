@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\DvfWebhookController;
 use App\Http\Controllers\BeadCredentialController;
+use App\Http\Controllers\PaymentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -38,4 +39,28 @@ Route::get('/test', function() {
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/bead-credentials/{userId}', [BeadCredentialController::class, 'getCredentials'])
         ->name('api.bead-credentials.get');
-}); 
+});
+
+/*
+|--------------------------------------------------------------------------
+| Payment Processing API Routes
+|--------------------------------------------------------------------------
+|
+| These routes handle payment processing via API:
+| - Processing credit card payments
+| - Creating and verifying crypto payments
+| - Handling payment webhooks
+| All routes require authentication via the auth:sanctum middleware
+*/
+
+Route::middleware(['auth:sanctum'])->group(function () {
+    // Credit Card Payment Processing
+    Route::post('/process-credit-card', [PaymentController::class, 'processCreditCardPayment']);
+    
+    // Crypto Payment Processing
+    Route::post('/create-crypto-payment', [PaymentController::class, 'createCryptoPayment']);
+    Route::post('/verify-bead-payment', [PaymentController::class, 'verifyBeadPayment']);
+});
+
+// Webhook Routes (no auth required as they're called by external services)
+Route::post('/webhooks/bead', [PaymentController::class, 'handleBeadWebhook']); 

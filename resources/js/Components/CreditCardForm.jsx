@@ -151,47 +151,94 @@ const CreditCardForm = ({ amount, onSuccess, onError, invoiceId }) => {
     };
 
     useEffect(() => {
-        // Load Collect.js script
-        const script = document.createElement('script');
-        script.src = 'https://dvfsolutions.transactiongateway.com/token/Collect.js';
-        script.setAttribute('data-tokenization-key', '99mHPB-PkyqE3-5ZsRdN-3S4H5e');
-        script.setAttribute('data-variant', 'lightbox');
+        let retryCount = 0;
+        const maxRetries = 3;
         
-        document.body.appendChild(script);
-
-        // Configure Collect.js
-        script.onload = () => {
-            console.log('Collect.js script loaded');
-            setCollectJsLoaded(true);
+        const loadCollectJs = () => {
+            // Load Collect.js script
+            const script = document.createElement('script');
+            script.src = 'https://dvfsolutions.transactiongateway.com/token/Collect.js';
+            script.setAttribute('data-tokenization-key', '99mHPB-PkyqE3-5ZsRdN-3S4H5e');
+            script.setAttribute('data-variant', 'lightbox');
             
-            if (window.CollectJS) {
-                window.CollectJS.configure({
-                    variant: 'lightbox',
-                    callback: (response) => {
-                        setIsSubmitting(false);
-                        
-                        // Use the data from the ref instead of the formData state
-                        // No need to create a new currentFormData here anymore
-                        const currentFormData = formDataRef.current;
-                        console.log('Using form data from ref:', currentFormData);
-                        
-                        handlePaymentToken(response.token, currentFormData);
-                    },
-                    timeoutDuration: 10000,
-                    timeoutCallback: () => {
-                        setIsSubmitting(false);
-                        onError('Payment processing timed out. Please try again.');
+            script.onload = () => {
+                console.log('Collect.js script loaded successfully');
+                setCollectJsLoaded(true);
+                
+                if (window.CollectJS) {
+                    console.log('Initializing CollectJS configuration');
+                    try {
+                        window.CollectJS.configure({
+                            variant: 'lightbox',
+                            callback: (response) => {
+                                console.log('CollectJS callback received:', response);
+                                setIsSubmitting(false);
+                                
+                                if (response.error) {
+                                    console.error('CollectJS error:', response.error);
+                                    onError(response.error.message || 'Payment processing failed');
+                                    return;
+                                }
+                                
+                                if (!response.token) {
+                                    console.error('No token received from CollectJS');
+                                    onError('Failed to process payment. Please try again.');
+                                    return;
+                                }
+
+                                console.log('Received token from CollectJS:', response.token);
+                                console.log('Token length:', response.token.length);
+                                console.log('Token format:', response.token.substring(0, 10) + '...');
+                                
+                                // Use the data from the ref instead of the formData state
+                                const currentFormData = formDataRef.current;
+                                console.log('Using form data from ref:', currentFormData);
+                                
+                                handlePaymentToken(response.token, currentFormData);
+                            },
+                            timeoutDuration: 10000,
+                            timeoutCallback: () => {
+                                console.error('CollectJS timeout');
+                                setIsSubmitting(false);
+                                onError('Payment processing timed out. Please try again.');
+                            }
+                        });
+                        console.log('CollectJS configuration completed');
+                    } catch (error) {
+                        console.error('Error configuring CollectJS:', error);
+                        onError('Failed to initialize payment system. Please try again.');
                     }
-                });
-            }
+                } else {
+                    console.error('CollectJS not found in window object');
+                    if (retryCount < maxRetries) {
+                        retryCount++;
+                        console.log(`Retrying CollectJS initialization (attempt ${retryCount}/${maxRetries})`);
+                        setTimeout(loadCollectJs, 1000);
+                    } else {
+                        onError('Payment system initialization failed. Please try again later.');
+                    }
+                }
+            };
+
+            script.onerror = (error) => {
+                console.error('Failed to load Collect.js script:', error);
+                if (retryCount < maxRetries) {
+                    retryCount++;
+                    console.log(`Retrying CollectJS script load (attempt ${retryCount}/${maxRetries})`);
+                    setTimeout(loadCollectJs, 1000);
+                } else {
+                    onError('Failed to load payment processing script. Please try again later.');
+                }
+            };
+
+            document.body.appendChild(script);
         };
 
-        script.onerror = (error) => {
-            onError('Failed to load payment processing script. Please try again later.');
-        };
+        loadCollectJs();
 
         return () => {
-            if (document.body.contains(script)) {
+            const script = document.querySelector('script[src*="Collect.js"]');
+            if (script) {
                 document.body.removeChild(script);
             }
         };
@@ -232,10 +279,12 @@ const CreditCardForm = ({ amount, onSuccess, onError, invoiceId }) => {
             if (response.data.success) {
                 onSuccess(response.data);
             } else {
+                console.error('Payment failed:', response.data);
                 onError(response.data.message || 'Payment processing failed');
             }
         } catch (error) {
             console.error('Payment error:', error);
+            console.error('Error response:', error.response?.data);
             onError(error.response?.data?.message || 'An unexpected error occurred. Please try again.');
         } finally {
             setLoading(false);

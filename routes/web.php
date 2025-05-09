@@ -7,9 +7,11 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserProfileController;
 use Inertia\Inertia;
 use App\Http\Controllers\InvoiceController;
-use App\Http\Controllers\PaymentNotificationController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\DvfWebhookController;
 use App\Http\Controllers\BeadCredentialController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\PaymentNotificationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -173,11 +175,11 @@ Route::middleware(['auth'])->group(function () {
 
 Route::middleware(['auth'])->group(function () {
     // Payment Creation
-    Route::post('/invoice/create-crypto-payment', [InvoiceController::class, 'createCryptoPayment'])->name('invoice.create.crypto-payment');
-    Route::post('/invoice/process-credit-card', [InvoiceController::class, 'processCreditCardPayment'])->name('invoice.process.credit-card');
+    Route::post('/invoice/create-crypto-payment', [PaymentController::class, 'createCryptoPayment'])->name('invoice.create.crypto-payment');
+    Route::post('/invoice/process-credit-card', [PaymentController::class, 'processCreditCardPayment'])->name('invoice.process.credit-card');
     
     // Payment Status Verification
-    Route::get('/verify-bead-payment-status', [InvoiceController::class, 'getBeadPaymentStatus'])->name('verify.bead.payment.status');
+    Route::get('/verify-bead-payment-status', [PaymentController::class, 'getBeadPaymentStatus'])->name('verify.bead.payment.status');
 });
 
 
@@ -192,8 +194,8 @@ Route::middleware(['auth'])->group(function () {
 | Routes are accessed via secure tokens sent in invoice emails
 */
 
-Route::get('/invoice/pay/{token}/credit-card', [InvoiceController::class, 'showCreditCardPayment'])->name('invoice.pay.credit-card');
-Route::get('/invoice/pay/{token}/bitcoin', [InvoiceController::class, 'showBitcoinPayment'])->name('invoice.pay.bitcoin');
+Route::get('/invoice/pay/{token}/credit-card', [PaymentController::class, 'showCreditCardPayment'])->name('invoice.pay.credit-card');
+Route::get('/invoice/pay/{token}/bitcoin', [PaymentController::class, 'showBitcoinPayment'])->name('invoice.pay.bitcoin');
 
 
 
@@ -239,7 +241,7 @@ Route::get('/invoice/nmi/{nmiInvoiceId}', [InvoiceController::class, 'getByNmiIn
 */
 
 Route::middleware(['auth'])->group(function () {
-    Route::get('/test-bead-auth', [InvoiceController::class, 'testBeadAuth'])
+    Route::get('/test-bead-auth', [PaymentController::class, 'testBeadAuth'])
         ->name('test.bead.auth');
 
     Route::get('/test-bead-api-status', function () {

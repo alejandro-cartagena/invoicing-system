@@ -99,6 +99,19 @@
 
         <mj-divider border-color="#eee" />
 
+        <!-- Totals Section -->
+        <mj-wrapper padding="10px">
+          <mj-text font-size="16px">
+            <strong>Subtotal:</strong> {{ $invoiceData['currency'] ?? '$' }}{{ number_format($invoice->subtotal, 2) }}<br />
+            @if($invoice->tax_amount > 0)
+            <strong>Tax ({{ $invoice->tax_rate }}%):</strong> {{ $invoiceData['currency'] ?? '$' }}{{ number_format($invoice->tax_amount, 2) }}<br />
+            @endif
+            <strong>Total:</strong> {{ $invoiceData['currency'] ?? '$' }}{{ number_format($invoice->total, 2) }}
+          </mj-text>
+        </mj-wrapper>
+
+        <mj-divider border-color="#eee" />
+
         <mj-text font-size="16px">
           This payment has been processed and added to your account.
         </mj-text>
