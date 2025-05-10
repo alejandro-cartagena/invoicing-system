@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Invoice Management System is built using Laravel 10.x with React and Inertia.js for the frontend. The system follows a traditional MVC architecture with additional layers for payment processing and real-time notifications.
+The Invoice Management System is built using Laravel 11 with React and Inertia.js for the frontend. The system follows a traditional MVC architecture with additional layers for payment processing and real-time notifications.
 
 ## System Components
 

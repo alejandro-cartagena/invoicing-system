@@ -65,7 +65,7 @@ NMI_API_KEY=
 BEAD_API_URL=
 BEAD_AUTH_URL=
 
-# Pusher Configuration
+# Pusher (For in app notifications)
 PUSHER_APP_ID=
 PUSHER_APP_KEY=
 PUSHER_APP_SECRET=
@@ -113,6 +113,8 @@ MAIL_FROM_NAME="${APP_NAME}"
 - Perfect for testing invoice emails, payment receipts, and notifications
 
 For detailed API integration documentation and implementation details, please refer to the `/docs` directory.
+
+For comprehensive API documentation including endpoints, authentication, and usage examples, see [API Documentation](API_DOCUMENTATION.md).
 
 ## Project Structure
 
