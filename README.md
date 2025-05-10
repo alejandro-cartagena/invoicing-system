@@ -65,7 +65,52 @@ NMI_API_KEY=
 BEAD_API_URL=
 BEAD_AUTH_URL=
 
+# Pusher Configuration
+PUSHER_APP_ID=
+PUSHER_APP_KEY=
+PUSHER_APP_SECRET=
+PUSHER_HOST=
+PUSHER_PORT=443
+PUSHER_SCHEME=https
+PUSHER_APP_CLUSTER=mt1
+
+# Mail Configuration (Mailtrap)
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.mailtrap.io
+MAIL_PORT=2525
+MAIL_USERNAME=your_mailtrap_username
+MAIL_PASSWORD=your_mailtrap_password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=your_email@example.com
+MAIL_FROM_NAME="${APP_NAME}"
 ```
+
+### Obtaining API Credentials
+
+#### NMI API Key
+- Contact VoltMS at [support@voltms.com](mailto:support@voltms.com) to obtain your NMI v4 API key
+- Include your business details and intended use case in your request
+- The API key will be provided after account verification
+
+#### Bead Testing Credentials
+- Contact Bead support at [developers@bead.xyz](mailto:developers@bead.xyz) to obtain testing credentials
+- Request access to the sandbox environment
+- Include your development team's information in your request
+
+#### Pusher Credentials
+- Create a free account at [Pusher](https://pusher.com)
+- Create a new Channels app in your Pusher dashboard
+- Use the development credentials provided in your app settings
+- For production, upgrade to a paid plan and use production credentials
+- Note: The current credentials in the repository are for demonstration purposes only
+
+#### Email Testing (Mailtrap)
+- Create a free account at [Mailtrap](https://mailtrap.io)
+- Create a new inbox for your project
+- Copy the SMTP credentials from your inbox settings
+- Update your `.env` file with the Mailtrap credentials
+- All emails will be caught by Mailtrap instead of being sent to real recipients
+- Perfect for testing invoice emails, payment receipts, and notifications
 
 For detailed API integration documentation and implementation details, please refer to the `/docs` directory.
 

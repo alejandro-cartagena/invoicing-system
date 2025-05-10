@@ -70,6 +70,12 @@
   ```env
   NMI_API_KEY=your_api_key
   ```
+- **Obtaining Credentials**:
+  - Contact VoltMS at [support@voltms.com](mailto:support@voltms.com)
+  - Request NMI v4 API key
+  - Provide business details and use case
+  - Wait for account verification
+  - API key will be provided via secure channel
 - **Key Features**:
   - Credit card processing
   - Payment tokenization
@@ -92,6 +98,12 @@
   BEAD_API_URL=your_api_url
   BEAD_AUTH_URL=your_auth_url
   ```
+- **Obtaining Credentials**:
+  - Contact Bead support at [developers@bead.xyz](mailto:developers@bead.xyz)
+  - Request sandbox environment access
+  - Provide development team information
+  - Credentials will be provided via secure channel
+  - Test transactions available in sandbox
 - **Key Features**:
   - Cryptocurrency payment processing
   - Digital wallet integration
@@ -103,6 +115,97 @@
   - Manages merchant credentials
   - Implements webhook handling
   - Includes comprehensive error handling
+
+### Real-time Updates (Pusher)
+
+#### Pusher Integration
+- **Service Class**: `app/Services/PusherService.php`
+- **Documentation**: [Pusher Channels Documentation](https://pusher.com/docs/channels)
+- **Configuration**:
+  ```env
+  PUSHER_APP_ID=your_app_id
+  PUSHER_APP_KEY=your_app_key
+  PUSHER_APP_SECRET=your_app_secret
+  PUSHER_HOST=
+  PUSHER_PORT=443
+  PUSHER_SCHEME=https
+  PUSHER_APP_CLUSTER=mt1
+  ```
+- **Obtaining Credentials**:
+  1. Create a free Pusher account at [Pusher](https://pusher.com)
+  2. Create a new Channels app in your dashboard
+  3. Select the appropriate cluster (mt1 for US)
+  4. Copy the development credentials from your app settings
+  5. For production:
+     - Upgrade to a paid plan
+     - Create a new app or use existing one
+     - Use production credentials
+- **Implementation Notes**:
+  - Used for real-time payment notifications
+  - Handles invoice status updates
+  - Manages user notifications
+  - Supports private and presence channels
+- **Development Setup**:
+  - Free tier includes:
+    - 200k messages/day
+    - 100 concurrent connections
+    - 20 channels
+  - Sufficient for development and testing
+- **Production Considerations**:
+  - Monitor message usage
+  - Implement connection limits
+  - Use appropriate channel types
+  - Handle reconnection logic
+  - Implement error handling
+
+### Email Testing (Mailtrap)
+
+#### Mailtrap Integration
+- **Documentation**: [Mailtrap Documentation](https://mailtrap.io/docs)
+- **Configuration**:
+  ```env
+  MAIL_MAILER=smtp
+  MAIL_HOST=smtp.mailtrap.io
+  MAIL_PORT=2525
+  MAIL_USERNAME=your_mailtrap_username
+  MAIL_PASSWORD=your_mailtrap_password
+  MAIL_ENCRYPTION=tls
+  MAIL_FROM_ADDRESS=your_email@example.com
+  MAIL_FROM_NAME="${APP_NAME}"
+  ```
+- **Setup Process**:
+  1. Create a free Mailtrap account
+  2. Create a new inbox for your project
+  3. Go to inbox settings
+  4. Select "SMTP Settings"
+  5. Choose "Laravel" from the integrations
+  6. Copy the credentials to your `.env` file
+- **Testing Features**:
+  - Catches all outgoing emails
+  - Previews email content
+  - Tests email templates
+  - Checks email formatting
+  - Validates attachments
+- **Email Types to Test**:
+  - Invoice creation notifications
+  - Payment receipts
+  - Payment reminders
+  - Merchant notifications
+  - System notifications
+- **Best Practices**:
+  - Create separate inboxes for different environments
+  - Use email templates for consistency
+  - Test all email types
+  - Verify email formatting
+  - Check mobile responsiveness
+  - Test with different email clients
+- **Development Workflow**:
+  1. Make changes to email templates
+  2. Trigger email sending
+  3. Check Mailtrap inbox
+  4. Verify email content and formatting
+  5. Test on different devices/clients
+  6. Make adjustments if needed
 
 ### Webhook Handling
 
