@@ -115,13 +115,14 @@
         <mj-button href="{{ $creditCardPaymentUrl }}" background-color="#4CAF50" color="white" font-size="16px">
           Pay with Credit Card
         </mj-button>
+        @endif
         
         @if(isset($bitcoinPaymentUrl))
         <mj-button href="{{ $bitcoinPaymentUrl }}" background-color="#f7931a" color="white" font-size="16px">
           Pay with Bitcoin
         </mj-button>
         @endif
-        @endif
+       
 
         <mj-divider border-color="#eee" />
 

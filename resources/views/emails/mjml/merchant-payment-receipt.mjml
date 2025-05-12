@@ -73,8 +73,8 @@
         </mj-wrapper>
 
         <!-- Mobile Layout -->
+        <mj-text font-size="18px" font-weight="bold">Invoice Items:</mj-text>
         <mj-wrapper css-class="mobile-only" padding="10px">
-          <mj-text font-size="18px" font-weight="bold">Invoice Items:</mj-text>
           @foreach($invoiceData['productLines'] as $item)
             @if(isset($item['description']) && $item['description'])
             <mj-text padding-bottom="20px" font-size="16px">
