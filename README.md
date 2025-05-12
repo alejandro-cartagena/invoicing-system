@@ -27,6 +27,121 @@ A comprehensive invoice management system that allows merchants to create, send,
 - **PDF Generation**: DomPDF
 - **Real-time Updates**: Pusher
 
+## API Integrations
+
+### Payment Processing APIs
+
+#### NMI (Network Merchants Inc.)
+- **Documentation**: 
+   - [NMI API Documentation](https://docs.nmi.com/reference/getting-started)
+   - [DVF Integration Portal](https://dvfsolutions.transactiongateway.com/merchants/resources/integration/integration_portal.php?tid=581c667d67acba28d1d0017dbed4a607)
+- **Features**:
+  - Credit card processing
+  - Payment tokenization
+  - Transaction management
+  - Webhook notifications
+  - Customer vault management
+
+#### Bead
+- **Documentation**: 
+  - [Bead Developer Portal](https://developers.bead.xyz/)
+  - [Bead API Reference](https://api.test.devs.beadpay.io/apidocs/index.html)
+- **Features**:
+  - Cryptocurrency payment processing
+  - Digital wallet integration
+  - Merchant onboarding
+  - Transaction reporting
+  - Settlement management
+
+
+### API Configuration
+Each API requires specific configuration in your `.env` file:
+
+```env
+# NMI Configuration
+NMI_API_KEY=
+
+# Bead Configuration
+BEAD_API_URL=
+BEAD_AUTH_URL=
+
+# Pusher (For in app notifications)
+PUSHER_APP_ID=
+PUSHER_APP_KEY=
+PUSHER_APP_SECRET=
+PUSHER_HOST=
+PUSHER_PORT=443
+PUSHER_SCHEME=https
+PUSHER_APP_CLUSTER=mt1
+
+# Mail Configuration (Mailtrap)
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.mailtrap.io
+MAIL_PORT=2525
+MAIL_USERNAME=your_mailtrap_username
+MAIL_PASSWORD=your_mailtrap_password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=your_email@example.com
+MAIL_FROM_NAME="${APP_NAME}"
+```
+
+### Obtaining API Credentials
+
+#### NMI API Key
+- Contact VoltMS at [support@voltms.com](mailto:support@voltms.com) to obtain your NMI v4 API key
+- Include your business details and intended use case in your request
+- The API key will be provided after account verification
+
+#### Bead Testing Credentials
+- Contact Bead support at [developers@bead.xyz](mailto:developers@bead.xyz) to obtain testing credentials
+- Request access to the sandbox environment
+- Include your development team's information in your request
+
+#### Pusher Credentials
+- Create a free account at [Pusher](https://pusher.com)
+- Create a new Channels app in your Pusher dashboard
+- Use the development credentials provided in your app settings
+- For production, upgrade to a paid plan and use production credentials
+- Note: The current credentials in the repository are for demonstration purposes only
+
+#### Email Testing (Mailtrap)
+- Create a free account at [Mailtrap](https://mailtrap.io)
+- Create a new inbox for your project
+- Copy the SMTP credentials from your inbox settings
+- Update your `.env` file with the Mailtrap credentials
+- All emails will be caught by Mailtrap instead of being sent to real recipients
+- Perfect for testing invoice emails, payment receipts, and notifications
+
+For detailed API integration documentation and implementation details, please refer to the `/docs` directory.
+
+For comprehensive API documentation including endpoints, authentication, and usage examples, see [API Documentation](API_DOCUMENTATION.md).
+
+## Project Structure
+
+### Backend Structure (`/app`)
+- `Http/Controllers/` - All application controllers
+- `Http/Middleware/` - Custom middleware
+- `Mail/` - Email classes and templates
+- `Models/` - Eloquent models
+- `Services/` - Business logic and external service integrations
+- `Events/` - Event classes
+- `Providers/` - Service providers
+
+### Frontend Structure (`/resources`)
+- `js/` - React components and frontend logic
+  - `Components/` - Reusable React components
+  - `Pages/` - Page components
+  - `Layouts/` - Layout components
+- `css/` - Stylesheets
+- `views/` - Blade templates
+- `mjml/` - Email templates in MJML format
+
+### Routes
+- `routes/web.php` - Web routes
+- `routes/api.php` - API routes
+
+For detailed documentation about the codebase structure and development guidelines, please refer to the `/docs` directory.
+
 ## Prerequisites
 
 Before you begin, ensure you have the following installed:
@@ -150,7 +265,7 @@ MAIL_ENCRYPTION=null
 MAIL_FROM_ADDRESS=null
 MAIL_FROM_NAME="${APP_NAME}"
 
-# Pusher
+# Pusher (For in app notifications)
 PUSHER_APP_ID=
 PUSHER_APP_KEY=
 PUSHER_APP_SECRET=
