@@ -313,6 +313,9 @@ class InvoiceController extends Controller
                         'total' => $processedData['total']
                     ]);
 
+                    // Add NMI invoice ID to the invoice data for the email
+                    $invoiceData['nmi_invoice_id'] = $invoice->nmi_invoice_id;
+
                     // Send the email with the PDF attachment
                     Mail::to($validated['recipientEmail'])
                         ->send(new SendInvoiceMail(
