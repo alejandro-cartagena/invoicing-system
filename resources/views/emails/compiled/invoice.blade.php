@@ -123,7 +123,7 @@
                     </tr>
                     <tr>
                       <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
-                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:1;text-align:left;color:#000000;">{{ isset($invoiceData['client_first_name']) ? 'Hello, ' . $invoiceData['client_first_name'] : 'Hello,' }}</div>
+                        <div style="font-family:Helvetica, Arial, sans-serif;font-size:16px;line-height:1;text-align:left;color:#000000;">{{ isset($invoiceData['firstName']) ? 'Hello ' . $invoiceData['firstName'] . ',' : 'Hello,' }}</div>
                       </td>
                     </tr>
                     <tr>

@@ -34,7 +34,7 @@ class PaymentReceiptMail extends Mailable
      */
     public function build()
     {
-        return $this->view('emails.compiled.payment-receipt')
+        return $this->view('emails.minified.payment-receipt')
                     ->with([
                         'invoice' => $this->invoice,
                     ]);
@@ -53,7 +53,7 @@ class PaymentReceiptMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.compiled.payment-receipt',
+            view: 'emails.minified.payment-receipt',
             with: [
                 'invoice' => $this->invoice,
                 'invoiceData' => $this->invoice->invoice_data

@@ -131,7 +131,7 @@ class SendInvoiceMail extends Mailable
         $total = $subTotal + $tax;
         
         return new Content(
-            view: 'emails.compiled.invoice',
+            view: 'emails.minified.invoice',
             with: [
                 'senderName' => $businessName,
                 'invoiceData' => $this->invoiceData,
