@@ -12,8 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('user_profiles', function (Blueprint $table) {
-            // Move private_key column after public_key
-            $table->text('private_key')->after('public_key')->change();
+            if (Schema::hasColumn('user_profiles', 'private_key')) {
+                // Move private_key column after public_key
+                $table->text('private_key')->after('public_key')->change();
+            }
         });
     }
 
@@ -23,8 +25,10 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('user_profiles', function (Blueprint $table) {
-            // Move private_key column back to its original position
-            $table->text('private_key')->change();
+            if (Schema::hasColumn('user_profiles', 'private_key')) {
+                // Move private_key column back to its original position
+                $table->text('private_key')->change();
+            }
         });
     }
 }; 
