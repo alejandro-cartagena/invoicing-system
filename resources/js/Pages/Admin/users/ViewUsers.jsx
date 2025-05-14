@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import AdminAuthenticatedLayout from '@/Layouts/AdminAuthenticatedLayout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faChevronLeft, faChevronRight, faTrash, faEye } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faChevronLeft, faChevronRight, faTrash, faPenToSquare } from '@fortawesome/free-solid-svg-icons';
 import Swal from 'sweetalert2';
 import { router } from '@inertiajs/react';
 import { Head } from '@inertiajs/react';
@@ -141,11 +141,11 @@ const ViewUsers = ({ users }) => {
                                                     <button 
                                                         onClick={() => handleView(user.id)}
                                                         className="text-blue-600 hover:text-blue-900 relative group"
-                                                        aria-label="View User"
+                                                        aria-label="Edit User"
                                                     >
-                                                        <FontAwesomeIcon icon={faEye} />
+                                                        <FontAwesomeIcon icon={faPenToSquare} />
                                                         <span className="invisible group-hover:visible absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                                                            View
+                                                            Edit
                                                         </span>
                                                     </button>
                                                     
