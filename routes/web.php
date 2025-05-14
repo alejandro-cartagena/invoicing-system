@@ -173,13 +173,11 @@ Route::middleware(['auth'])->group(function () {
 | All routes require authentication via the auth middleware
 */
 
+
 Route::middleware(['auth'])->group(function () {
     // Payment Creation
     Route::post('/invoice/create-crypto-payment', [PaymentController::class, 'createCryptoPayment'])->name('invoice.create.crypto-payment');
-    Route::post('/invoice/process-credit-card', [PaymentController::class, 'processCreditCardPayment'])->name('invoice.process.credit-card');
     
-    // Payment Status Verification
-    Route::get('/verify-bead-payment-status', [PaymentController::class, 'getBeadPaymentStatus'])->name('verify.bead.payment.status');
 });
 
 
@@ -198,6 +196,10 @@ Route::get('/invoice/pay/{token}/credit-card', [PaymentController::class, 'showC
 Route::get('/invoice/pay/{token}/bitcoin', [PaymentController::class, 'showBitcoinPayment'])->name('invoice.pay.bitcoin');
 
 
+Route::post('/invoice/process-credit-card', [PaymentController::class, 'processCreditCardPayment'])->name('invoice.process.credit-card');
+    
+// Payment Status Verification
+Route::get('/verify-bead-payment-status', [PaymentController::class, 'getBeadPaymentStatus'])->name('verify.bead.payment.status');
 
 /*
 |--------------------------------------------------------------------------
