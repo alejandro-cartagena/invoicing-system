@@ -418,24 +418,45 @@ class UserProfileController extends Controller
     public function fetchMerchantInfo($gatewayId)
     {
         try {
-            \Log::info('Fetching merchant info for Gateway ID: ' . $gatewayId);
+            \Log::info('Fetching merchant info - Request details', [
+                'gateway_id' => $gatewayId,
+                'request_path' => request()->path(),
+                'request_method' => request()->method(),
+                'user' => auth()->user() ? [
+                    'id' => auth()->user()->id,
+                    'email' => auth()->user()->email,
+                    'usertype' => auth()->user()->usertype
+                ] : 'not authenticated',
+                'headers' => request()->headers->all()
+            ]);
             
             $merchantData = $this->nmiService->getMerchantInfo($gatewayId);
             
             if ($merchantData) {
+                \Log::info('Merchant info fetched successfully', [
+                    'gateway_id' => $gatewayId,
+                    'merchant_data' => $merchantData
+                ]);
                 return response()->json([
                     'success' => true,
                     'message' => 'Merchant information fetched successfully',
                     'merchant' => $merchantData
                 ]);
             } else {
+                \Log::warning('Failed to fetch merchant info - No data returned', [
+                    'gateway_id' => $gatewayId
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Failed to fetch merchant information. Please check the Gateway ID and try again.'
                 ], 404);
             }
         } catch (\Exception $e) {
-            \Log::error('Error fetching merchant info: ' . $e->getMessage());
+            \Log::error('Error fetching merchant info', [
+                'gateway_id' => $gatewayId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while fetching merchant information: ' . $e->getMessage()

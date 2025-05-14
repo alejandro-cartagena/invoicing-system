@@ -44,4 +44,9 @@ return [
         'password' => env('BEAD_PASSWORD'),
     ],
 
+    'nmi' => [
+        'api_key' => env('NMI_API_KEY'),
+        'base_url' => 'https://secure.nmi.com/api/v4',
+    ],
+
 ];

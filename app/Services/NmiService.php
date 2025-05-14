@@ -8,16 +8,17 @@ use Exception;
 class NmiService
 {
     private $apiKey;
-    private $baseUrl = 'https://secure.nmi.com/api/v4';
+    private $baseUrl;
 
     public function __construct()
     {
-        // Get the API key from .env file with no default value
-        $this->apiKey = env('NMI_API_KEY');
+        // Get the API key from services config
+        $this->apiKey = config('services.nmi.api_key');
+        $this->baseUrl = config('services.nmi.base_url');
         
         // Check if the API key is missing
         if (empty($this->apiKey)) {
-            Log::critical('NMI API key is missing from .env file. This is required for NMI API integration.');
+            Log::critical('NMI API key is missing from services config. This is required for NMI API integration.');
         }
     }
 
