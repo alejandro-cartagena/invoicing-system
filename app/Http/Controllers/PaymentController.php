@@ -452,6 +452,18 @@ class PaymentController extends Controller
                 
                 // Send payment notifications using NotificationController
                 $this->notificationController->sendPaymentNotifications($invoice);
+
+                // Dispatch payment notification event
+                $notificationData = [
+                    'invoice_id' => $invoice->id,
+                    'nmi_invoice_id' => $invoice->nmi_invoice_id,
+                    'client_email' => $invoice->client_email,
+                    'amount' => $invoice->total,
+                    'transaction_id' => $request->input('paymentCode'),
+                    'status' => 'success',
+                    'payment_date' => now()->toDateTimeString(),
+                ];
+                event(new \App\Events\PaymentNotification($notificationData));
                 
                 return response()->json([
                     'success' => true,
