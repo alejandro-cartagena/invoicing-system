@@ -6,6 +6,7 @@ export default function PaymentSuccess() {
     const [beadPaymentResponse, setBeadPaymentResponse] = useState(null);
     const [status, setStatus] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [invoiceItems, setInvoiceItems] = useState([]);
 
     useEffect(() => {
         const searchParams = new URLSearchParams(window.location.search);
@@ -23,8 +24,11 @@ export default function PaymentSuccess() {
             const invoice = res.data.invoice;
             const trackingId = invoice.bead_payment_id;
 
+            // Set invoice items
+            setInvoiceItems(invoice.invoice_data.productLines);
+
             // Step 2: Use trackingId to check payment status
-            return axios.post('/api/verify-payment', {
+            return axios.post('/api/bead/verify-payment', {
                 trackingId: trackingId
             });
         })
@@ -47,7 +51,7 @@ export default function PaymentSuccess() {
         <div className="min-h-screen bg-gray-100 py-12">
             <Head title="Payment Complete" />
             
-            <div className="max-w-3xl mx-auto sm:px-6 lg:px-8">
+            <div className="container md:max-w-3xl mx-auto sm:px-6 lg:px-8">
                 <div className="bg-white p-8 rounded-lg shadow-md">
                     {loading && (
                         <div className="text-center py-8">
@@ -79,6 +83,20 @@ export default function PaymentSuccess() {
                                         ${beadPaymentResponse.payment.amounts.paid.inPaymentCurrency.amount}
                                     </span>
                                 </p>
+                            <div className="max-w-md mx-auto bg-gray-50 rounded-lg p-6 shadow-sm mb-6">
+                                <h3 className="text-lg font-semibold text-gray-800 mb-4">Order Summary</h3>
+                                <div className="space-y-4">
+                                    {invoiceItems.map((item, index) => (
+                                        <div key={index} className="flex justify-between items-center border-b border-gray-200 pb-3">
+                                            <div>
+                                                <p className="text-gray-800 font-medium">{item.description}</p>
+                                                <p className="text-sm text-gray-500">Quantity: {item.quantity}</p>
+                                            </div>
+                                            <p className="text-gray-800 font-medium">${item.rate}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                             <div className="max-w-md mx-auto bg-green-50 rounded-lg p-6 shadow-sm">
                                 
                                 <div className="space-y-3 text-sm">
