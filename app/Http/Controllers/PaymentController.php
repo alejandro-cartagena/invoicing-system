@@ -212,6 +212,7 @@ class PaymentController extends Controller
                     'status' => 'paid',
                     'payment_date' => now(),
                     'transaction_id' => $responseData['transactionid'] ?? null,
+                    'payment_method' => 'credit card',
                 ]);
                 
                 // Send payment notifications using NotificationController
@@ -528,6 +529,7 @@ class PaymentController extends Controller
             if (isset($paymentData['status_code']) && $paymentData['status_code'] === 'completed') {
                 $invoice->status = 'paid';
                 $invoice->payment_date = now();
+                $invoice->transaction_id = $paymentData['transaction_id'];
                 $invoice->save();
                 
                 // Send payment notifications using NotificationController
