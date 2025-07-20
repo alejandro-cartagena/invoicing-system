@@ -27,7 +27,11 @@ Route::post('/bead/verify-payment', [PaymentController::class, 'verifyBeadPaymen
 
 // Webhook routes - no CSRF protection by default in API routes
 Route::post('/dvf/webhook', [DvfWebhookController::class, 'handle']);
-// Route::post('/bead/webhook', [InvoiceController::class, 'handleBeadWebhook']);
+
+// Use this route in production
+// Route::post('/bead/webhook', [PaymentController::class, 'handleBeadWebhook']);
+
+// Use this route in development
 Route::post('/', [PaymentController::class, 'handleBeadWebhook']);
 
 // Test route

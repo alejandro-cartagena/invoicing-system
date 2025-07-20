@@ -4,7 +4,8 @@
     "scripts": {
         "build": "vite build && php artisan mjml:compile",
         "dev": "vite",
-        "watch-mjml": "nodemon -e mjml -x 'php artisan mjml:compile'"
+        "watch-mjml": "nodemon -e mjml -x 'php artisan mjml:compile'",
+        "ngrok": "ngrok start voltms --config=./ngrok.yml"
     },
     "devDependencies": {
         "@headlessui/react": "^2.0.0",
