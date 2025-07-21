@@ -12,6 +12,7 @@ use App\Http\Controllers\DvfWebhookController;
 use App\Http\Controllers\BeadCredentialController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PaymentNotificationController;
+use App\Http\Controllers\CustomerController;
 
 /*
 |--------------------------------------------------------------------------
@@ -159,6 +160,39 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/invoice/{invoice}', [InvoiceController::class, 'destroy'])->name('user.invoice.destroy');
     Route::post('/invoice/{invoice}/resend', [InvoiceController::class, 'resendInvoice'])->name('user.invoice.resend');
     Route::post('/invoice/{invoice}/close', [InvoiceController::class, 'closeInvoice'])->name('user.invoice.close');
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Customer Management Routes
+|--------------------------------------------------------------------------
+|
+| These routes handle customer operations for authenticated users:
+| - Creating, viewing, editing, and deleting customers
+| - Customer listing with search functionality
+| - Customer data retrieval for invoice creation
+| All routes require authentication via the auth middleware
+*/
+
+Route::middleware(['auth'])->group(function () {
+    // Customer Listing and Viewing
+    Route::get('/customers', [CustomerController::class, 'index'])->name('user.customers');
+    Route::get('/customer/view/{customer}', [CustomerController::class, 'show'])->name('user.customer.view');
+
+    // Customer Creation
+    Route::get('/customers/create', [CustomerController::class, 'create'])->name('user.customer.create');
+    Route::post('/customers', [CustomerController::class, 'store'])->name('user.customer.store');
+
+    // Customer Editing
+    Route::get('/customer/{customer}/edit', [CustomerController::class, 'edit'])->name('user.customer.edit');
+    Route::patch('/customer/{customer}', [CustomerController::class, 'update'])->name('user.customer.update');
+
+    // Customer Actions
+    Route::delete('/customer/{customer}', [CustomerController::class, 'destroy'])->name('user.customer.destroy');
+    
+    // API endpoint for customer data (used in invoice creation, etc.)
+    Route::get('/api/customers', [CustomerController::class, 'getCustomers'])->name('api.customers');
 });
 
 
