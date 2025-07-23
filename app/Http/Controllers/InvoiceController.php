@@ -126,6 +126,7 @@ class InvoiceController extends Controller
                 'recipientEmail' => 'required|email',
                 'pdfBase64' => 'required|string',
                 'invoiceType' => 'required|in:general,real_estate',
+                'customerId' => 'nullable|integer|exists:customers,id',
             ]);
 
             // Get the authenticated user
@@ -173,7 +174,7 @@ class InvoiceController extends Controller
 
             // Process invoice data using the new function
             $invoiceData = $validated['invoiceData'];
-            $processedData = $this->processInvoiceData($invoiceData, $validated['recipientEmail'], $validated['invoiceType']);
+            $processedData = $this->processInvoiceData($invoiceData, $validated['recipientEmail'], $validated['invoiceType'], $validated['customerId'] ?? null);
             
             // Add required fields that aren't in processInvoiceData
             $processedData['user_id'] = $user->id;
@@ -767,6 +768,7 @@ class InvoiceController extends Controller
                 'recipientEmail' => 'required|email',
                 'pdfBase64' => 'required|string',
                 'invoiceType' => 'required|in:general,real_estate',
+                'customerId' => 'nullable|integer|exists:customers,id',
             ]);
 
             // Get the authenticated user
@@ -961,7 +963,8 @@ class InvoiceController extends Controller
                 $updateData = $this->processInvoiceData(
                     $validated['invoiceData'], 
                     $validated['recipientEmail'],
-                    $validated['invoiceType']
+                    $validated['invoiceType'],
+                    $validated['customerId'] ?? null
                 );
                 
                 // Add NMI invoice ID and status
@@ -1136,7 +1139,6 @@ class InvoiceController extends Controller
             
             // Update invoice status to closed in our database
             $invoice->status = 'closed';
-            $invoice->closed_at = now();
             $invoice->save();
             
             return response()->json([
@@ -1214,9 +1216,10 @@ class InvoiceController extends Controller
      * @param array $invoiceData The raw invoice data containing product lines and other information
      * @param string $recipientEmail The email address of the invoice recipient
      * @param string $invoiceType The type of invoice (general or real_estate)
+     * @param int|null $customerId The ID of the customer to associate with this invoice
      * @return array Processed invoice data with calculated values
      */
-    private function processInvoiceData(array $invoiceData, string $recipientEmail, string $invoiceType = 'general'): array
+    private function processInvoiceData(array $invoiceData, string $recipientEmail, string $invoiceType = 'general', ?int $customerId = null): array
     {
         // Calculate values to store in database
         $subTotal = 0;
@@ -1310,6 +1313,7 @@ class InvoiceController extends Controller
         // Base data array
         $data = [
             'client_email' => $recipientEmail,
+            'customer_id' => $customerId,
             'subtotal' => $subTotal,
             'tax_rate' => $taxRate,
             'tax_amount' => $taxAmount,

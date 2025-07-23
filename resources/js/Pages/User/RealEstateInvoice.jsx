@@ -12,7 +12,9 @@ import { PDFDownloadLink } from '@react-pdf/renderer';
 import { saveTemplate, handleTemplateUpload } from '@/utils/templateHandler';
 import { generateRealEstatePDF } from '@/utils/pdfGenerator.jsx';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faDownload, faEnvelope, faSave, faUpload } from '@fortawesome/free-solid-svg-icons';
+import { faDownload, faEnvelope, faSave, faUpload, faUsers } from '@fortawesome/free-solid-svg-icons';
+import CustomerSelector from '@/Components/CustomerSelector';
+import CustomerModal from '@/Components/CustomerModal';
 
 const MAX_IMAGE_SIZE_MB = 1; // Maximum image size in MB
 const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024; // Convert to bytes
@@ -28,12 +30,20 @@ const RealEstateInvoice = () => {
     
     const [invoiceData, setInvoiceData] = useState(initialInvoiceData || null);
     const [recipientEmail, setRecipientEmail] = useState(initialEmail || '');
+    const [selectedCustomer, setSelectedCustomer] = useState(null);
+    const [showCustomerModal, setShowCustomerModal] = useState(false);
     const [sending, setSending] = useState(false);
     const [isEditing, setIsEditing] = useState(initialIsEditing || false);
     const [isResending, setIsResending] = useState(initialIsResending || false);
 
     const handleInvoiceUpdate = (invoice) => {
         setInvoiceData(invoice);
+    };
+
+    const handleCustomerModalSelect = (customer) => {
+        setSelectedCustomer(customer);
+        setRecipientEmail(customer.email);
+        setShowCustomerModal(false);
     };
 
     const handleSendInvoice = async () => {
@@ -64,6 +74,30 @@ const RealEstateInvoice = () => {
         }
 
         setSending(true);
+
+        // Check if the recipient email belongs to an existing customer
+        let customerToUse = selectedCustomer;
+        if (!customerToUse && recipientEmail.trim()) {
+            try {
+                const customerResponse = await axios.get(route('api.customers'), {
+                    params: { search: recipientEmail.trim() }
+                });
+                
+                // Find exact email match
+                const matchingCustomer = customerResponse.data.find(customer => 
+                    customer.email.toLowerCase() === recipientEmail.trim().toLowerCase()
+                );
+                
+                if (matchingCustomer) {
+                    customerToUse = matchingCustomer;
+                    // Optionally update the UI to show the found customer
+                    setSelectedCustomer(matchingCustomer);
+                }
+            } catch (error) {
+                console.log('Could not check for existing customer:', error);
+                // Continue with invoice creation even if customer lookup fails
+            }
+        }
         try {
             // Generate PDF - Use generateRealEstatePDF instead of generatePDF
             const pdfBlob = await generateRealEstatePDF(invoiceData);
@@ -86,6 +120,7 @@ const RealEstateInvoice = () => {
                     recipientEmail: recipientEmail,
                     pdfBase64: base64data,
                     invoiceType: 'real_estate',
+                    customerId: customerToUse?.id || null,
                     propertyAddress: invoiceData.propertyAddress,
                     titleNumber: invoiceData.titleNumber,
                     buyerName: invoiceData.buyerName,
@@ -100,6 +135,7 @@ const RealEstateInvoice = () => {
                     recipientEmail: recipientEmail,
                     pdfBase64: base64data,
                     invoiceType: 'real_estate',
+                    customerId: customerToUse?.id || null,
                     propertyAddress: invoiceData.propertyAddress,
                     titleNumber: invoiceData.titleNumber,
                     buyerName: invoiceData.buyerName,
@@ -156,41 +192,59 @@ const RealEstateInvoice = () => {
         >
             <div className="container md:max-w-4xl mx-auto md:py-10">
                 
-                {/* Email input section */}
+                {/* Customer/Email selection section */}
                 <div className="hidden md:block mb-6 p-6 bg-white rounded shadow-md">
-                    <div className="flex flex-col md:flex-row items-center gap-4">
-                        <input
-                            type="email"
-                            value={recipientEmail}
-                            onChange={(e) => setRecipientEmail(e.target.value)}
-                            placeholder="Recipient's email"
-                            pattern="[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
-                            title="Please enter a valid email address"
-                            className="w-full flex-1 border-gray-300 rounded-md shadow-sm focus:border-gray-600 focus:ring focus:ring-gray-200 focus:ring-opacity-50"
-                            disabled={sending}
-                            required
-                        />
-                        <button
-                            onClick={handleSendInvoice}
-                            disabled={sending}
-                            className="px-4 py-2 bg-blue-500 text-white rounded-md text-sm md:text-base hover:bg-blue-600 transition-all duration-300 flex items-center"
-                        >
-                            {sending ? (
-                                <>
-                                    <LoaderIcon className="animate-spin -ml-1 mr-2 h-4 w-4" />
-                                    Sending...
-                                </>
-                            ) : (
-                                <>
-                                    <FontAwesomeIcon icon={faEnvelope} className="mr-2" />
-                                    {isEditing ? 'Update & Send' : 'Send Invoice'}
-                                </>
-                            )}
-                        </button>
+                    <div className="flex flex-col gap-4">
+                        <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+                            <div className="flex-1 w-full">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Select Customer or Enter Email
+                                </label>
+                                <div className="flex gap-2">
+                                    <div className="flex-1">
+                                        <CustomerSelector
+                                            selectedCustomer={selectedCustomer}
+                                            onCustomerSelect={setSelectedCustomer}
+                                            onEmailChange={setRecipientEmail}
+                                            email={recipientEmail}
+                                            disabled={sending}
+                                            placeholder="Search customers or enter email address..."
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowCustomerModal(true)}
+                                        disabled={sending}
+                                        className="px-3 py-2 bg-gray-500 text-white rounded-md text-sm hover:bg-gray-600 transition-all duration-300 flex items-center space-x-1 whitespace-nowrap"
+                                        title="Browse all customers"
+                                    >
+                                        <FontAwesomeIcon icon={faUsers} />
+                                        <span className="hidden sm:inline">Select Customer</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <button
+                                onClick={handleSendInvoice}
+                                disabled={sending}
+                                className="px-4 py-2 bg-blue-500 text-white rounded-md text-sm md:text-base hover:bg-blue-600 transition-all duration-300 flex items-center mt-6 md:mt-0"
+                            >
+                                {sending ? (
+                                    <>
+                                        <LoaderIcon className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                                        Sending...
+                                    </>
+                                ) : (
+                                    <>
+                                        <FontAwesomeIcon icon={faEnvelope} className="mr-2" />
+                                        {isEditing ? 'Update & Send' : 'Send Invoice'}
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                        <p className="text-center md:text-left text-xs text-gray-500">
+                            This will create an invoice in your NMI merchant portal and send an email with PDF to the recipient.
+                        </p>
                     </div>
-                    <p className="text-center md:text-left text-xs text-gray-500 mt-2">
-                        This will create an invoice in your NMI merchant portal and send an email with PDF to the recipient.
-                    </p>
                 </div>
 
                 <RealEstateInvoicePage 
@@ -199,24 +253,39 @@ const RealEstateInvoice = () => {
                 />
 
 
-                {/* Email input section */}{/* Email input section */}
+                {/* Customer/Email selection section - Mobile */}
                 <div className="block md:hidden mb-6 p-6 my-5 bg-white rounded shadow-md">
-                    <div className="flex flex-col md:flex-row items-center gap-4">
-                        <input
-                            type="email"
-                            value={recipientEmail}
-                            onChange={(e) => setRecipientEmail(e.target.value)}
-                            placeholder="Recipient's email"
-                            pattern="[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
-                            title="Please enter a valid email address"
-                            className="w-full flex-1 border-gray-300 rounded-md shadow-sm focus:border-gray-600 focus:ring focus:ring-gray-200 focus:ring-opacity-50"
-                            disabled={sending}
-                            required
-                        />
+                    <div className="flex flex-col gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Select Customer or Enter Email
+                            </label>
+                            <div className="flex gap-2">
+                                <div className="flex-1">
+                                    <CustomerSelector
+                                        selectedCustomer={selectedCustomer}
+                                        onCustomerSelect={setSelectedCustomer}
+                                        onEmailChange={setRecipientEmail}
+                                        email={recipientEmail}
+                                        disabled={sending}
+                                        placeholder="Search customers or enter email address..."
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowCustomerModal(true)}
+                                    disabled={sending}
+                                    className="px-3 py-2 bg-gray-500 text-white rounded-md text-sm hover:bg-gray-600 transition-all duration-300 flex items-center justify-center"
+                                    title="Browse all customers"
+                                >
+                                    <FontAwesomeIcon icon={faUsers} />
+                                </button>
+                            </div>
+                        </div>
                         <button
                             onClick={handleSendInvoice}
                             disabled={sending}
-                            className="px-4 py-2 bg-blue-500 text-white rounded-md text-sm md:text-base hover:bg-blue-600 transition-all duration-300 flex items-center"
+                            className="w-full px-4 py-2 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 transition-all duration-300 flex items-center justify-center"
                         >
                             {sending ? (
                                 <>
@@ -230,12 +299,20 @@ const RealEstateInvoice = () => {
                                 </>
                             )}
                         </button>
+                        <p className="text-center text-xs text-gray-500">
+                            This will create an invoice in your NMI merchant portal and send an email with PDF to the recipient.
+                        </p>
                     </div>
-                    <p className="text-center md:text-left text-xs text-gray-500 mt-2">
-                        This will create an invoice in your NMI merchant portal and send an email with PDF to the recipient.
-                    </p>
                 </div>
             </div>
+
+            {/* Customer Selection Modal */}
+            <CustomerModal
+                show={showCustomerModal}
+                onClose={() => setShowCustomerModal(false)}
+                onSelectCustomer={handleCustomerModalSelect}
+                selectedCustomerId={selectedCustomer?.id}
+            />
         </UserAuthenticatedLayout>
     );
 }

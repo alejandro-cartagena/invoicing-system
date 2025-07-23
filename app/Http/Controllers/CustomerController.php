@@ -115,8 +115,26 @@ class CustomerController extends Controller
             }
         ]);
 
+        // Calculate customer stats
+        $stats = [
+            'total_invoices' => $customer->invoices->count(),
+            'total_amount' => $customer->invoices->sum('total'),
+            'paid_amount' => $customer->invoices->where('status', 'paid')->sum('total'),
+            'overdue_amount' => $customer->invoices->where('status', 'overdue')->sum('total'),
+            'pending_amount' => $customer->invoices->where('status', 'sent')->sum('total'),
+            'status_counts' => [
+                'paid' => $customer->invoices->where('status', 'paid')->count(),
+                'sent' => $customer->invoices->where('status', 'sent')->count(),
+                'overdue' => $customer->invoices->where('status', 'overdue')->count(),
+                'closed' => $customer->invoices->where('status', 'closed')->count(),
+            ],
+            'latest_invoice_date' => $customer->invoices->max('created_at'),
+            'outstanding_amount' => $customer->invoices->whereIn('status', ['sent', 'overdue'])->sum('total'),
+        ];
+
         return Inertia::render('User/Customers/Show', [
             'customer' => $customer,
+            'stats' => $stats,
         ]);
     }
 
@@ -205,19 +223,40 @@ class CustomerController extends Controller
             $query->search($request->search);
         }
 
-        $customers = $query->orderBy('last_name')
-                          ->orderBy('first_name')
-                          ->limit(10)
-                          ->get()
-                          ->map(function ($customer) {
-                              return [
-                                  'id' => $customer->id,
-                                  'name' => $customer->display_name,
-                                  'email' => $customer->email,
-                                  'full_data' => $customer->toArray(),
-                              ];
-                          });
+        // Handle pagination for modal
+        if ($request->has('page') && $request->has('per_page')) {
+            $perPage = min((int) $request->per_page, 50); // Limit max per page to 50
+            $customers = $query->orderBy('last_name')
+                              ->orderBy('first_name')
+                              ->paginate($perPage)
+                              ->withQueryString();
+            
+            $customers->getCollection()->transform(function ($customer) {
+                return [
+                    'id' => $customer->id,
+                    'name' => $customer->display_name,
+                    'email' => $customer->email,
+                    'full_data' => $customer->toArray(),
+                ];
+            });
 
-        return response()->json($customers);
+            return response()->json($customers);
+        } else {
+            // Legacy behavior for dropdown search (limited to 10 items)
+            $customers = $query->orderBy('last_name')
+                              ->orderBy('first_name')
+                              ->limit(10)
+                              ->get()
+                              ->map(function ($customer) {
+                                  return [
+                                      'id' => $customer->id,
+                                      'name' => $customer->display_name,
+                                      'email' => $customer->email,
+                                      'full_data' => $customer->toArray(),
+                                  ];
+                              });
+
+            return response()->json($customers);
+        }
     }
 }

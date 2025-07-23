@@ -122,4 +122,44 @@ class Customer extends Model
               ->orWhere('company', 'like', "%{$search}%");
         });
     }
+
+    /**
+     * Get the total number of invoices for this customer
+     */
+    public function getTotalInvoicesAttribute()
+    {
+        return $this->invoices()->count();
+    }
+
+    /**
+     * Get the total amount billed to this customer
+     */
+    public function getTotalAmountAttribute()
+    {
+        return $this->invoices()->sum('total');
+    }
+
+    /**
+     * Get the total amount paid by this customer
+     */
+    public function getPaidAmountAttribute()
+    {
+        return $this->invoices()->where('status', 'paid')->sum('total');
+    }
+
+    /**
+     * Get the outstanding amount for this customer
+     */
+    public function getOutstandingAmountAttribute()
+    {
+        return $this->invoices()->whereIn('status', ['sent', 'overdue'])->sum('total');
+    }
+
+    /**
+     * Get the overdue amount for this customer
+     */
+    public function getOverdueAmountAttribute()
+    {
+        return $this->invoices()->where('status', 'overdue')->sum('total');
+    }
 } 
