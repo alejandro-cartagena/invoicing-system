@@ -139,27 +139,25 @@ const CustomerCreateModal = ({ show, onClose, onCustomerCreated = null }) => {
                     {/* Personal Information */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <InputLabel htmlFor="first_name" value="First Name *" />
+                            <InputLabel htmlFor="first_name" value="First Name" />
                             <TextInput
                                 id="first_name"
                                 type="text"
                                 className="mt-1 block w-full"
                                 value={data.first_name}
                                 onChange={(e) => setData('first_name', e.target.value)}
-                                required
                             />
                             <InputError message={errors.first_name} className="mt-2" />
                         </div>
 
                         <div>
-                            <InputLabel htmlFor="last_name" value="Last Name *" />
+                            <InputLabel htmlFor="last_name" value="Last Name" />
                             <TextInput
                                 id="last_name"
                                 type="text"
                                 className="mt-1 block w-full"
                                 value={data.last_name}
                                 onChange={(e) => setData('last_name', e.target.value)}
-                                required
                             />
                             <InputError message={errors.last_name} className="mt-2" />
                         </div>

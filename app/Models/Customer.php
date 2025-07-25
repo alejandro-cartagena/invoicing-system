@@ -82,7 +82,8 @@ class Customer extends Model
      */
     public function getFullNameAttribute()
     {
-        return trim($this->first_name . ' ' . $this->last_name);
+        $fullName = trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? ''));
+        return !empty($fullName) ? $fullName : 'No Name Provided';
     }
 
     /**
@@ -90,7 +91,19 @@ class Customer extends Model
      */
     public function getDisplayNameAttribute()
     {
-        return $this->company ?: $this->full_name;
+        if ($this->company) {
+            return $this->company;
+        }
+        
+        $fullName = trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? ''));
+        
+        if (!empty($fullName)) {
+            return $fullName;
+        }
+        
+        // If no name provided, use email prefix as fallback
+        $emailPrefix = explode('@', $this->email)[0];
+        return ucfirst($emailPrefix);
     }
 
     /**

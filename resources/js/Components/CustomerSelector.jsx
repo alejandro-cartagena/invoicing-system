@@ -103,7 +103,7 @@ const CustomerSelector = ({
 
     const getDisplayValue = () => {
         if (selectedCustomer && !useManualEmail) {
-            return selectedCustomer.name;
+            return selectedCustomer.email;
         }
         return searchTerm;
     };
@@ -154,13 +154,7 @@ const CustomerSelector = ({
                             <p className="text-xs text-blue-600">{selectedCustomer.email}</p>
                         </div>
                     </div>
-                    <button
-                        type="button"
-                        onClick={handleManualEmailToggle}
-                        className="text-xs text-blue-600 hover:text-blue-800 underline"
-                    >
-                        Use different email
-                    </button>
+                    
                 </div>
             )}
 

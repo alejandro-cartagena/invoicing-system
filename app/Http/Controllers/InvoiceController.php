@@ -19,6 +19,7 @@ use App\Events\PaymentNotification;
 use Exception;
 use App\Mail\MerchantPaymentReceiptMail;
 use App\Models\BeadCredential;
+use App\Models\Customer;
 
 class InvoiceController extends Controller
 {
@@ -174,7 +175,46 @@ class InvoiceController extends Controller
 
             // Process invoice data using the new function
             $invoiceData = $validated['invoiceData'];
-            $processedData = $this->processInvoiceData($invoiceData, $validated['recipientEmail'], $validated['invoiceType'], $validated['customerId'] ?? null);
+            
+            // Auto-create customer if one doesn't exist for this email
+            $customer = null;
+            if (!empty($validated['recipientEmail'])) {
+                // Check if customer already exists for this user and email
+                $customer = Customer::where('user_id', $user->id)
+                                  ->where('email', $validated['recipientEmail'])
+                                  ->first();
+                
+                if (!$customer) {
+                    // Auto-create a customer with minimal information
+                    try {
+                        $customerData = [
+                            'user_id' => $user->id,
+                            'email' => $validated['recipientEmail'],
+                            'first_name' => $invoiceData['firstName'] ?? null,
+                            'last_name' => $invoiceData['lastName'] ?? null,
+                            'company' => $invoiceData['companyName'] ?? null,
+                        ];
+                        
+                        $customer = Customer::create($customerData);
+                        
+                        \Log::info('Auto-created customer', [
+                            'customer_id' => $customer->id,
+                            'email' => $validated['recipientEmail'],
+                            'user_id' => $user->id
+                        ]);
+                    } catch (\Exception $e) {
+                        \Log::warning('Failed to auto-create customer, continuing without customer link', [
+                            'error' => $e->getMessage(),
+                            'email' => $validated['recipientEmail']
+                        ]);
+                    }
+                }
+            }
+            
+            // Use the existing customer ID or the newly created one
+            $customerId = $customer ? $customer->id : ($validated['customerId'] ?? null);
+            
+            $processedData = $this->processInvoiceData($invoiceData, $validated['recipientEmail'], $validated['invoiceType'], $customerId);
             
             // Add required fields that aren't in processInvoiceData
             $processedData['user_id'] = $user->id;
@@ -877,6 +917,45 @@ class InvoiceController extends Controller
             }
             
             // STEP 2: Create a new invoice in NMI
+            
+            // Auto-create customer if one doesn't exist for this email
+            $customer = null;
+            if (!empty($validated['recipientEmail'])) {
+                // Check if customer already exists for this user and email
+                $customer = Customer::where('user_id', $user->id)
+                                  ->where('email', $validated['recipientEmail'])
+                                  ->first();
+                
+                if (!$customer) {
+                    // Auto-create a customer with minimal information
+                    try {
+                        $customerData = [
+                            'user_id' => $user->id,
+                            'email' => $validated['recipientEmail'],
+                            'first_name' => $validated['invoiceData']['firstName'] ?? null,
+                            'last_name' => $validated['invoiceData']['lastName'] ?? null,
+                            'company' => $validated['invoiceData']['companyName'] ?? null,
+                        ];
+                        
+                        $customer = Customer::create($customerData);
+                        
+                        \Log::info('Auto-created customer during invoice update', [
+                            'customer_id' => $customer->id,
+                            'email' => $validated['recipientEmail'],
+                            'user_id' => $user->id
+                        ]);
+                    } catch (\Exception $e) {
+                        \Log::warning('Failed to auto-create customer during update, continuing without customer link', [
+                            'error' => $e->getMessage(),
+                            'email' => $validated['recipientEmail']
+                        ]);
+                    }
+                }
+            }
+            
+            // Use the existing customer ID or the newly created one
+            $customerId = $customer ? $customer->id : ($validated['customerId'] ?? null);
+            
             $nmiData = [
                 'security_key' => $userProfile->private_key,
                 'invoicing' => 'add_invoice',
@@ -964,7 +1043,7 @@ class InvoiceController extends Controller
                     $validated['invoiceData'], 
                     $validated['recipientEmail'],
                     $validated['invoiceType'],
-                    $validated['customerId'] ?? null
+                    $customerId
                 );
                 
                 // Add NMI invoice ID and status

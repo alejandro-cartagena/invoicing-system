@@ -78,8 +78,8 @@ class CustomerController extends Controller
                     return $query->where('user_id', Auth::id());
                 }),
             ],
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
+            'first_name' => 'nullable|string|max:255',
+            'last_name' => 'nullable|string|max:255',
             'company' => 'nullable|string|max:255',
             'country' => 'nullable|string|max:255',
             'state' => 'nullable|string|max:255',
@@ -172,8 +172,8 @@ class CustomerController extends Controller
                     return $query->where('user_id', Auth::id());
                 })->ignore($customer->id),
             ],
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
+            'first_name' => 'nullable|string|max:255',
+            'last_name' => 'nullable|string|max:255',
             'company' => 'nullable|string|max:255',
             'country' => 'nullable|string|max:255',
             'state' => 'nullable|string|max:255',
