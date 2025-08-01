@@ -20,7 +20,7 @@ const CustomerCreateModal = ({ show, onClose, onCustomerCreated = null }) => {
         first_name: '',
         last_name: '',
         company: '',
-        country: '',
+        country: 'United States',
         state: '',
         address: '',
         address2: '',

@@ -9,7 +9,8 @@ const CustomerSelector = ({
     onEmailChange, 
     email, 
     disabled = false,
-    placeholder = "Search customers or enter email..."
+    placeholder = "Search customers or enter email...",
+    onCustomerDataFill = null
 }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [customers, setCustomers] = useState([]);
@@ -73,11 +74,20 @@ const CustomerSelector = ({
     };
 
     const handleCustomerSelect = (customer) => {
+        console.log('CustomerSelector: Customer selected:', customer);
         onCustomerSelect(customer);
         onEmailChange(customer.email);
         setSearchTerm(customer.name);
         setShowDropdown(false);
         setUseManualEmail(false);
+        
+        // Call the auto-fill callback if provided
+        if (onCustomerDataFill && customer.full_data) {
+            console.log('CustomerSelector: Calling onCustomerDataFill with:', customer.full_data);
+            onCustomerDataFill(customer.full_data);
+        } else {
+            console.log('CustomerSelector: No onCustomerDataFill callback or no full_data');
+        }
     };
 
     const handleManualEmailToggle = () => {

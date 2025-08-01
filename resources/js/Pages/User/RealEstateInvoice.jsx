@@ -35,6 +35,7 @@ const RealEstateInvoice = () => {
     const [sending, setSending] = useState(false);
     const [isEditing, setIsEditing] = useState(initialIsEditing || false);
     const [isResending, setIsResending] = useState(initialIsResending || false);
+    const [invoiceKey, setInvoiceKey] = useState(0); // Key to force RealEstateInvoicePage re-mount
 
     const handleInvoiceUpdate = (invoice) => {
         setInvoiceData(invoice);
@@ -44,6 +45,55 @@ const RealEstateInvoice = () => {
         setSelectedCustomer(customer);
         setRecipientEmail(customer.email);
         setShowCustomerModal(false);
+        
+        // Auto-fill invoice data with customer information
+        if (customer.full_data && invoiceData) {
+            autoFillCustomerData(customer.full_data);
+        }
+    };
+
+    const autoFillCustomerData = (customerData) => {
+        if (!invoiceData) return;
+        
+        const updatedInvoiceData = { ...invoiceData };
+        
+        // Map customer fields to invoice fields
+        if (customerData.first_name) {
+            updatedInvoiceData.firstName = customerData.first_name;
+        }
+        
+        if (customerData.last_name) {
+            updatedInvoiceData.lastName = customerData.last_name;
+        }
+        
+        if (customerData.company) {
+            updatedInvoiceData.companyName = customerData.company;
+        }
+        
+        if (customerData.address) {
+            updatedInvoiceData.clientAddress = customerData.address;
+        }
+        
+        if (customerData.city) {
+            updatedInvoiceData.city = customerData.city;
+        }
+        
+        if (customerData.state) {
+            updatedInvoiceData.state = customerData.state;
+        }
+        
+        if (customerData.postal_code) {
+            updatedInvoiceData.zip = customerData.postal_code;
+        }
+        
+        if (customerData.country) {
+            updatedInvoiceData.country = customerData.country;
+        }
+        
+        setInvoiceData(updatedInvoiceData);
+        
+        // Force RealEstateInvoicePage to re-mount with new data
+        setInvoiceKey(prev => prev + 1);
     };
 
     const handleSendInvoice = async () => {
@@ -209,6 +259,7 @@ const RealEstateInvoice = () => {
                                             email={recipientEmail}
                                             disabled={sending}
                                             placeholder="Search customers or enter email address..."
+                                            onCustomerDataFill={autoFillCustomerData}
                                         />
                                     </div>
                                     <button
@@ -248,6 +299,7 @@ const RealEstateInvoice = () => {
                 </div>
 
                 <RealEstateInvoicePage 
+                    key={invoiceKey} // Force re-mount when data changes
                     data={invoiceData} 
                     onChange={handleInvoiceUpdate} 
                 />
@@ -269,6 +321,7 @@ const RealEstateInvoice = () => {
                                         email={recipientEmail}
                                         disabled={sending}
                                         placeholder="Search customers or enter email address..."
+                                        onCustomerDataFill={autoFillCustomerData}
                                     />
                                 </div>
                                 <button
