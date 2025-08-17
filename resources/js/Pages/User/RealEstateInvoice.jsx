@@ -307,7 +307,7 @@ const RealEstateInvoice = () => {
                 {/* Customer/Email selection section */}
                 <div className="hidden md:block mb-6 p-6 bg-white rounded shadow-md">
                     <div className="flex flex-col gap-4">
-                        <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+                        <div className="flex flex-col md:flex-row items-start md:items-end gap-4">
                             <div className="flex-1 w-full">
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Select Customer or Enter Email
@@ -324,16 +324,7 @@ const RealEstateInvoice = () => {
                                             onCustomerDataFill={autoFillCustomerData}
                                         />
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowCustomerModal(true)}
-                                        disabled={sending}
-                                        className="px-3 py-2 bg-gray-500 text-white rounded-md text-sm hover:bg-gray-600 transition-all duration-300 flex items-center space-x-1 whitespace-nowrap"
-                                        title="Browse all customers"
-                                    >
-                                        <FontAwesomeIcon icon={faUsers} />
-                                        <span className="hidden sm:inline">Select Customer</span>
-                                    </button>
+                                    
                                 </div>
                             </div>
                             <button
@@ -354,6 +345,16 @@ const RealEstateInvoice = () => {
                                 )}
                             </button>
                         </div>
+                        <button
+                            type="button"
+                            onClick={() => setShowCustomerModal(true)}
+                            disabled={sending}
+                            className="w-fit px-3 py-2 bg-gray-500 text-white rounded-md text-sm hover:bg-gray-600 transition-all duration-300 flex items-center space-x-1 whitespace-nowrap"
+                            title="Browse all customers"
+                        >
+                            <FontAwesomeIcon icon={faUsers} />
+                            <span className="hidden sm:inline">Select Customer</span>
+                        </button>
                         <p className="text-center md:text-left text-xs text-gray-500">
                             This will create an invoice in your NMI merchant portal and send an email with PDF to the recipient.
                         </p>

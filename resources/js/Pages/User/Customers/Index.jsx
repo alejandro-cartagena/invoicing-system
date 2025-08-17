@@ -231,22 +231,19 @@ const Customers = ({ customers: paginatedCustomers, search }) => {
                                             Customer
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Name
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Company
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Email
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Phone
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Location
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Invoices
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Created
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Actions
@@ -258,9 +255,13 @@ const Customers = ({ customers: paginatedCustomers, search }) => {
                                         <tr key={customer.id} className="hover:bg-gray-50">
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center">
-                                                    <div className="flex-shrink-0 h-10 w-10">
+                                                    <div className="flex-shrink-0 h-10 w-10 cursor-pointer hover:opacity-80 transition-all duration-300" onClick={() => router.visit(route('user.customer.view', customer.id))}>
                                                         <div className="h-10 w-10 rounded-full bg-indigo-500 flex items-center justify-center">
-                                                            <FontAwesomeIcon icon={customer.company ? faBuilding : faUser} className="text-white text-sm" />
+                                                            <span className="text-white text-sm font-semibold">
+                                                                {customer.first_name && customer.last_name 
+                                                                    ? `${customer.first_name.charAt(0)}${customer.last_name.charAt(0)}`
+                                                                    : customer.email.charAt(0).toUpperCase()}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                     <div className="ml-4">
@@ -268,6 +269,13 @@ const Customers = ({ customers: paginatedCustomers, search }) => {
                                                             {customer.full_name}
                                                         </div>
                                                     </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="text-sm text-gray-900">
+                                                    {customer.first_name && customer.last_name 
+                                                        ? `${customer.first_name} ${customer.last_name}`
+                                                        : customer.first_name || customer.last_name || customer.email}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
@@ -282,11 +290,6 @@ const Customers = ({ customers: paginatedCustomers, search }) => {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm text-gray-900">
-                                                    {customer.phone_number || '-'}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm text-gray-900">
                                                     {customer.city && customer.state 
                                                         ? `${customer.city}, ${customer.state}` 
                                                         : customer.city || customer.state || '-'}
@@ -296,11 +299,6 @@ const Customers = ({ customers: paginatedCustomers, search }) => {
                                                 <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                                                     {customer.invoices_count || 0} invoices
                                                 </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm text-gray-900">
-                                                    {formatDate(customer.created_at)}
-                                                </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex space-x-3">
@@ -346,7 +344,7 @@ const Customers = ({ customers: paginatedCustomers, search }) => {
                                     
                                     {customers.data.length === 0 && (
                                         <tr>
-                                            <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
+                                            <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
                                                 {searchTerm 
                                                     ? 'No customers match your search.' 
                                                     : 'No customers found. Create your first customer to get started!'}

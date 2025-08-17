@@ -384,16 +384,6 @@ const CustomerShow = ({ customer, stats }) => {
                             <FontAwesomeIcon icon={faArrowLeft} />
                             <span>Back to Customers</span>
                         </Link>
-                        <div>
-                            <nav className="text-sm text-gray-500">
-                                <Link href={route('user.customers')} className="hover:text-gray-700">Customers</Link>
-                                <span className="mx-2">/</span>
-                                <span className="text-gray-900">{customer.display_name}</span>
-                            </nav>
-                            <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                                {customer.display_name}
-                            </h2>
-                        </div>
                     </div>
                 </div>
             }
@@ -411,10 +401,11 @@ const CustomerShow = ({ customer, stats }) => {
                                 <div className="flex items-center space-x-4">
                                     <div className="flex-shrink-0 h-16 w-16">
                                         <div className="h-16 w-16 rounded-full bg-indigo-500 flex items-center justify-center">
-                                            <FontAwesomeIcon 
-                                                icon={customer.company ? faBuilding : faUser} 
-                                                className="text-white text-xl" 
-                                            />
+                                            <span className="text-white text-xl font-semibold">
+                                                {customer.first_name && customer.last_name 
+                                                    ? `${customer.first_name.charAt(0)}${customer.last_name.charAt(0)}`
+                                                    : customer.email.charAt(0).toUpperCase()}
+                                            </span>
                                         </div>
                                     </div>
                                     <div>
@@ -425,24 +416,24 @@ const CustomerShow = ({ customer, stats }) => {
                                         <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-gray-500">
                                             <div className="flex items-center space-x-1">
                                                 <FontAwesomeIcon icon={faEnvelope} />
-                                                <a href={`mailto:${customer.email}`} className="hover:text-indigo-600">
-                                                    {customer.email}
-                                                </a>
+                                                <span>{customer.email}</span>
                                             </div>
                                             {customer.phone_number && (
                                                 <div className="flex items-center space-x-1">
                                                     <FontAwesomeIcon icon={faPhone} />
-                                                    <a href={`tel:${customer.phone_number}`} className="hover:text-indigo-600">
-                                                        {customer.phone_number}
-                                                    </a>
+                                                    <span>{customer.phone_number}</span>
                                                 </div>
                                             )}
-                                            {customer.full_address && (
+                                            {customer.address && (
                                                 <div className="flex items-center space-x-1">
                                                     <FontAwesomeIcon icon={faMapMarkerAlt} />
-                                                    <span>{customer.full_address}</span>
+                                                    <span>{customer.address} {customer.address_2}</span>
                                                 </div>
                                             )}
+                                            <div className="flex items-center space-x-1">
+                                                <FontAwesomeIcon icon={faCalendarAlt} />
+                                                <span>Customer since {formatDate(customer.created_at)}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
