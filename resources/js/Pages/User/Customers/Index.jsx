@@ -49,7 +49,7 @@ const Customers = ({ customers: paginatedCustomers, search }) => {
         first_name: '',
         last_name: '',
         company: '',
-        country: '',
+        country: 'United States',
         state: '',
         address: '',
         address2: '',

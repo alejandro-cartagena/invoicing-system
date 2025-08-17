@@ -31,7 +31,12 @@ const GeneralInvoice = () => {
     const [isEditing, setIsEditing] = useState(initialIsEditing || false);
     const [isResending, setIsResending] = useState(initialIsResending || false);
     const [isLoading, setIsLoading] = useState(false);
-    const [invoiceKey, setInvoiceKey] = useState(0);
+    const [invoiceKey, setInvoiceKey] = useState(0); // Key to force InvoicePage re-mount
+
+    // Debug: Log when invoiceData changes
+    useEffect(() => {
+        console.log('GeneralInvoice: invoiceData changed:', invoiceData);
+    }, [invoiceData]);
 
     // Preselect customer from query params if provided
     useEffect(() => {
@@ -98,6 +103,77 @@ const GeneralInvoice = () => {
         setRecipientEmail(customer.email);
         applyCustomerPrefill(customer);
         setShowCustomerModal(false);
+        
+        // Auto-fill invoice data with customer information
+        if (customer.full_data && invoiceData) {
+            autoFillCustomerData(customer.full_data);
+        }
+    };
+
+        const autoFillCustomerData = (customerData) => {
+        console.log('autoFillCustomerData called with:', customerData);
+        console.log('Current invoiceData:', invoiceData);
+        
+        if (!invoiceData) {
+            console.log('No invoiceData available');
+            return;
+        }
+        
+        const updatedInvoiceData = { ...invoiceData };
+        
+        // Map customer fields to invoice fields
+        if (customerData.first_name) {
+            updatedInvoiceData.firstName = customerData.first_name;
+            console.log('Set firstName to:', customerData.first_name);
+        }
+        
+        if (customerData.last_name) {
+            updatedInvoiceData.lastName = customerData.last_name;
+            console.log('Set lastName to:', customerData.last_name);
+        }
+        
+        if (customerData.company) {
+            updatedInvoiceData.companyName = customerData.company;
+            console.log('Set companyName to:', customerData.company);
+        }
+        
+        if (customerData.address) {
+            updatedInvoiceData.clientAddress = customerData.address;
+            console.log('Set clientAddress to:', customerData.address);
+        }
+        
+        if (customerData.city) {
+            updatedInvoiceData.city = customerData.city;
+            console.log('Set city to:', customerData.city);
+        }
+        
+        if (customerData.state) {
+            updatedInvoiceData.state = customerData.state;
+            console.log('Set state to:', customerData.state);
+        }
+        
+        if (customerData.postal_code) {
+            updatedInvoiceData.zip = customerData.postal_code;
+            console.log('Set zip to:', customerData.postal_code);
+        }
+        
+        if (customerData.country) {
+            updatedInvoiceData.country = customerData.country;
+            console.log('Set country to:', customerData.country);
+        }
+        
+        console.log('Updated invoiceData:', updatedInvoiceData);
+        
+        // Update both the local state and pass to InvoicePage
+        setInvoiceData(updatedInvoiceData);
+        
+        // Force InvoicePage to re-mount with new data
+        setInvoiceKey(prev => prev + 1);
+        
+        // Also call handleInvoiceUpdate to ensure InvoicePage gets the updated data
+        if (handleInvoiceUpdate) {
+            handleInvoiceUpdate(updatedInvoiceData);
+        }
     };
 
     const handleInlineCustomerSelect = (customer) => {
@@ -264,6 +340,7 @@ const GeneralInvoice = () => {
                                             email={recipientEmail}
                                             disabled={sending}
                                             placeholder="Search customers or enter email address..."
+                                            onCustomerDataFill={autoFillCustomerData}
                                         />
                                     </div>
                                     
@@ -326,6 +403,7 @@ const GeneralInvoice = () => {
                                         email={recipientEmail}
                                         disabled={sending}
                                         placeholder="Search customers or enter email address..."
+                                        onCustomerDataFill={autoFillCustomerData}
                                     />
                                 </div>
                                 <button
