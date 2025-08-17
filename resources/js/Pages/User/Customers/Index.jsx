@@ -223,7 +223,7 @@ const Customers = ({ customers: paginatedCustomers, search }) => {
 
                     {/* Customers Table */}
                     <div className="bg-white xl:overflow-x-visible xl:whitespace-normal overflow-x-auto whitespace-nowrap shadow-sm sm:rounded-lg">
-                        <div className="p-6 bg-white border-b border-gray-200">
+                        <div className="bg-white border-b border-gray-200">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
                                     <tr>

@@ -31,6 +31,63 @@ const GeneralInvoice = () => {
     const [isEditing, setIsEditing] = useState(initialIsEditing || false);
     const [isResending, setIsResending] = useState(initialIsResending || false);
     const [isLoading, setIsLoading] = useState(false);
+    const [invoiceKey, setInvoiceKey] = useState(0);
+
+    // Preselect customer from query params if provided
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const customerId = params.get('customer_id');
+        const customerName = params.get('customer_name');
+        const customerEmail = params.get('customer_email');
+        if (customerId && customerEmail) {
+            const seed = { id: Number(customerId), name: customerName || customerEmail, email: customerEmail };
+            setSelectedCustomer(seed);
+            setRecipientEmail(customerEmail);
+            // Fetch full customer details by email and apply prefill
+            (async () => {
+                try {
+                    const customerResponse = await axios.get(route('api.customers'), {
+                        params: { search: customerEmail.trim() }
+                    });
+                    const matchingCustomer = (customerResponse.data?.data || customerResponse.data || [])
+                        .find(c => c.email?.toLowerCase() === customerEmail.trim().toLowerCase());
+                    if (matchingCustomer) {
+                        setSelectedCustomer(matchingCustomer);
+                        applyCustomerPrefill(matchingCustomer);
+                    } else {
+                        // Fallback: apply minimal prefill if name tokens exist
+                        if (customerName) {
+                            const [first, ...rest] = customerName.split(' ');
+                            applyCustomerPrefill({ first_name: first || '', last_name: rest.join(' ') || '' });
+                        }
+                    }
+                } catch (e) {
+                    // Ignore API errors; user can still select manually
+                }
+            })();
+        }
+    }, []);
+
+    const buildPrefillFromCustomer = (customer) => {
+        const c = customer?.full_data || customer || {};
+        const addressLine = [c.address, c.address2].filter(Boolean).join(', ');
+        return {
+            firstName: c.first_name || '',
+            lastName: c.last_name || '',
+            companyName: c.company || '',
+            clientAddress: addressLine || '',
+            city: c.city || '',
+            state: c.state || '',
+            zip: c.postal_code || '',
+            country: c.country || ''
+        };
+    };
+
+    const applyCustomerPrefill = (customer) => {
+        const prefill = buildPrefillFromCustomer(customer);
+        setInvoiceData((prev) => ({ ...(prev || {}), ...prefill }));
+        setInvoiceKey((k) => k + 1);
+    };
 
     const handleInvoiceUpdate = (invoice) => {
         setInvoiceData(invoice);
@@ -39,7 +96,14 @@ const GeneralInvoice = () => {
     const handleCustomerModalSelect = (customer) => {
         setSelectedCustomer(customer);
         setRecipientEmail(customer.email);
+        applyCustomerPrefill(customer);
         setShowCustomerModal(false);
+    };
+
+    const handleInlineCustomerSelect = (customer) => {
+        setSelectedCustomer(customer);
+        setRecipientEmail(customer.email);
+        applyCustomerPrefill(customer);
     };
 
     // Add this email validation function near the top of the component
@@ -195,7 +259,7 @@ const GeneralInvoice = () => {
                                     <div className="flex-1">
                                         <CustomerSelector
                                             selectedCustomer={selectedCustomer}
-                                            onCustomerSelect={setSelectedCustomer}
+                                            onCustomerSelect={handleInlineCustomerSelect}
                                             onEmailChange={setRecipientEmail}
                                             email={recipientEmail}
                                             disabled={sending}
@@ -241,6 +305,7 @@ const GeneralInvoice = () => {
 
 
                 <InvoicePage 
+                    key={invoiceKey}
                     data={invoiceData} 
                     onChange={handleInvoiceUpdate} 
                 />
@@ -256,7 +321,7 @@ const GeneralInvoice = () => {
                                 <div className="flex-1">
                                     <CustomerSelector
                                         selectedCustomer={selectedCustomer}
-                                        onCustomerSelect={setSelectedCustomer}
+                                        onCustomerSelect={handleInlineCustomerSelect}
                                         onEmailChange={setRecipientEmail}
                                         email={recipientEmail}
                                         disabled={sending}

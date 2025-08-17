@@ -39,6 +39,7 @@ const CustomerShow = ({ customer, stats }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [showEditModal, setShowEditModal] = useState(false);
+    const [showInvoiceTypeModal, setShowInvoiceTypeModal] = useState(false);
     const invoicesPerPage = 10;
 
     // Form for editing customer
@@ -103,6 +104,28 @@ const CustomerShow = ({ customer, stats }) => {
         setShowEditModal(false);
         resetEdit();
         clearEditErrors();
+    };
+
+    const openInvoiceTypeModal = () => {
+        setShowInvoiceTypeModal(true);
+    };
+
+    const closeInvoiceTypeModal = () => {
+        setShowInvoiceTypeModal(false);
+    };
+
+    const navigateToInvoiceType = (type) => {
+        const params = {
+            customer_id: customer.id,
+            customer_name: customer.full_name || customer.display_name || '',
+            customer_email: customer.email || ''
+        };
+        setShowInvoiceTypeModal(false);
+        if (type === 'real_estate') {
+            router.get(route('user.real-estate-invoice'), params);
+        } else {
+            router.get(route('user.general-invoice'), params);
+        }
     };
 
     const handleEditCustomer = (e) => {
@@ -433,13 +456,6 @@ const CustomerShow = ({ customer, stats }) => {
                                         <FontAwesomeIcon icon={faEdit} />
                                         <span>Edit Customer</span>
                                     </button>
-                                    <Link
-                                        href={route('user.general-invoice')}
-                                        className="px-4 py-2 bg-indigo-500 text-white rounded-md text-sm hover:bg-indigo-600 transition-all duration-300 flex items-center space-x-2"
-                                    >
-                                        <FontAwesomeIcon icon={faPlus} />
-                                        <span>Create Invoice</span>
-                                    </Link>
                                 </div>
                             </div>
                         </div>
@@ -556,13 +572,13 @@ const CustomerShow = ({ customer, stats }) => {
                                             className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
                                         />
                                     </div>
-                                    <Link
-                                        href={route('user.general-invoice')}
+                                    <button
+                                        onClick={openInvoiceTypeModal}
                                         className="px-4 py-2 bg-indigo-500 text-white rounded-md text-sm hover:bg-indigo-600 transition-all duration-300 flex items-center space-x-2"
                                     >
                                         <FontAwesomeIcon icon={faPlus} />
                                         <span>New Invoice</span>
-                                    </Link>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -709,12 +725,12 @@ const CustomerShow = ({ customer, stats }) => {
                                                     : 'No invoices found for this customer.'}
                                                 {!searchTerm && (
                                                     <div className="mt-4">
-                                                        <Link 
-                                                            href={route('user.general-invoice')} 
+                                                        <button 
+                                                            onClick={openInvoiceTypeModal} 
                                                             className="text-indigo-600 hover:text-indigo-900 font-medium"
                                                         >
                                                             Create the first invoice for this customer
-                                                        </Link>
+                                                        </button>
                                                     </div>
                                                 )}
                                             </td>
@@ -773,6 +789,33 @@ const CustomerShow = ({ customer, stats }) => {
                     </div>
                 </div>
             </div>
+
+            {/* New Invoice Type Modal */}
+            <Modal show={showInvoiceTypeModal} onClose={closeInvoiceTypeModal} maxWidth="md">
+                <div className="p-6">
+                    <div className="mb-4">
+                        <h3 className="text-lg font-medium text-gray-900">Create New Invoice</h3>
+                        <p className="text-sm text-gray-500 mt-1">Choose the type of invoice to create for {customer.full_name || customer.display_name}.</p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <button
+                            onClick={() => navigateToInvoiceType('general')}
+                            className="w-full px-4 py-3 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700 transition-all"
+                        >
+                            General Invoice
+                        </button>
+                        <button
+                            onClick={() => navigateToInvoiceType('real_estate')}
+                            className="w-full px-4 py-3 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition-all"
+                        >
+                            Real Estate Invoice
+                        </button>
+                    </div>
+                    <div className="mt-4 text-right">
+                        <button onClick={closeInvoiceTypeModal} className="text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+                    </div>
+                </div>
+            </Modal>
 
             {/* Edit Customer Modal */}
             <Modal show={showEditModal} onClose={closeEditModal} maxWidth="2xl">
